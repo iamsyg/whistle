@@ -104,10 +104,6 @@ const handleSendOTP = async () => {
                 autoFocus
               />
 
-              <Text style={styles.previewText}>
-                We'll send OTP to: {fullPhoneNumber}
-              </Text>
-
               <TouchableOpacity
                 style={[styles.button, loading && styles.buttonDisabled]}
                 onPress={handleSendOTP}

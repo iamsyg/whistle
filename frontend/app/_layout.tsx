@@ -15,6 +15,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)/login" />
            <Stack.Screen name="(auth)/otp" />
            <Stack.Screen name="(auth)/profile-setup" />
+           <Stack.Screen name="(auth)/profile-details" />
         </Stack>
       </View>
     </SafeAreaProvider>

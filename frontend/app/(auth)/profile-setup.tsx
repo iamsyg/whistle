@@ -113,6 +113,8 @@ export default function ProfileSetupScreen() {
 
     setLoading(true);
 
+    router.replace('/(auth)/profile-details');
+
     try {
       // Simulate API call to save profile
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -123,7 +125,8 @@ export default function ProfileSetupScreen() {
       console.log('Profile saved:', profile);
       
       // Navigate to home screen
-      router.replace('/(tabs)/home');
+      // Replace the navigation in handleContinue and handleSkip
+      router.replace('/(auth)/profile-details');
       
     } catch (error) {
       Alert.alert(
@@ -137,20 +140,20 @@ export default function ProfileSetupScreen() {
   };
 
   // Handle Skip button press
-  const handleSkip = () => {
-    Alert.alert(
-      'Skip Profile Setup',
-      'You can update your profile later from settings. Continue without adding information?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Continue', 
-          style: 'default',
-          onPress: () => router.replace('/(tabs)/home')
-        },
-      ]
-    );
-  };
+  // const handleSkip = () => {
+  //   Alert.alert(
+  //     'Skip Profile Setup',
+  //     'You can update your profile later from settings. Continue without adding information?',
+  //     [
+  //       { text: 'Cancel', style: 'cancel' },
+  //       { 
+  //         text: 'Continue', 
+  //         style: 'default',
+  //         onPress: () => router.replace('/(auth)/profile-details')
+  //       },
+  //     ]
+  //   );
+  // };
 
   // Auto-focus email input on mount
   useEffect(() => {
@@ -296,11 +299,11 @@ export default function ProfileSetupScreen() {
                   {loading ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.continueButtonText}>Continue</Text>
+                    <Text style={styles.continueButtonText}>Continue/Skip</Text>
                   )}
                 </TouchableOpacity>
 
-                <TouchableOpacity
+                {/* <TouchableOpacity
                   style={styles.skipButton}
                   onPress={handleSkip}
                   disabled={loading}
@@ -312,7 +315,7 @@ export default function ProfileSetupScreen() {
                   ]}>
                     Skip for now
                   </Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </View>
             </View>
 
@@ -490,18 +493,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
-  skipButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  skipButtonText: {
-    fontSize: 16,
-    color: '#1971c2',
-    fontWeight: '600',
-  },
-  skipButtonDisabled: {
-    color: '#a5d8ff',
-  },
+  // skipButton: {
+  //   paddingVertical: 12,
+  //   alignItems: 'center',
+  // },
+  // skipButtonText: {
+  //   fontSize: 16,
+  //   color: '#1971c2',
+  //   fontWeight: '600',
+  // },
+  // skipButtonDisabled: {
+  //   color: '#a5d8ff',
+  // },
   footer: {
     marginTop: 40,
     paddingHorizontal: 20,
