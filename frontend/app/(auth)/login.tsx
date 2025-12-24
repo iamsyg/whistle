@@ -1,3 +1,5 @@
+// /app/(auth)/login.tsx
+
 import React, { useState } from 'react';
 import {
   StyleSheet,
@@ -14,12 +16,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import PhoneInput from '../../components/PhoneInput';
 import { CountryCode } from '../../constants/countryCodes';
 import { router } from 'expo-router';
+import { useDispatch } from 'react-redux';
+import { setPhoneNumber as setPhoneNumberState, setCountryCode as setCountryCodeState } from '@/store';
 
 export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [countryCode, setCountryCode] = useState<CountryCode | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const dispatch = useDispatch();
 
   const validatePhoneNumber = (): boolean => {
     if (!phoneNumber.trim()) {
@@ -51,14 +56,17 @@ const handleSendOTP = async () => {
   setError('');
 
   try {
+
+    dispatch(setPhoneNumberState(phoneNumber));
+    dispatch(setCountryCodeState(countryCode?.dial_code || '+91'));
+
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     // Navigate to OTP screen with phone number
     router.push({
       pathname: '/(auth)/otp',
       params: {
-        phoneNumber: phoneNumber,
-        maskedPhoneNumber: `+91 *****${phoneNumber.slice(-4)}`,
+        maskedPhoneNumber: `+91 *****${phoneNumber.slice(-4)}`
       },
     });
     

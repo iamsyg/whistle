@@ -1,5 +1,3 @@
-// frontend/app/(auth)/otp.tsx
-
 import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
@@ -18,63 +16,64 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useDispatch, UseDispatch, useSelector } from 'react-redux';
-import { setPhoneNumber, setPhoneNumberVerified, setCountryCode } from '@/store';
-import { RootState } from '@/store/store';
-
-// Define route params as a type, not interface for useLocalSearchParams
-type OTPRouteParams = {
-  phoneNumber: string;
-  maskedPhoneNumber: string;
-};
 
 const OTP_LENGTH = 6;
 const RESEND_TIMER_SECONDS = 30;
 
-export default function OTPScreen() {
+export default function EmailOTPScreen() {
   const params = useLocalSearchParams();
+  const email = params.email as string || 'user@example.com';
+  
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resendTimer, setResendTimer] = useState(RESEND_TIMER_SECONDS);
   const [canResend, setCanResend] = useState(false);
+  
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const timerRef = useRef<number | null>(null);
 
-  const dispatch = useDispatch();
-
-  const { phoneNumber, countryCode } = useSelector(
-    (state: RootState) => state.auth
-  );
-
-  // Parse phone number from params with type safety
-  const maskedPhoneNumber = params.maskedPhoneNumber as string ||
-    (phoneNumber.replace(/\D/g, '').length > 4
-      ? `+91 *****${phoneNumber.replace(/\D/g, '').slice(-4)}`
-      : '+91 ******');
+  // Mask email for display (e.g., u***@e***.com)
+  const maskEmail = (email: string): string => {
+    if (!email) return 'your email';
+    
+    const [localPart, domain] = email.split('@');
+    if (!localPart || !domain) return email;
+    
+    const maskedLocal = localPart.length > 2 
+      ? `${localPart[0]}${'*'.repeat(localPart.length - 2)}${localPart[localPart.length - 1]}`
+      : localPart;
+    
+    const [domainName, extension] = domain.split('.');
+    const maskedDomain = domainName && domainName.length > 2
+      ? `${domainName[0]}${'*'.repeat(domainName.length - 2)}${domainName[domainName.length - 1]}`
+      : domainName || '';
+    
+    return `${maskedLocal}@${maskedDomain}.${extension || 'com'}`;
+  };
 
   // Countdown timer for resend OTP
   useEffect(() => {
-    if (resendTimer > 0 && !canResend) {
-      timerRef.current = setInterval(() => {
-        setResendTimer(prev => {
-          if (prev <= 1) {
-            setCanResend(true);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
+      if (resendTimer > 0 && !canResend) {
+        timerRef.current = setInterval(() => {
+          setResendTimer(prev => {
+            if (prev <= 1) {
+              setCanResend(true);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
       }
-    };
-  }, [resendTimer, canResend]);
+      
+      return () => {
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+      };
+    }, [resendTimer, canResend]);
 
-  // Auto-focus next input and handle backspace
+  // Handle OTP input change
   const handleChangeText = (text: string, index: number) => {
     if (!/^\d*$/.test(text)) return; // Only allow digits
 
@@ -126,7 +125,7 @@ export default function OTPScreen() {
   // Handle Verify OTP
   const handleVerifyOTP = async () => {
     const otpString = otp.join('');
-
+    
     if (otpString.length !== OTP_LENGTH) {
       setError('Please enter all 6 digits');
       return;
@@ -136,20 +135,33 @@ export default function OTPScreen() {
     setError('');
 
     try {
+      // Simulate API verification
       await new Promise(resolve => setTimeout(resolve, 1500));
-      const isValid = otpString === '123456'; // mock
-
-      if (!isValid) {
-        setError('Invalid OTP. Please try again.');
+      
+      // Mock validation - always pass for demo
+      // const isValid = otpString === '123456';
+      const isValid = true; // Always pass for demo
+      
+      if (isValid) {
+        Alert.alert(
+          'Email Verified!',
+          'Your email has been successfully verified.',
+          [
+            {
+              text: 'Continue',
+              onPress: () => {
+                // Navigate to profile details screen
+                // Use replace to prevent back navigation
+                router.replace('/(auth)/profile-details');
+              },
+            },
+          ]
+        );
+      } else {
+        setError('Invalid verification code. Please try again.');
         clearOTP();
-        return;
       }
-
-      // ✅ SUCCESS
-      dispatch(setPhoneNumberVerified(true));
-      router.replace('/(auth)/email');
-
-    } catch {
+    } catch (err) {
       setError('Verification failed. Please try again.');
       clearOTP();
     } finally {
@@ -170,10 +182,10 @@ export default function OTPScreen() {
     clearOTP();
     setError('');
 
-    // Simulate resend OTP API call
+    // Simulate resend OTP
     Alert.alert(
-      'OTP Resent',
-      `New OTP has been sent to ${maskedPhoneNumber}`,
+      'Code Resent',
+      `New verification code has been sent to ${maskEmail(email)}`,
       [{ text: 'OK' }]
     );
   };
@@ -194,17 +206,23 @@ export default function OTPScreen() {
     return index === -1 ? OTP_LENGTH - 1 : index;
   };
 
-  // Set initial focus on first OTP input
+  // Auto-focus first OTP input on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       const firstInput = inputRefs.current[0];
       if (firstInput) {
         firstInput.focus();
       }
-    }, 100);
-
+    }, 300);
+    
     return () => clearTimeout(timer);
   }, []);
+
+  const maskedEmail = maskEmail(email);
+  const displayEmail = email.includes('@') ? maskedEmail : email;
+
+  const { width } = Dimensions.get('window');
+  const OTP_INPUT_SIZE = Math.min(60, (width - 96) / OTP_LENGTH);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -218,24 +236,24 @@ export default function OTPScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.container} ref={containerRef}>
-            {/* Header */}
+          <View style={styles.container}>
+            {/* Header Section */}
             <View style={styles.header}>
-              <Text style={styles.title}>Verify OTP</Text>
+              <Text style={styles.title}>Verify your email</Text>
               <Text style={styles.subtitle}>
-                OTP sent to {maskedPhoneNumber}
+                Code sent to {displayEmail}
               </Text>
             </View>
 
             {/* OTP Input Section */}
             <View style={styles.otpSection}>
               <Text style={styles.otpLabel}>Enter 6-digit code</Text>
-
+              
               <View style={styles.otpContainer}>
                 {otp.map((digit, index) => {
                   const isActive = index === getActiveInputIndex();
                   const hasError = error.length > 0;
-
+                  
                   return (
                     <TextInput
                       key={index}
@@ -244,6 +262,7 @@ export default function OTPScreen() {
                       }}
                       style={[
                         styles.otpInput,
+                        { width: OTP_INPUT_SIZE, height: OTP_INPUT_SIZE },
                         digit && styles.otpInputFilled,
                         hasError && styles.otpInputError,
                         isActive && styles.otpInputActive,
@@ -267,52 +286,60 @@ export default function OTPScreen() {
                 <Text style={styles.errorText}>{error}</Text>
               ) : (
                 <TouchableOpacity onPress={clearOTP} style={styles.clearButton}>
-                  <Text style={styles.clearButtonText}>Clear OTP</Text>
+                  <Text style={styles.clearButtonText}>Clear code</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            {/* Verify Button */}
-            <TouchableOpacity
-              style={[
-                styles.verifyButton,
-                (!isOTPComplete || loading) && styles.verifyButtonDisabled,
-              ]}
-              onPress={handleVerifyOTP}
-              disabled={!isOTPComplete || loading}
-              activeOpacity={0.8}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.verifyButtonText}>Verify</Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Resend Section */}
-            <View style={styles.resendSection}>
-              <Text style={styles.resendText}>Didn't receive the code? </Text>
-              <TouchableOpacity
-                onPress={handleResendOTP}
-                disabled={!canResend}
-                style={styles.resendButton}
-              >
-                <Text
-                  style={[
-                    styles.resendButtonText,
-                    !canResend && styles.resendButtonDisabled,
-                  ]}
-                >
-                  Resend OTP {!canResend && `(${formatTimer(resendTimer)})`}
-                </Text>
-              </TouchableOpacity>
+            {/* Info Box */}
+            <View style={styles.infoBox}>
+              <Text style={styles.infoIcon}>📨</Text>
+              <Text style={styles.infoText}>
+                Check your email inbox (and spam folder) for the verification code
+              </Text>
             </View>
 
-            {/* Info Text */}
-            <View style={styles.infoSection}>
-              <Text style={styles.infoText}>
-                Make sure you enter the code sent to your phone number.
-                The code expires in 5 minutes.
+            {/* Action Buttons */}
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={[
+                  styles.verifyButton,
+                  (!isOTPComplete || loading) && styles.verifyButtonDisabled,
+                ]}
+                onPress={handleVerifyOTP}
+                disabled={!isOTPComplete || loading}
+                activeOpacity={0.8}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.verifyButtonText}>Verify Email</Text>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.resendSection}>
+                <Text style={styles.resendText}>Didn't receive the code? </Text>
+                <TouchableOpacity
+                  onPress={handleResendOTP}
+                  disabled={!canResend}
+                  style={styles.resendButton}
+                >
+                  <Text
+                    style={[
+                      styles.resendButtonText,
+                      !canResend && styles.resendButtonDisabled,
+                    ]}
+                  >
+                    Resend code {!canResend && `(${formatTimer(resendTimer)})`}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Footer Info */}
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                Email verification adds an extra layer of security to your account
               </Text>
             </View>
           </View>
@@ -321,9 +348,6 @@ export default function OTPScreen() {
     </SafeAreaView>
   );
 }
-
-const { width } = Dimensions.get('window');
-const OTP_INPUT_SIZE = Math.min(60, (width - 96) / 6);
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -335,24 +359,22 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
+    paddingBottom: 40,
   },
   container: {
     flex: 1,
     paddingHorizontal: 24,
     paddingTop: 40,
-    paddingBottom: 20,
-    justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 48,
   },
   title: {
     fontSize: 32,
     fontWeight: '700',
     color: '#1971c2',
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
   },
   subtitle: {
@@ -360,16 +382,17 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 22,
+    maxWidth: '90%',
   },
   otpSection: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 32,
   },
   otpLabel: {
     fontSize: 16,
-    color: '#444',
+    color: '#333',
     marginBottom: 24,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   otpContainer: {
     flexDirection: 'row',
@@ -378,8 +401,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   otpInput: {
-    width: OTP_INPUT_SIZE,
-    height: OTP_INPUT_SIZE,
     borderWidth: 1.5,
     borderColor: '#ddd',
     borderRadius: 12,
@@ -414,22 +435,46 @@ const styles = StyleSheet.create({
     color: '#ff6b6b',
     fontSize: 14,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 12,
     fontWeight: '500',
   },
   clearButton: {
     marginTop: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
   },
   clearButtonText: {
     color: '#666',
     fontSize: 14,
     fontWeight: '500',
   },
+  infoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#f0f9ff',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: '#e7f5ff',
+  },
+  infoIcon: {
+    fontSize: 20,
+    marginRight: 12,
+    marginTop: 2,
+  },
+  infoText: {
+    flex: 1,
+    color: '#1971c2',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  actions: {
+    marginTop: 8,
+  },
   verifyButton: {
     backgroundColor: '#1971c2',
-    height: 56,
+    height: 60,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
@@ -448,7 +493,7 @@ const styles = StyleSheet.create({
   verifyButtonText: {
     color: '#fff',
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   resendSection: {
@@ -475,16 +520,15 @@ const styles = StyleSheet.create({
     color: '#999',
     fontWeight: '400',
   },
-  infoSection: {
+  footer: {
+    marginTop: 32,
     paddingHorizontal: 20,
   },
-  infoText: {
-    fontSize: 12,
-    color: '#888',
+  footerText: {
+    fontSize: 13,
+    color: '#999',
     textAlign: 'center',
     lineHeight: 18,
+    fontStyle: 'italic',
   },
 });
-
-// Remove the unused containerRef reference
-const containerRef = { current: null };

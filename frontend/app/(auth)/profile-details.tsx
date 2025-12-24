@@ -1,3 +1,7 @@
+// frontend/app/(auth)/profile-details.tsx
+
+// username add up
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
