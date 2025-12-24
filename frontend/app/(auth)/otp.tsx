@@ -115,48 +115,35 @@ export default function OTPScreen() {
 
   // Handle Verify OTP
   const handleVerifyOTP = async () => {
-    const otpString = otp.join('');
+  const otpString = otp.join('');
+  
+  if (otpString.length !== OTP_LENGTH) {
+    setError('Please enter all 6 digits');
+    return;
+  }
+
+  setLoading(true);
+  setError('');
+
+  try {
+    await new Promise(resolve => setTimeout(resolve, 1500));
     
-    if (otpString.length !== OTP_LENGTH) {
-      setError('Please enter all 6 digits');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    // Simulate API verification
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Mock validation - In production, this would be an API call
-      const isValid = otpString === '123456'; // Mock correct OTP
-      
-      if (isValid) {
-        Alert.alert(
-          'Success',
-          'Phone number verified successfully!',
-          [
-            {
-              text: 'Continue',
-              onPress: () => {
-                // Navigate to next screen (e.g., home or profile setup)
-                router.push('/');
-              },
-            },
-          ]
-        );
-      } else {
-        setError('Invalid OTP. Please try again.');
-        clearOTP();
-      }
-    } catch (err) {
-      setError('Verification failed. Please try again.');
+    const isValid = otpString === '123456'; // Mock validation
+    
+    if (isValid) {
+      // Navigate to profile setup screen
+      router.replace('/(auth)/profile-setup');
+    } else {
+      setError('Invalid OTP. Please try again.');
       clearOTP();
-    } finally {
-      setLoading(false);
     }
-  };
+  } catch (err) {
+    setError('Verification failed. Please try again.');
+    clearOTP();
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Handle Resend OTP
   const handleResendOTP = () => {
