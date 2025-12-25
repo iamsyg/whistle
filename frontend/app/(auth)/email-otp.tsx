@@ -152,7 +152,7 @@ export default function EmailOTPScreen() {
               onPress: () => {
                 // Navigate to profile details screen
                 // Use replace to prevent back navigation
-                router.replace('/(auth)/profile-details');
+                router.replace('/(auth)/profile-setup');
               },
             },
           ]
@@ -337,11 +337,11 @@ export default function EmailOTPScreen() {
             </View>
 
             {/* Footer Info */}
-            <View style={styles.footer}>
+            {/* <View style={styles.footer}>
               <Text style={styles.footerText}>
                 Email verification adds an extra layer of security to your account
               </Text>
-            </View>
+            </View> */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

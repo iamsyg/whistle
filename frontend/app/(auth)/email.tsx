@@ -95,7 +95,7 @@ export default function EmailScreen() {
         { 
           text: 'Continue', 
           style: 'default',
-          onPress: () => router.replace('/(auth)/profile-details')
+          onPress: () => router.replace('/(auth)/profile-setup'),
         },
       ]
     );
@@ -143,9 +143,9 @@ export default function EmailScreen() {
               {/* Header Section */}
               <View style={styles.header}>
                 <Text style={styles.title}>Add your email</Text>
-                <Text style={styles.subtitle}>
+                {/* <Text style={styles.subtitle}>
                   We'll use this for account recovery and notifications
-                </Text>
+                </Text> */}
               </View>
 
               {/* Email Input Section */}
@@ -185,12 +185,12 @@ export default function EmailScreen() {
                 </View>
 
                 {/* Info Box */}
-                <View style={styles.infoBox}>
+                {/* <View style={styles.infoBox}>
                   <Text style={styles.infoIcon}>📧</Text>
                   <Text style={styles.infoText}>
                     Email verification helps secure your account and enables important notifications
                   </Text>
-                </View>
+                </View> */}
               </View>
 
               {/* Action Buttons */}
