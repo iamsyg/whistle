@@ -17,14 +17,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState, AppDispatch } from '../../store/store';;
+import { setName, setUserName, setAbout, setProfileLink, setProfilePictureUrl} from '../../store/slices/auth/profileSlice';
 
 // Type definitions
 type ProfileLink = {
   id: string;
-  placeholder: string;
   value: string;
-  type: 'github' | 'linkedin' | 'website' | 'custom';
 };
 
 type ProfileData = {
@@ -50,6 +51,29 @@ const ProfileSetup: React.FC = () => {
   
   const [isLoading, setIsLoading] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  const dispatch = useDispatch<AppDispatch>();
+
+  const profile = useSelector((state: RootState) => state.profile);
+
+  React.useEffect(() => {
+    setProfileData({
+      name: profile.name,
+      username: profile.userName,
+      about: profile.about,
+      profileImage: profile.profilePictureUrl || null,
+      links: profile.profileLink,
+    });
+  }, [
+    profile.name,
+    profile.userName,
+    profile.about,
+    profile.profilePictureUrl,
+    profile.profileLink,
+  ]);
+
+
+
 
   // Image Picker
   const pickImage = async () => {
@@ -93,8 +117,11 @@ const ProfileSetup: React.FC = () => {
   };
 
   const handleUsernameChange = (text: string) => {
-    setProfileData(prev => ({ ...prev, username: text }));
-  };
+  setProfileData(prev => ({
+    ...prev,
+    username: text.replace(/\s/g, ''),
+  }));
+};
 
   const handleAboutChange = (text: string) => {
     if (text.length <= MAX_ABOUT_LENGTH) {
@@ -111,36 +138,21 @@ const ProfileSetup: React.FC = () => {
     }));
   };
 
-  const addLink = (type: ProfileLink['type'] = 'custom') => {
-    // Check if maximum links reached
-    if (profileData.links.length >= MAX_LINKS) {
-      Alert.alert(
-        'Maximum Links Reached',
-        `You can only add up to ${MAX_LINKS} links.`,
-        [{ text: 'OK' }]
-      );
-      return;
-    }
+  const addLink = () => {
+  if (profileData.links.length >= MAX_LINKS) {
+    Alert.alert(`You can only add ${MAX_LINKS} links`);
+    return;
+  }
 
-    const placeholders = {
-      github: 'https://github.com/username',
-      linkedin: 'https://linkedin.com/in/username',
-      website: 'https://yourwebsite.com',
-      custom: 'https://example.com',
-    };
+  setProfileData(prev => ({
+    ...prev,
+    links: [
+      ...prev.links,
+      { id: Date.now().toString(), value: '' },
+    ],
+  }));
+};
 
-    const newLink: ProfileLink = {
-      id: Date.now().toString(),
-      placeholder: placeholders[type],
-      value: '',
-      type,
-    };
-
-    setProfileData(prev => ({
-      ...prev,
-      links: [...prev.links, newLink],
-    }));
-  };
 
   const removeLink = (id: string) => {
     setProfileData(prev => ({
@@ -177,6 +189,13 @@ const ProfileSetup: React.FC = () => {
     // Simulate API call
     setTimeout(() => {
       setIsLoading(false);
+      dispatch(setName(profileData.name));
+      if (profileData.profileImage) {
+        dispatch(setProfilePictureUrl(profileData.profileImage));
+      }
+      dispatch(setUserName(profileData.username));
+      dispatch(setAbout(profileData.about));
+      dispatch(setProfileLink(profileData.links));
       Alert.alert(
         'Profile Updated',
         'Your profile has been saved successfully!',
@@ -302,7 +321,7 @@ const ProfileSetup: React.FC = () => {
               </View>
               <TouchableOpacity
                 style={[styles.addButton, hasMaxLinks && styles.disabledButton]}
-                onPress={() => addLink('custom')}
+                onPress={() => addLink()}
                 disabled={hasMaxLinks}
               >
                 <Ionicons 
@@ -317,17 +336,17 @@ const ProfileSetup: React.FC = () => {
               <View key={link.id} style={styles.linkItem}>
                 <View style={styles.linkInputWrapper}>
                   <TextInput
-                    style={[
-                      styles.linkInput,
-                      !validateLink(link.value) && link.value.length > 0 && styles.inputError,
-                    ]}
-                    placeholder={link.placeholder}
+                    style={styles.linkInput}
+                    placeholder="https://your-link.com"
                     placeholderTextColor="#999"
                     value={link.value}
-                    onChangeText={(text) => handleLinkChange(link.id, text)}
+                    onChangeText={(text) =>
+                      handleLinkChange(link.id, text)
+                    }
                     autoCapitalize="none"
                     keyboardType="url"
                   />
+
                   <TouchableOpacity
                     style={styles.removeLinkButton}
                     onPress={() => removeLink(link.id)}

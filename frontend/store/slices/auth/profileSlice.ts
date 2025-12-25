@@ -2,13 +2,18 @@
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
+export interface ProfileLink {
+  id: string;
+  value: string;
+}
+
 export interface ProfileState {
   userId: string;
   name: string;
   profilePictureUrl: string;
   userName: string;
   about: string;
-  profileLink: string[];
+  profileLink: ProfileLink[];
   profileCompleted: boolean;
 }
 
@@ -41,22 +46,25 @@ const profileSlice = createSlice({
     setAbout: (state, action: PayloadAction<string>) => {
       state.about = action.payload;
     },
-    setProfileLink: (state, action: PayloadAction<string[]>) => {
-      state.profileLink = action.payload;
-    },
+    setProfileLink: (
+  state,
+  action: PayloadAction<ProfileLink[]>
+) => {
+  state.profileLink = action.payload;
+},
     saveProfile: (state) => {
         state.profileCompleted =
             !!state.name
         },
     clearProfileState: (state) => {
-      state.userId = '';
-      state.name = '';
-      state.profilePictureUrl = '';
-      state.userName = '';
-      state.about = '';
-      state.profileLink = [];
-      state.profileCompleted = false;
-    },
+  state.userId = '';
+  state.name = '';
+  state.profilePictureUrl = '';
+  state.userName = '';
+  state.about = '';
+  state.profileLink = [];
+  state.profileCompleted = false;
+},
   },
 });
 
