@@ -15,14 +15,16 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
+
+import { setEmail as setEmailState, setEmailVerified } from '@/store/slices/auth/emailAuthSlice';
+import { RootState } from '@/store/store';
+import { useDispatch, useSelector } from 'react-redux';
 
 const OTP_LENGTH = 6;
 const RESEND_TIMER_SECONDS = 30;
 
 export default function EmailOTPScreen() {
-  const params = useLocalSearchParams();
-  const email = params.email as string || 'user@example.com';
   
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
@@ -33,6 +35,16 @@ export default function EmailOTPScreen() {
   const inputRefs = useRef<Array<TextInput | null>>([]);
   const timerRef = useRef<number | null>(null);
 
+  const dispatch = useDispatch();
+
+  const email = useSelector(
+    (state: RootState) => state.emailAuth.email
+  );
+
+  const { emailVerified } = useSelector(
+      (state: RootState) => state.emailAuth
+  );
+  
   // Mask email for display (e.g., u***@e***.com)
   const maskEmail = (email: string): string => {
     if (!email) return 'your email';
@@ -54,24 +66,24 @@ export default function EmailOTPScreen() {
 
   // Countdown timer for resend OTP
   useEffect(() => {
-      if (resendTimer > 0 && !canResend) {
-        timerRef.current = setInterval(() => {
-          setResendTimer(prev => {
-            if (prev <= 1) {
-              setCanResend(true);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
+  if (canResend) return;
+
+  timerRef.current = setInterval(() => {
+    setResendTimer(prev => {
+      if (prev <= 1) {
+        clearInterval(timerRef.current!);
+        setCanResend(true);
+        return 0;
       }
-      
-      return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-        }
-      };
-    }, [resendTimer, canResend]);
+      return prev - 1;
+    });
+  }, 1000);
+
+  return () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+  };
+}, [canResend]);
+
 
   // Handle OTP input change
   const handleChangeText = (text: string, index: number) => {
@@ -152,6 +164,7 @@ export default function EmailOTPScreen() {
               onPress: () => {
                 // Navigate to profile details screen
                 // Use replace to prevent back navigation
+                dispatch(setEmailVerified(true));
                 router.replace('/(auth)/profile-setup');
               },
             },

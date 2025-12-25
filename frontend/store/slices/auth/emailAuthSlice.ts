@@ -22,7 +22,7 @@ const emailAuthSlice = createSlice({
     setEmailVerified: (state, action: PayloadAction<boolean>) => {
       state.emailVerified = action.payload;
     },
-    clearAuthState: (state) => {
+    clearEmailAuthState: (state) => {
       state.email = '';
       state.emailVerified = false;
     },
@@ -32,7 +32,7 @@ const emailAuthSlice = createSlice({
 export const {
   setEmail,
   setEmailVerified,
-  clearAuthState,
+  clearEmailAuthState,
 } = emailAuthSlice.actions;
 
 export default emailAuthSlice.reducer;

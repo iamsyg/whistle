@@ -16,6 +16,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
+import { useDispatch } from 'react-redux';
+import { setEmail as setEmailState } from '@/store/slices/auth/emailAuthSlice';
+
 export default function EmailScreen() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,6 +26,8 @@ export default function EmailScreen() {
   const [isEmailValid, setIsEmailValid] = useState(false);
   
   const emailInputRef = useRef<TextInput>(null);
+
+  const dispatch = useDispatch();
 
   // Validate email format
   const validateEmail = (email: string): boolean => {
@@ -66,6 +71,9 @@ export default function EmailScreen() {
 
     try {
       // Simulate API call to send OTP to email
+
+      dispatch(setEmailState(email));
+
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Navigate to OTP screen with email parameter

@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useDispatch, UseDispatch, useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setPhoneNumber, setPhoneNumberVerified, setCountryCode } from '@/store';
 import { RootState } from '@/store/store';
 
