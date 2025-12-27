@@ -1,3 +1,5 @@
+// app/_layout.tsx
+
 import { Stack } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -6,26 +8,11 @@ import { Provider } from 'react-redux';
 import { store } from '../store/store';
 import { useEffect } from 'react';
 
-import { useDispatch, useSelector } from 'react-redux';
-import { setPhoneNumber, setPhoneNumberVerified, setCountryCode } from '@/store';
-import { RootState } from '@/store/store';
-
-
-
-// If user is not authenticated, show the authentication screens first.
-
-
-
-
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  // You might want to add a useEffect to hide splash screen when ready
   useEffect(() => {
-    // Hide splash screen when your app is ready
-    // You can add your asset loading logic here
     SplashScreen.hideAsync();
   }, []);
 
@@ -34,7 +21,10 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <View style={styles.container}>
           <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
+            {/* Always load tabs – auth is bypassed */}
+            <Stack.Screen name="(tabs)" />
+
+            {/* Keep auth screens for later use (optional) */}
             <Stack.Screen name="(auth)/login" />
             <Stack.Screen name="(auth)/otp" />
             <Stack.Screen name="(auth)/email" />
