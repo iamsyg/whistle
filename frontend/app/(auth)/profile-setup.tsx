@@ -199,7 +199,7 @@ const ProfileSetup: React.FC = () => {
       Alert.alert(
         'Profile Updated',
         'Your profile has been saved successfully!',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)/home') }]
+        [{ text: 'OK', onPress: () => router.replace('/(tabs)/Chats') }]
       );
     }, 1500);
   };

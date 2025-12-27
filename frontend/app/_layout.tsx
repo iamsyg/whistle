@@ -6,6 +6,18 @@ import { Provider } from 'react-redux';
 import { store } from '../store/store';
 import { useEffect } from 'react';
 
+import { useDispatch, useSelector } from 'react-redux';
+import { setPhoneNumber, setPhoneNumberVerified, setCountryCode } from '@/store';
+import { RootState } from '@/store/store';
+
+
+
+// If user is not authenticated, show the authentication screens first.
+
+
+
+
+
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
@@ -27,7 +39,7 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)/otp" />
             <Stack.Screen name="(auth)/email" />
             <Stack.Screen name="(auth)/email-otp" />
-            <Stack.Screen name="(auth)/profile-setup" options={{headerShown: false}} />
+            <Stack.Screen name="(auth)/profile-setup" />
           </Stack>
         </View>
       </SafeAreaProvider>

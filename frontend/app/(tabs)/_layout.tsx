@@ -11,8 +11,10 @@ export default function TabsLayout() {
         tabBarInactiveTintColor: '#666',
       }}
     >
-      <Tabs.Screen name="home" />
-      {/* Add more tabs as needed */}
+      <Tabs.Screen name="Chats" />
+      <Tabs.Screen name="Classroom" />
+      <Tabs.Screen name="Calls" />
+      {/* Add more tabs as needed Madhu Tiwary */}
     </Tabs>
   );
 }

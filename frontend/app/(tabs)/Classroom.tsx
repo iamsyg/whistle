@@ -1,11 +1,11 @@
 import React from 'react';
 import { StyleSheet, View, Text, SafeAreaView } from 'react-native';
 
-export default function HomeScreen() {
+export default function ClassroomScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Welcome!</Text>
+        <Text style={styles.title}>Wce!</Text>
         <Text style={styles.subtitle}>
           You've successfully set up your account.
         </Text>
