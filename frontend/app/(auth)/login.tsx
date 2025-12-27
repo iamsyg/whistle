@@ -64,6 +64,8 @@ const handleSendOTP = async () => {
 
   try {
 
+    console.log(fullPhoneNumber);
+
     const { error } = await supabase.auth.signInWithOtp({
       phone: `${countryCode?.dial_code || '+91'}${phoneNumber}`,
       options: {

@@ -144,11 +144,13 @@ export default function OTPScreen() {
     setLoading(true);
     setError('');
 
+    console.log(phoneNumber);
+
     try {
       // await new Promise(resolve => setTimeout(resolve, 1500));
 
       const { data, error } = await supabase.auth.verifyOtp({
-        phone: `${countryCode || '+91'}${phoneNumber}`,
+        phone: phoneNumber,
         token: otpString,
         type: 'sms',
       });
@@ -178,7 +180,7 @@ export default function OTPScreen() {
 
     } catch(err) {
       setError(`Verification failed. Please try again. ${(err as Error).message}`);
-      clearOTP();
+      // clearOTP();
     } finally {
       setLoading(false);
     }
@@ -206,7 +208,7 @@ export default function OTPScreen() {
 
     try {
       await supabase.auth.signInWithOtp({
-            phone: `${countryCode || '+91'}${phoneNumber}`,
+            phone: phoneNumber,
             options: {
               shouldCreateUser: true,
               channel: 'sms',
