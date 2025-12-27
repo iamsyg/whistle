@@ -22,6 +22,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setPhoneNumber, setPhoneNumberVerified, setCountryCode } from '@/store';
 import { RootState } from '@/store/store';
 
+import { supabase } from '@/utils/supabase';
+import { setUserId } from '@/store/slices/auth/profileSlice';
+
 // Define route params as a type, not interface for useLocalSearchParams
 type OTPRouteParams = {
   phoneNumber: string;
@@ -46,6 +49,12 @@ export default function OTPScreen() {
   const { phoneNumber, countryCode } = useSelector(
     (state: RootState) => state.auth
   );
+
+  useEffect(() => {
+  if (!phoneNumber || !countryCode) {
+    router.replace('/(auth)/login');
+  }
+}, [phoneNumber, countryCode]);
 
   // Parse phone number from params with type safety
   const maskedPhoneNumber = params.maskedPhoneNumber as string ||
@@ -136,21 +145,39 @@ export default function OTPScreen() {
     setError('');
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      const isValid = otpString === '123456'; // mock
+      // await new Promise(resolve => setTimeout(resolve, 1500));
 
-      if (!isValid) {
-        setError('Invalid OTP. Please try again.');
-        clearOTP();
-        return;
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: `${countryCode || '+91'}${phoneNumber}`,
+        token: otpString,
+        type: 'sms',
+      });
+
+      if (error || !data) {
+        throw error || new Error('Verification failed');
+      }
+
+      // const isValid = otpString === '123456'; // mock
+
+      // if (!isValid) {
+      //   setError('Invalid OTP. Please try again.');
+      //   clearOTP();
+      //   return;
+      // }
+
+      const userId = data.user?.id;
+      if (!userId) {
+        throw new Error('User ID not found after verification');
       }
 
       // ✅ SUCCESS
       dispatch(setPhoneNumberVerified(true));
+      dispatch(setUserId(userId));
+
       router.replace('/(auth)/email');
 
-    } catch {
-      setError('Verification failed. Please try again.');
+    } catch(err) {
+      setError(`Verification failed. Please try again. ${(err as Error).message}`);
       clearOTP();
     } finally {
       setLoading(false);
@@ -158,24 +185,38 @@ export default function OTPScreen() {
   };
 
   // Handle Resend OTP
-  const handleResendOTP = () => {
+  const handleResendOTP = async() => {
     if (!canResend) return;
 
     // Reset timer and state
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
+    // if (timerRef.current) {
+    //   clearInterval(timerRef.current);
+    // }
     setResendTimer(RESEND_TIMER_SECONDS);
     setCanResend(false);
     clearOTP();
     setError('');
 
-    // Simulate resend OTP API call
-    Alert.alert(
-      'OTP Resent',
-      `New OTP has been sent to ${maskedPhoneNumber}`,
-      [{ text: 'OK' }]
-    );
+    // // Simulate resend OTP API call
+    // Alert.alert(
+    //   'OTP Resent',
+    //   `New OTP has been sent to ${maskedPhoneNumber}`,
+    //   [{ text: 'OK' }]
+    // );
+
+    try {
+      await supabase.auth.signInWithOtp({
+            phone: `${countryCode || '+91'}${phoneNumber}`,
+            options: {
+              shouldCreateUser: true,
+              channel: 'sms',
+            },
+          });
+
+      setError('A new OTP has been sent');
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to resend OTP');
+  }
   };
 
   // Check if all OTP digits are entered
@@ -218,7 +259,7 @@ export default function OTPScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.container} ref={containerRef}>
+          <View style={styles.container} >
             {/* Header */}
             <View style={styles.header}>
               <Text style={styles.title}>Verify OTP</Text>
@@ -485,6 +526,3 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
 });
-
-// Remove the unused containerRef reference
-const containerRef = { current: null };

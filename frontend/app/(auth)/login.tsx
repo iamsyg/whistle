@@ -19,6 +19,8 @@ import { router } from 'expo-router';
 import { useDispatch } from 'react-redux';
 import { setPhoneNumber as setPhoneNumberState, setCountryCode as setCountryCodeState } from '@/store';
 
+import { supabase } from '@/utils/supabase';
+
 export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [countryCode, setCountryCode] = useState<CountryCode | null>(null);
@@ -52,26 +54,42 @@ const handleSendOTP = async () => {
     return;
   }
 
+  if (!countryCode) {
+    setError('Please select a country code');
+    setLoading(false);
+    return;
+  }
   setLoading(true);
   setError('');
 
   try {
 
-    dispatch(setPhoneNumberState(phoneNumber));
-    dispatch(setCountryCodeState(countryCode?.dial_code || '+91'));
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: `${countryCode?.dial_code || '+91'}${phoneNumber}`,
+      options: {
+        shouldCreateUser: true,
+        channel: 'sms',
+      },
+    });
 
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    if (error) {
+      throw error;
+    }
+
+    dispatch(setPhoneNumberState(`${countryCode.dial_code}${phoneNumber}`));
+    dispatch(setCountryCodeState(countryCode?.dial_code || '+91'));
     
     // Navigate to OTP screen with phone number
     router.push({
       pathname: '/(auth)/otp',
       params: {
-        maskedPhoneNumber: `+91 *****${phoneNumber.slice(-4)}`
+        maskedPhoneNumber: `${countryCode?.dial_code} *****${phoneNumber.slice(-4)}`
       },
     });
     
   } catch (err) {
-    setError('Failed to send OTP. Please try again.');
+    setError(`Failed to send OTP. Please try again. ${(err as Error).message}`);
+    console.error('Error sending OTP:', err);
   } finally {
     setLoading(false);
   }

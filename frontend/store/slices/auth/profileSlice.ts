@@ -46,25 +46,27 @@ const profileSlice = createSlice({
     setAbout: (state, action: PayloadAction<string>) => {
       state.about = action.payload;
     },
-    setProfileLink: (
-  state,
-  action: PayloadAction<ProfileLink[]>
-) => {
-  state.profileLink = action.payload;
-},
+    setProfileLink: (state, action: PayloadAction<ProfileLink[]>) => {
+      const existingIds = new Set(state.profileLink.map(l => l.id));
+      action.payload.forEach(link => {
+        if (!existingIds.has(link.id)) {
+          state.profileLink.push(link);
+        }
+      });
+    },
     saveProfile: (state) => {
-        state.profileCompleted =
-            !!state.name
-        },
+      state.profileCompleted =
+        !!state.name
+    },
     clearProfileState: (state) => {
-  state.userId = '';
-  state.name = '';
-  state.profilePictureUrl = '';
-  state.userName = '';
-  state.about = '';
-  state.profileLink = [];
-  state.profileCompleted = false;
-},
+      state.userId = '';
+      state.name = '';
+      state.profilePictureUrl = '';
+      state.userName = '';
+      state.about = '';
+      state.profileLink = [];
+      state.profileCompleted = false;
+    },
   },
 });
 
