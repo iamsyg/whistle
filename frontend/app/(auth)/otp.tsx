@@ -1,4 +1,4 @@
-// frontend/app/(auth)/otp.tsx
+// frontend/app/(auth)/otp.tsx - WITH DEBUGGING
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -19,22 +19,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
-import { setPhoneNumber, setPhoneNumberVerified, setCountryCode } from '@/store';
+import { setPhoneNumberVerified } from '@/store';
 import { RootState } from '@/store/store';
-
 import { supabase } from '@/utils/supabase';
 import { setUserId } from '@/store/slices/auth/profileSlice';
-
-// Define route params as a type, not interface for useLocalSearchParams
-type OTPRouteParams = {
-  phoneNumber: string;
-  maskedPhoneNumber: string;
-};
 
 const OTP_LENGTH = 6;
 const RESEND_TIMER_SECONDS = 30;
 
 export default function OTPScreen() {
+
   const params = useLocalSearchParams();
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
@@ -51,21 +45,23 @@ export default function OTPScreen() {
   );
 
   useEffect(() => {
-  if (!phoneNumber || !countryCode) {
-    router.replace('/(auth)/login');
-  }
-}, [phoneNumber, countryCode]);
+    if (!phoneNumber || !countryCode) {
+      router.replace('/(auth)/login');
+    }
+  }, [phoneNumber, countryCode]);
 
-  // Parse phone number from params with type safety
+  const phoneForSupabase = phoneNumber;
+  const phoneForBackend = phoneNumber.replace(countryCode, '').replace(/^\+/, '');
+  const formattedPhoneForBackend = `${countryCode.replace(/^\+/, '')}-${phoneForBackend}`;
+
   const maskedPhoneNumber = params.maskedPhoneNumber as string ||
     (phoneNumber.replace(/\D/g, '').length > 4
-      ? `+91 *****${phoneNumber.replace(/\D/g, '').slice(-4)}`
-      : '+91 ******');
+      ? `${countryCode} *****${phoneNumber.replace(/\D/g, '').slice(-4)}`
+      : `${countryCode} ******`);
 
-  // Countdown timer for resend OTP
   useEffect(() => {
     if (resendTimer > 0 && !canResend) {
-      timerRef.current = setInterval(() => {
+      timerRef.current = window.setInterval(() => {
         setResendTimer(prev => {
           if (prev <= 1) {
             setCanResend(true);
@@ -83,56 +79,38 @@ export default function OTPScreen() {
     };
   }, [resendTimer, canResend]);
 
-  // Auto-focus next input and handle backspace
   const handleChangeText = (text: string, index: number) => {
-    if (!/^\d*$/.test(text)) return; // Only allow digits
+    if (!/^\d*$/.test(text)) return;
 
     const newOtp = [...otp];
     newOtp[index] = text;
     setOtp(newOtp);
     setError('');
 
-    // Auto-focus next input if text entered
     if (text && index < OTP_LENGTH - 1) {
-      const nextInput = inputRefs.current[index + 1];
-      if (nextInput) {
-        nextInput.focus();
-      }
+      inputRefs.current[index + 1]?.focus();
     }
 
-    // Auto-focus previous input if text deleted
     if (!text && index > 0) {
-      const prevInput = inputRefs.current[index - 1];
-      if (prevInput) {
-        prevInput.focus();
-      }
+      inputRefs.current[index - 1]?.focus();
     }
   };
 
-  // Handle backspace key press
   const handleKeyPress = (
     e: NativeSyntheticEvent<TextInputKeyPressEventData>,
     index: number
   ) => {
     if (e.nativeEvent.key === 'Backspace' && !otp[index] && index > 0) {
-      const prevInput = inputRefs.current[index - 1];
-      if (prevInput) {
-        prevInput.focus();
-      }
+      inputRefs.current[index - 1]?.focus();
     }
   };
 
-  // Clear all OTP inputs
   const clearOTP = () => {
     setOtp(Array(OTP_LENGTH).fill(''));
     setError('');
-    const firstInput = inputRefs.current[0];
-    if (firstInput) {
-      firstInput.focus();
-    }
+    inputRefs.current[0]?.focus();
   };
 
-  // Handle Verify OTP
   const handleVerifyOTP = async () => {
     const otpString = otp.join('');
 
@@ -141,111 +119,204 @@ export default function OTPScreen() {
       return;
     }
 
+    console.log("========== OTP VERIFICATION DEBUG ==========");
+    console.log("Phone for Supabase:", phoneForSupabase);
+    console.log("OTP entered:", otpString);
+    console.log("==========================================");
+
     setLoading(true);
     setError('');
 
-    console.log(phoneNumber);
-
     try {
-      // await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: phoneNumber,
+      // Step 1: Verify OTP with Supabase
+      console.log("Step 1: Verifying OTP with Supabase...");
+      const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        phone: phoneForSupabase,
         token: otpString,
         type: 'sms',
       });
 
-      if (error || !data) {
-        throw error || new Error('Verification failed');
+      if (verifyError) {
+        console.error("Supabase verification error:", verifyError);
+        throw verifyError;
       }
 
-      // const isValid = otpString === '123456'; // mock
-
-      // if (!isValid) {
-      //   setError('Invalid OTP. Please try again.');
-      //   clearOTP();
-      //   return;
-      // }
-
-      const userId = data.user?.id;
-      if (!userId) {
+      if (!data?.user?.id) {
         throw new Error('User ID not found after verification');
       }
 
-      // ✅ SUCCESS
+      const userId = data.user.id;
+      console.log("✅ OTP verified successfully! User ID:", userId);
+      
+      // Step 2: Update Redux state
+      console.log("Step 2: Updating Redux state...");
+
       dispatch(setPhoneNumberVerified(true));
       dispatch(setUserId(userId));
 
-      router.replace('/(auth)/email');
+      // Step 3: Get access token
+      console.log("Step 3: Getting access token...");
 
-    } catch(err) {
-      setError(`Verification failed. Please try again. ${(err as Error).message}`);
-      // clearOTP();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        console.error("No access token found");
+        throw new Error('No access token found');
+      }
+      console.log("✅ Access token obtained");
+
+      // Step 4: Check backend connectivity
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+      console.log("Step 4: Backend URL:", backendUrl);
+
+      if (!backendUrl) {
+        console.error("EXPO_PUBLIC_BACKEND_URL not set!");
+        throw new Error('Backend URL not configured. Please set EXPO_PUBLIC_BACKEND_URL in .env file');
+      }
+
+      // Step 5: Check if phone exists in backend
+      console.log("Step 5: Checking phone in backend...");
+      console.log("Phone for backend:", formattedPhoneForBackend);
+      
+      const checkResponse = await fetch(
+        `${backendUrl}/auth/check-phone-number?phone=${encodeURIComponent(formattedPhoneForBackend)}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      console.log("Backend check response status:", checkResponse.status);
+
+      if (!checkResponse.ok) {
+        const errorText = await checkResponse.text();
+        console.error("Backend check failed:", errorText);
+        throw new Error(`Backend check failed: ${checkResponse.status} - ${errorText}`);
+      }
+
+      const result = await checkResponse.json();
+      console.log("Backend check result:", result);
+
+      if (result.exists) {
+
+        console.log("✅ User exists, navigating to Chats...");
+        router.replace('/(tabs)/Chats');
+      } else {
+
+        // Step 6: Insert new phone number
+        console.log("Step 6: Inserting new user in backend...");
+
+        const insertResponse = await fetch(
+          `${backendUrl}/auth/insert-phone-number`,
+          {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ 
+              phone_number: formattedPhoneForBackend, 
+              user_id: userId,
+              phone_verified: true
+            }),
+          }
+        );
+
+        console.log("Backend insert response status:", insertResponse.status);
+
+        if (!insertResponse.ok) {
+
+          const errorData = await insertResponse.json();
+          console.error("Backend insert failed:", errorData);
+          throw new Error(errorData.detail || 'Failed to insert phone number');
+        }
+
+        console.log("✅ User inserted, navigating to email...");
+        router.replace('/(auth)/email');
+      }
+
+    } catch (err: any) {
+      console.error('========== ERROR ==========');
+      console.error('Error type:', err.constructor.name);
+      console.error('Error message:', err.message);
+      console.error('Full error:', err);
+      console.error('===========================');
+      
+      let errorMessage = 'Verification failed. Please try again.';
+      
+      if (err.message?.includes('expired')) {
+        errorMessage = 'OTP has expired. Please request a new one.';
+        setCanResend(true);
+        setResendTimer(0);
+      } else if (err.message?.includes('invalid') || err.message?.includes('Token')) {
+        errorMessage = 'Invalid OTP. Please check the code and try again.';
+      } else if (err.message?.includes('Network') || err.message?.includes('fetch')) {
+        errorMessage = 'Cannot connect to server. Check your internet connection.';
+      } else if (err.message?.includes('Backend URL not configured')) {
+        errorMessage = 'App not configured properly. Please contact support.';
+      } else if (err.message?.includes('Backend')) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Resend OTP
-  const handleResendOTP = async() => {
+  const handleResendOTP = async () => {
     if (!canResend) return;
 
-    // Reset timer and state
-    // if (timerRef.current) {
-    //   clearInterval(timerRef.current);
-    // }
     setResendTimer(RESEND_TIMER_SECONDS);
     setCanResend(false);
     clearOTP();
     setError('');
 
-    // // Simulate resend OTP API call
-    // Alert.alert(
-    //   'OTP Resent',
-    //   `New OTP has been sent to ${maskedPhoneNumber}`,
-    //   [{ text: 'OK' }]
-    // );
+    console.log("Resending OTP to:", phoneForSupabase);
 
     try {
-      await supabase.auth.signInWithOtp({
-            phone: phoneNumber,
-            options: {
-              shouldCreateUser: true,
-              channel: 'sms',
-            },
-          });
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: phoneForSupabase,
+        options: {
+          shouldCreateUser: false,
+        },
+      });
 
-      setError('A new OTP has been sent');
+      if (error) throw error;
+
+      Alert.alert('Success', 'A new OTP has been sent to your phone');
+      console.log("✅ OTP resent successfully");
+
     } catch (err: any) {
+      
+      console.error("Resend OTP error:", err);
       Alert.alert('Error', err?.message || 'Failed to resend OTP');
-  }
+      setCanResend(true);
+      setResendTimer(0);
+    }
   };
 
-  // Check if all OTP digits are entered
   const isOTPComplete = otp.every(digit => digit !== '');
 
-  // Format timer display
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Get active input index
   const getActiveInputIndex = () => {
     const index = otp.findIndex(d => d === '');
     return index === -1 ? OTP_LENGTH - 1 : index;
   };
 
-  // Set initial focus on first OTP input
   useEffect(() => {
     const timer = setTimeout(() => {
-      const firstInput = inputRefs.current[0];
-      if (firstInput) {
-        firstInput.focus();
-      }
+      inputRefs.current[0]?.focus();
     }, 100);
-
     return () => clearTimeout(timer);
   }, []);
 
@@ -261,8 +332,7 @@ export default function OTPScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.container} >
-            {/* Header */}
+          <View style={styles.container}>
             <View style={styles.header}>
               <Text style={styles.title}>Verify OTP</Text>
               <Text style={styles.subtitle}>
@@ -270,7 +340,6 @@ export default function OTPScreen() {
               </Text>
             </View>
 
-            {/* OTP Input Section */}
             <View style={styles.otpSection}>
               <Text style={styles.otpLabel}>Enter 6-digit code</Text>
 
@@ -315,7 +384,6 @@ export default function OTPScreen() {
               )}
             </View>
 
-            {/* Verify Button */}
             <TouchableOpacity
               style={[
                 styles.verifyButton,
@@ -332,7 +400,6 @@ export default function OTPScreen() {
               )}
             </TouchableOpacity>
 
-            {/* Resend Section */}
             <View style={styles.resendSection}>
               <Text style={styles.resendText}>Didn't receive the code? </Text>
               <TouchableOpacity
@@ -351,10 +418,9 @@ export default function OTPScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Info Text */}
             <View style={styles.infoSection}>
               <Text style={styles.infoText}>
-                Make sure you enter the code sent to your phone number.
+                Check your SMS for the 6-digit code.{'\n'}
                 The code expires in 5 minutes.
               </Text>
             </View>

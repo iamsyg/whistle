@@ -3,9 +3,9 @@
 from typing import Union
 from fastapi import FastAPI
 from fastapi import Depends
-from services.db import get_connection
+from app.services.db import get_connection
 from dotenv import load_dotenv
-from routes import auth
+from app.routes import auth
 
 app = FastAPI()
 load_dotenv()
