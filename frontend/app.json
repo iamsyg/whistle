@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSContactsUsageDescription": "This app uses contacts to help you find friends who are already using Whistle."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -37,6 +40,12 @@
           "dark": {
             "backgroundColor": "#000000"
           }
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow $(Whistle) to access your contacts."
         }
       ]
     ],

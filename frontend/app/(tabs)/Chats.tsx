@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { StyleSheet, View, Text, SafeAreaView } from 'react-native';
+import FloatingActionButton from '@/components/FloatingActionButton';
 
 export default function ChatsScreen() {
   return (
@@ -12,6 +13,16 @@ export default function ChatsScreen() {
           You've successfully set up your account.
         </Text>
       </View>
+      
+      {/* Floating button should be outside the content view to be absolute positioned */}
+      <FloatingActionButton
+        href="/connect-nodes"
+        iconName="add"
+        backgroundColor="#1971c2"
+        size={56}
+        bottom={30}
+        right={24}
+      />
     </SafeAreaView>
   );
 }
@@ -20,6 +31,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+    position: 'relative', // Important for absolute positioning of child
   },
   content: {
     flex: 1,
