@@ -22,7 +22,7 @@ export default function RootLayout() {
         <View style={styles.container}>
           <Stack screenOptions={{ headerShown: false }}>
             {/* Always load tabs – auth is bypassed */}
-            {/* <Stack.Screen name="(tabs)" /> */}
+            <Stack.Screen name="(tabs)" />
 
             {/* Keep auth screens for later use (optional) */}
             <Stack.Screen name="(auth)/login" />
