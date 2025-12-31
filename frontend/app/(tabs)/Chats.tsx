@@ -16,7 +16,7 @@ export default function ChatsScreen() {
       
       {/* Floating button should be outside the content view to be absolute positioned */}
       <FloatingActionButton
-        href="/connect-nodes"
+        href="/(screens)/connect-nodes"
         iconName="add"
         backgroundColor="#1971c2"
         size={56}
