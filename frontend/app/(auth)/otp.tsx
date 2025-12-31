@@ -23,6 +23,8 @@ import { setPhoneNumberVerified } from '@/store';
 import { RootState } from '@/store/store';
 import { supabase } from '@/utils/supabase';
 import { setUserId } from '@/store/slices/auth/profileSlice';
+import * as Crypto from 'expo-crypto';
+
 
 const OTP_LENGTH = 6;
 const RESEND_TIMER_SECONDS = 30;
@@ -51,8 +53,7 @@ export default function OTPScreen() {
   }, [phoneNumber, countryCode]);
 
   const phoneForSupabase = phoneNumber;
-  const phoneForBackend = phoneNumber.replace(countryCode, '').replace(/^\+/, '');
-  const formattedPhoneForBackend = `${countryCode.replace(/^\+/, '')}-${phoneForBackend}`;
+  const phoneForBackend = phoneNumber;
 
   const maskedPhoneNumber = params.maskedPhoneNumber as string ||
     (phoneNumber.replace(/\D/g, '').length > 4
@@ -110,6 +111,38 @@ export default function OTPScreen() {
     setError('');
     inputRefs.current[0]?.focus();
   };
+
+  const normalizePhoneNumber = (phone: string): string => {
+  // Remove spaces, hyphens, brackets
+  const cleaned = phone.replace(/[^\d+]/g, "");
+
+  // Must start with +
+  if (!cleaned.startsWith("+")) {
+    throw new Error("Phone number must be in E.164 format");
+  }
+
+  // E.164 length: max 15 digits after +
+  const digits = cleaned.slice(1);
+  if (digits.length < 7 || digits.length > 15) {
+    throw new Error("Invalid E.164 phone number length");
+  }
+
+  return `+${digits}`;
+};
+
+
+  const hashPhoneNumber = async (phoneNumber: string): Promise<string> => {
+      try {
+        const hash = await Crypto.digestStringAsync(
+          Crypto.CryptoDigestAlgorithm.SHA256,
+          phoneNumber
+        );
+        return hash;
+      } catch (error) {
+        console.error('Error hashing phone number:', error);
+        throw error;
+      }
+    };
 
   const handleVerifyOTP = async () => {
     const otpString = otp.join('');
@@ -177,18 +210,33 @@ export default function OTPScreen() {
 
       // Step 5: Check if phone exists in backend
       console.log("Step 5: Checking phone in backend...");
-      console.log("Phone for backend:", formattedPhoneForBackend);
+      console.log("Phone for backend:", phoneForBackend);
+
+      const normalized = normalizePhoneNumber(phoneForBackend);
+      console.log("Normalized phone for hashing:", normalized);
+
+      const phoneHash = await hashPhoneNumber(normalized);
+      console.log("Phone hash for backend check:", phoneHash);
       
-      const checkResponse = await fetch(
-        `${backendUrl}/auth/check-phone-number?phone=${encodeURIComponent(formattedPhoneForBackend)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
-        }
-      );
+      // const checkResponse = await fetch(
+      //   `${backendUrl}/auth/check-phone-number?phone=${encodeURIComponent(phoneHash)}`,
+      //   {
+      //     method: 'GET',
+      //     headers: {
+      //       'Content-Type': 'application/json',
+      //       'Authorization': `Bearer ${accessToken}`,
+      //     },
+      //   }
+      // );
+
+      const checkResponse = await fetch(`${backendUrl}/auth/check-phone`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${accessToken}`,
+  },
+  body: JSON.stringify({ phone_hash: phoneHash }),
+});
 
       console.log("Backend check response status:", checkResponse.status);
 
@@ -211,7 +259,7 @@ export default function OTPScreen() {
         console.log("Step 6: Inserting new user in backend...");
 
         const insertResponse = await fetch(
-          `${backendUrl}/auth/insert-phone-number`,
+          `${backendUrl}/auth/insert-phone`,
           {
             method: 'POST',
             headers: { 
@@ -219,7 +267,7 @@ export default function OTPScreen() {
               'Authorization': `Bearer ${accessToken}`,
             },
             body: JSON.stringify({ 
-              phone_number: formattedPhoneForBackend, 
+              phone_hash: phoneHash, 
               user_id: userId,
               phone_verified: true
             }),
