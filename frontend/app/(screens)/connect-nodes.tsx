@@ -1,4 +1,5 @@
-// app/connect-nodes.tsx
+// app/(screens)/connect-nodes.tsx
+
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -16,6 +17,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import Header from '@/components/Header';
 import FloatingActionButton from '@/components/FloatingActionButton';
+import { supabase } from '@/utils/supabase';
+
+import { normalizePhoneNumber, hashPhoneNumber, debugPhoneNumber } from '@/utils/phoneUtils';
+
+import { getDeviceCountryDialCode } from '../../utils/countryCode';
 
 interface Contact {
   id: string;
@@ -37,39 +43,6 @@ export default function ConnectNodesScreen() {
 
   // Generate avatar colors
   const avatarColors = ['#FF6B6B', '#4ECDC4', '#FFD166', '#06D6A0', '#118AB2', '#EF476F', '#073B4C', '#7209B7'];
-
-  // Normalize phone number
-  const normalizePhoneNumber = (phoneNumber: string): string => {
-    let normalized = phoneNumber.replace(/[^\d+]/g, '');
-    
-    if (normalized.startsWith('0')) {
-      normalized = normalized.substring(1);
-    }
-    
-    if (!normalized.startsWith('+')) {
-      if (normalized.length === 10) {
-        normalized = '+91' + normalized;
-      } else if (normalized.length === 12 && normalized.startsWith('91')) {
-        normalized = '+' + normalized;
-      }
-    }
-    
-    return normalized;
-  };
-
-  // Hash phone number
-  const hashPhoneNumber = async (phoneNumber: string): Promise<string> => {
-    try {
-      const hash = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        phoneNumber
-      );
-      return hash;
-    } catch (error) {
-      console.error('Error hashing phone number:', error);
-      throw error;
-    }
-  };
 
   // Request contacts permission
   const requestContactsPermission = async () => {
@@ -97,6 +70,71 @@ export default function ConnectNodesScreen() {
     }
   };
 
+  // Send hashes to backend
+  const sendToBackend = async (hashedPhoneNumbers: string[]) => {
+    console.log('Sending hashes to backend:', hashedPhoneNumbers.length);
+
+    // Don't send if no valid contacts
+    if (hashedPhoneNumbers.length === 0) {
+      console.log('No valid contacts to match, skipping backend call');
+      return { success: true, data: { matched_contacts: [], count: 0 } };
+    }
+
+    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
+
+    if (!backendUrl) {
+      console.error('EXPO_PUBLIC_BACKEND_URL not set!');
+      Alert.alert('Error', 'Backend URL not configured.');
+      return { success: false };
+    }
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      if (!accessToken) {
+        console.error('No access token found');
+        Alert.alert('Error', 'Authentication required. Please log in again.');
+        return { success: false };
+      }
+
+      console.log('Fetching from:', `${backendUrl}/contacts/match-contacts`);
+
+      const response = await fetch(`${backendUrl}/contacts/match-contacts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ phone_hashes: hashedPhoneNumbers }),
+      });
+
+      console.log('Backend response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Backend response error:', errorText);
+        Alert.alert('Error', 'Failed to match contacts with backend.');
+        return { success: false };
+      }
+
+      const data = await response.json();
+      console.log('Matched contacts:', data.count);
+
+      return { 
+        success: true, 
+        data 
+      };
+    } catch (error) {
+      console.error('Backend request error:', error);
+      Alert.alert(
+        'Connection Error',
+        'Cannot connect to server. Please check your internet connection.'
+      );
+      return { success: false };
+    }
+  };
+
   // Fetch and process contacts
   const fetchContacts = async () => {
     if (!permissionGranted) {
@@ -107,6 +145,10 @@ export default function ConnectNodesScreen() {
     setLoading(true);
 
     try {
+      // Get device's country code for phone normalization
+      const defaultCountryCode = getDeviceCountryDialCode();
+      console.log('Using default country code:', defaultCountryCode);
+
       const { data } = await Contacts.getContactsAsync({
         fields: [Contacts.Fields.PhoneNumbers],
       });
@@ -118,21 +160,31 @@ export default function ConnectNodesScreen() {
           if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
             for (const phone of contact.phoneNumbers) {
               if (phone.number) {
-                const normalizedPhone = normalizePhoneNumber(phone.number);
+                // Use device's country code as default
+                const normalizedPhone = normalizePhoneNumber(phone.number, defaultCountryCode);
+
+                if (!normalizedPhone) {
+                  console.log('Skipping invalid phone:', phone.number);
+                  continue;
+                }
+                
+                // Debug first contact for verification
+                if (processedContacts.length === 0) {
+                  await debugPhoneNumber(phone.number, 'Connect Nodes - First Contact', defaultCountryCode);
+                }
                 
                 if (normalizedPhone.length >= 10) {
                   const hash = await hashPhoneNumber(normalizedPhone);
                   
-                  // Assign random color and registration status
+                  // Assign random color
                   const colorIndex = Math.floor(Math.random() * avatarColors.length);
-                  const isRegistered = Math.random() > 0.5; // Simulate registration status
                   
                   processedContacts.push({
-                    id: `${contact.id || 'contact'}-${Date.now()}-${Math.random()}`,
+                    id: `${contact.id}-${hash}`,
                     name: contact.name || 'Unknown',
                     phone: normalizedPhone,
-                    hash: hash,
-                    isRegistered: isRegistered,
+                    hash,
+                    isRegistered: false, // always false initially
                     isSelected: false,
                     avatarColor: avatarColors[colorIndex],
                   });
@@ -148,14 +200,41 @@ export default function ConnectNodesScreen() {
             index === self.findIndex((c) => c.hash === contact.hash)
         );
 
-        setContacts(uniqueContacts);
-        
-        // Filter to show only registered contacts for main list
-        const registeredContacts = uniqueContacts.filter(contact => contact.isRegistered);
-        setFilteredContacts(registeredContacts);
+        console.log('Total unique contacts:', uniqueContacts.length);
 
         // Send hashes to backend
-        await sendToBackend(uniqueContacts.map(c => c.hash));
+        const backendResponse = await sendToBackend(
+          uniqueContacts.map(c => c.hash)
+        );
+
+        if (!backendResponse?.success) {
+          console.warn('Backend match failed');
+          // Still show contacts, but mark all as not registered
+          setContacts(uniqueContacts);
+          setFilteredContacts(uniqueContacts.filter(c => c.isRegistered));
+          return;
+        }
+
+        // Get matched hashes from backend
+        const matchedHashes = new Set(
+          backendResponse.data.matched_contacts.map(
+            (u: any) => u.phone_number_hash
+          )
+        );
+
+        console.log('Matched hashes count:', matchedHashes.size);
+
+        // Update contacts with registration status
+        const finalContacts = uniqueContacts.map(c => ({
+          ...c,
+          isRegistered: matchedHashes.has(c.hash)
+        }));
+
+        setContacts(finalContacts);
+        setFilteredContacts(finalContacts.filter(c => c.isRegistered));
+
+        console.log('Registered contacts:', finalContacts.filter(c => c.isRegistered).length);
+
       } else {
         Alert.alert('No Contacts', 'No contacts found with phone numbers.');
       }
@@ -165,14 +244,6 @@ export default function ConnectNodesScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Send hashes to backend
-  const sendToBackend = async (hashedPhoneNumbers: string[]) => {
-    console.log('Sending hashes to backend:', hashedPhoneNumbers.length);
-    // Add your backend API call here
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return { success: true };
   };
 
   // Handle contact selection

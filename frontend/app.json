@@ -47,7 +47,8 @@
         {
           "contactsPermission": "Allow $(Whistle) to access your contacts."
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,

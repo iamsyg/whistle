@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi import Depends
 from app.services.db import get_connection
 from dotenv import load_dotenv
-from app.routes import auth
+from app.routes import auth, match_contacts
 
 app = FastAPI()
 load_dotenv()
@@ -31,3 +31,5 @@ def get_time(db=Depends(get_db)):
     return {"time": time}
 
 app.include_router(auth.router)
+app.include_router(match_contacts.router)
+

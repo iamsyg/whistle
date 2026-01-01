@@ -23,7 +23,8 @@ import { setPhoneNumberVerified } from '@/store';
 import { RootState } from '@/store/store';
 import { supabase } from '@/utils/supabase';
 import { setUserId } from '@/store/slices/auth/profileSlice';
-import * as Crypto from 'expo-crypto';
+
+import { normalizePhoneNumber, hashPhoneNumber, debugPhoneNumber } from '@/utils/phoneUtils';
 
 
 const OTP_LENGTH = 6;
@@ -112,37 +113,37 @@ export default function OTPScreen() {
     inputRefs.current[0]?.focus();
   };
 
-  const normalizePhoneNumber = (phone: string): string => {
-  // Remove spaces, hyphens, brackets
-  const cleaned = phone.replace(/[^\d+]/g, "");
+  //   const normalizePhoneNumber = (phone: string): string => {
+  //   // Remove spaces, hyphens, brackets
+  //   const cleaned = phone.replace(/[^\d+]/g, "");
 
-  // Must start with +
-  if (!cleaned.startsWith("+")) {
-    throw new Error("Phone number must be in E.164 format");
-  }
+  //   // Must start with +
+  //   if (!cleaned.startsWith("+")) {
+  //     throw new Error("Phone number must be in E.164 format");
+  //   }
 
-  // E.164 length: max 15 digits after +
-  const digits = cleaned.slice(1);
-  if (digits.length < 7 || digits.length > 15) {
-    throw new Error("Invalid E.164 phone number length");
-  }
+  //   // E.164 length: max 15 digits after +
+  //   const digits = cleaned.slice(1);
+  //   if (digits.length < 7 || digits.length > 15) {
+  //     throw new Error("Invalid E.164 phone number length");
+  //   }
 
-  return `+${digits}`;
-};
+  //   return `+${digits}`;
+  // };
 
 
-  const hashPhoneNumber = async (phoneNumber: string): Promise<string> => {
-      try {
-        const hash = await Crypto.digestStringAsync(
-          Crypto.CryptoDigestAlgorithm.SHA256,
-          phoneNumber
-        );
-        return hash;
-      } catch (error) {
-        console.error('Error hashing phone number:', error);
-        throw error;
-      }
-    };
+  // const hashPhoneNumber = async (phoneNumber: string): Promise<string> => {
+  //     try {
+  //       const hash = await Crypto.digestStringAsync(
+  //         Crypto.CryptoDigestAlgorithm.SHA256,
+  //         phoneNumber
+  //       );
+  //       return hash;
+  //     } catch (error) {
+  //       console.error('Error hashing phone number:', error);
+  //       throw error;
+  //     }
+  //   };
 
   const handleVerifyOTP = async () => {
     const otpString = otp.join('');
@@ -180,7 +181,7 @@ export default function OTPScreen() {
 
       const userId = data.user.id;
       console.log("✅ OTP verified successfully! User ID:", userId);
-      
+
       // Step 2: Update Redux state
       console.log("Step 2: Updating Redux state...");
 
@@ -213,11 +214,18 @@ export default function OTPScreen() {
       console.log("Phone for backend:", phoneForBackend);
 
       const normalized = normalizePhoneNumber(phoneForBackend);
-      console.log("Normalized phone for hashing:", normalized);
+
+      if (!normalized) {
+        throw new Error('Failed to normalize phone number');
+      }
+
+      console.log("Normalized phone:", normalized);
+
+      await debugPhoneNumber(phoneForBackend, 'OTP Screen');
 
       const phoneHash = await hashPhoneNumber(normalized);
-      console.log("Phone hash for backend check:", phoneHash);
-      
+      console.log("Phone hash:", phoneHash);
+
       // const checkResponse = await fetch(
       //   `${backendUrl}/auth/check-phone-number?phone=${encodeURIComponent(phoneHash)}`,
       //   {
@@ -230,13 +238,13 @@ export default function OTPScreen() {
       // );
 
       const checkResponse = await fetch(`${backendUrl}/auth/check-phone`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${accessToken}`,
-  },
-  body: JSON.stringify({ phone_hash: phoneHash }),
-});
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ phone_hash: phoneHash }),
+      });
 
       console.log("Backend check response status:", checkResponse.status);
 
@@ -262,12 +270,12 @@ export default function OTPScreen() {
           `${backendUrl}/auth/insert-phone`,
           {
             method: 'POST',
-            headers: { 
+            headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${accessToken}`,
             },
-            body: JSON.stringify({ 
-              phone_hash: phoneHash, 
+            body: JSON.stringify({
+              phone_hash: phoneHash,
               user_id: userId,
               phone_verified: true
             }),
@@ -293,9 +301,9 @@ export default function OTPScreen() {
       console.error('Error message:', err.message);
       console.error('Full error:', err);
       console.error('===========================');
-      
+
       let errorMessage = 'Verification failed. Please try again.';
-      
+
       if (err.message?.includes('expired')) {
         errorMessage = 'OTP has expired. Please request a new one.';
         setCanResend(true);
@@ -340,7 +348,7 @@ export default function OTPScreen() {
       console.log("✅ OTP resent successfully");
 
     } catch (err: any) {
-      
+
       console.error("Resend OTP error:", err);
       Alert.alert('Error', err?.message || 'Failed to resend OTP');
       setCanResend(true);
