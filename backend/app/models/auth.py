@@ -13,5 +13,6 @@ class CheckPhoneRequest(BaseModel):
 
 class InsertPhoneRequest(BaseModel):
     phone_hash: str
+    country_code: str
     user_id: str
     phone_verified: bool  # ✅ All fields needed for insert

@@ -25,6 +25,7 @@ def insert_phone(payload: InsertPhoneRequest):
     try:
         data = insert_phone_hash_and_user_id(
             payload.phone_hash,
+            payload.country_code,
             payload.user_id,
             payload.phone_verified,
         )
