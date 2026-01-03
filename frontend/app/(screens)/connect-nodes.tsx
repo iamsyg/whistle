@@ -22,6 +22,7 @@ import { supabase } from '@/utils/supabase';
 import { normalizePhoneNumber, hashPhoneNumber, debugPhoneNumber } from '@/utils/phoneUtils';
 
 import { getDeviceCountryDialCode } from '../../utils/countryCode';
+import { routeToScreen } from 'expo-router/build/useScreens';
 
 interface Contact {
   id: string;
@@ -329,6 +330,7 @@ export default function ConnectNodesScreen() {
   const resetSelection = () => {
     setContacts(prev => prev.map(c => ({ ...c, isSelected: false })));
     setSelectedContacts([]);
+    router.push('/(screens)/chatScreen');
   };
 
   // Get floating button configuration
