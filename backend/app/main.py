@@ -6,6 +6,7 @@ from fastapi import Depends
 from app.services.db import get_connection
 from dotenv import load_dotenv
 from app.routes import auth, match_contacts
+from app.routes import chat_ws, chat
 
 app = FastAPI()
 load_dotenv()
@@ -32,4 +33,6 @@ def get_time(db=Depends(get_db)):
 
 app.include_router(auth.router)
 app.include_router(match_contacts.router)
+app.include_router(chat.router)
+app.include_router(chat_ws.router)
 
