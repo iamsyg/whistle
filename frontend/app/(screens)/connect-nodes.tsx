@@ -23,6 +23,7 @@ import { normalizePhoneNumber, hashPhoneNumber, debugPhoneNumber } from '@/utils
 
 import { getDeviceCountryDialCode } from '../../utils/countryCode';
 import { routeToScreen } from 'expo-router/build/useScreens';
+import UserCard from '@/components/UserCard';
 
 interface Contact {
   id: string;
@@ -49,7 +50,7 @@ export default function ConnectNodesScreen() {
   const requestContactsPermission = async () => {
     try {
       const { status } = await Contacts.requestPermissionsAsync();
-      
+
       if (status === 'granted') {
         setPermissionGranted(true);
         return true;
@@ -122,9 +123,9 @@ export default function ConnectNodesScreen() {
       const data = await response.json();
       console.log('Matched contacts:', data.count);
 
-      return { 
-        success: true, 
-        data 
+      return {
+        success: true,
+        data
       };
     } catch (error) {
       console.error('Backend request error:', error);
@@ -168,18 +169,18 @@ export default function ConnectNodesScreen() {
                   console.log('Skipping invalid phone:', phone.number);
                   continue;
                 }
-                
+
                 // Debug first contact for verification
                 if (processedContacts.length === 0) {
                   await debugPhoneNumber(phone.number, 'Connect Nodes - First Contact', defaultCountryCode);
                 }
-                
+
                 if (normalizedPhone.length >= 10) {
                   const hash = await hashPhoneNumber(normalizedPhone);
-                  
+
                   // Assign random color
                   const colorIndex = Math.floor(Math.random() * avatarColors.length);
-                  
+
                   processedContacts.push({
                     id: `${contact.id}-${hash}`,
                     name: contact.name || 'Unknown',
@@ -256,8 +257,8 @@ export default function ConnectNodesScreen() {
         `Invite ${contact.name} to join the app?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Send Invite', 
+          {
+            text: 'Send Invite',
             onPress: () => handleInviteContact(contact)
           }
         ]
@@ -265,7 +266,7 @@ export default function ConnectNodesScreen() {
       return;
     }
 
-    const updatedContacts = contacts.map(c => 
+    const updatedContacts = contacts.map(c =>
       c.id === contact.id ? { ...c, isSelected: !c.isSelected } : c
     );
     setContacts(updatedContacts);
@@ -298,8 +299,8 @@ export default function ConnectNodesScreen() {
         `Start a chat with ${contact.name}?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Start Chat', 
+          {
+            text: 'Start Chat',
             onPress: () => {
               console.log('Starting chat with:', contact.name);
               resetSelection();
@@ -314,8 +315,8 @@ export default function ConnectNodesScreen() {
         `Create a group chat with ${selectedContacts.length} people?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Create Group', 
+          {
+            text: 'Create Group',
             onPress: () => {
               console.log('Creating group with:', selectedContacts.map(c => c.name));
               resetSelection();
@@ -344,62 +345,13 @@ export default function ConnectNodesScreen() {
     }
   };
 
-  // Render contact item
   const renderContactItem = ({ item }: { item: Contact }) => (
-    <TouchableOpacity
-      style={styles.contactItem}
-      onPress={() => handleContactSelect(item)}
-      activeOpacity={0.7}
-    >
-      {/* Avatar/Selection Circle */}
-      <View style={[
-        styles.avatarContainer,
-        { backgroundColor: item.avatarColor },
-        item.isRegistered && item.isSelected && styles.selectedAvatar,
-      ]}>
-        {item.isRegistered ? (
-          <>
-            <Text style={styles.avatarText}>
-              {item.name.charAt(0).toUpperCase()}
-            </Text>
-            {item.isSelected && (
-              <View style={styles.selectedCheckmark}>
-                <Ionicons name="checkmark" size={16} color="white" />
-              </View>
-            )}
-          </>
-        ) : (
-          <Ionicons name="person-add-outline" size={24} color="white" />
-        )}
-      </View>
-
-      {/* Contact Info */}
-      <View style={styles.contactInfo}>
-        <Text style={styles.contactName}>{item.name}</Text>
-        <Text style={styles.contactPhone}>{item.phone}</Text>
-        {!item.isRegistered && (
-          <Text style={styles.inviteLabel}>Invite to app</Text>
-        )}
-      </View>
-
-      {/* Action Button for non-registered contacts */}
-      {!item.isRegistered && (
-        <TouchableOpacity
-          style={styles.inviteButton}
-          onPress={() => handleInviteContact(item)}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="send" size={18} color="#1971c2" />
-          <Text style={styles.inviteButtonText}>Invite</Text>
-        </TouchableOpacity>
-      )}
-    </TouchableOpacity>
+    <UserCard
+      contact={item}
+      onPress={handleContactSelect}
+      onInvite={handleInviteContact}
+    />
   );
-
-  // Generate unique key for each contact
-  const getContactKey = (contact: Contact, index: number) => {
-    return `${contact.id}-${index}`;
-  };
 
   // Check permission on mount
   useEffect(() => {
@@ -419,7 +371,7 @@ export default function ConnectNodesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
-      <Header 
+      <Header
         title="Connect Nodes"
         searchPlaceholder="Search contacts..."
         onSearch={(query) => console.log('Search contacts:', query)}
@@ -460,7 +412,7 @@ export default function ConnectNodesScreen() {
           <FlatList
             data={contacts}
             renderItem={renderContactItem}
-            keyExtractor={(item, index) => getContactKey(item, index)}
+            keyExtractor={(item) => item.id}
             contentContainerStyle={styles.contactsList}
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={
@@ -491,20 +443,6 @@ export default function ConnectNodesScreen() {
                 <Text style={styles.emptyStateText}>
                   Sync your contacts to find friends
                 </Text>
-                <TouchableOpacity
-                  style={styles.syncContactsButton}
-                  onPress={fetchContacts}
-                  disabled={syncing}
-                >
-                  {syncing ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <>
-                      <Ionicons name="sync" size={20} color="white" />
-                      <Text style={styles.syncContactsButtonText}>Sync Contacts</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
               </View>
             }
           />
