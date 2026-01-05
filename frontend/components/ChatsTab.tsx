@@ -9,7 +9,8 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import MessageBubble from './MessageBubble';
+// import MessageBubble from './MessageBubble';
+import MessageLayout from './MessageLayout';
 
 interface Message {
   id: string;
@@ -17,7 +18,7 @@ interface Message {
   senderId: string;
   timestamp: Date;
   isRead: boolean;
-  type: 'text' | 'image' | 'document' | 'task' | 'split';
+  type: 'text' | 'image' | 'document' //| 'task' | 'split';
   metadata?: any;
 }
 
@@ -95,7 +96,13 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
   };
 
   const renderMessage = ({ item }: { item: Message }) => (
-    <MessageBubble
+    // <MessageBubble
+    //   message={item}
+    //   isOwnMessage={item.senderId === 'me'}
+    //   isDarkMode={isDarkMode}
+    // />
+
+    <MessageLayout
       message={item}
       isOwnMessage={item.senderId === 'me'}
       isDarkMode={isDarkMode}
