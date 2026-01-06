@@ -7,7 +7,7 @@ from app.utils.secure_route import verify_jwt_token
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
-@router.post("/direct/{receiver_id}")
+@router.post("/direct/send/{receiver_id}")
 async def send_message_endpoint(
     receiver_id: str,
     content: str = Body(..., embed=True),
@@ -26,7 +26,7 @@ async def send_message_endpoint(
     return message
 
 
-@router.get("/direct/{chat_user_id}")
+@router.get("/direct/get/{chat_user_id}")
 async def get_messages_endpoint(
     chat_user_id: str,
     sender_id: str = Depends(verify_jwt_token)

@@ -198,7 +198,7 @@ export default function OTPScreen() {
         console.error("No access token found");
         throw new Error('No access token found');
       }
-      console.log("✅ Access token obtained");
+      console.log("✅ Access token obtained:", accessToken);
 
       // Step 4: Check backend connectivity
       const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;

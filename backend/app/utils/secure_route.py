@@ -1,26 +1,29 @@
 # app/middlewares/secure_route.py
 
-import jwt
-from fastapi import HTTPException, status
-from app.models.config import settings
+from fastapi import Header, HTTPException, status
+from app.utils.supabase_client import supabase
 
-def verify_jwt_token(token: str) -> str:
-    """Verify JWT and return user_id"""
-    try:
-        # Use your Supabase JWT secret
-        payload = jwt.decode(
-            token, 
-            settings.SUPABASE_JWT_SECRET, 
-            algorithms=["HS256"],
-            audience="authenticated"
+async def verify_jwt_token(
+    authorization: str = Header(...)
+) -> str:
+    """
+    Verify Supabase JWT and return user_id
+    """
+
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format"
         )
 
-        if "sub" not in payload:
-            raise HTTPException(status_code=401, detail="Invalid token payload")
-        
-        return payload.get("sub")  # user_id
-    
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    token = authorization.split(" ")[1]
+
+    user_res = supabase.auth.get_user(token)
+
+    if user_res.user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+
+    return user_res.user.id  # ← VERIFIED user_id

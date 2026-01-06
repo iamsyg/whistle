@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { setMessages } from "@/store/slices/message/conversationSlice";
+import { supabase } from "@/utils/supabase";
 
 const useGetMessage = () => {
     const [loading, setLoading] = useState(false);
@@ -29,9 +30,18 @@ const useGetMessage = () => {
             try {
 
                 setLoading(true);
+                const { data: sessionData } = await supabase.auth.getSession();
+                const accessToken = sessionData?.session?.access_token;
 
                 const res = await fetch(
-                    `${process.env.EXPO_PUBLIC_BACKEND_URL}/direct/${selectedConversationId}`
+                    `${process.env.EXPO_PUBLIC_BACKEND_URL}/direct/send/${selectedConversationId}`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${accessToken}`,
+                    }
+                }
+
                 );
 
                 const data = await res.json();

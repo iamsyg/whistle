@@ -14,7 +14,7 @@ async def send_direct_message(
     """
 
     # 1. Get or create direct chat
-    chat_res = await supabase.rpc(
+    chat_res = supabase.rpc(
         "get_or_create_direct_chat",
         {
             "u1": sender_id,
@@ -30,7 +30,7 @@ async def send_direct_message(
     chat_id = chat["id"]
 
     # 2. Verify sender is member (safety check)
-    member_res = await supabase.table("chat_members") \
+    member_res =  supabase.table("chat_members") \
         .select("chat_id") \
         .eq("chat_id", chat_id) \
         .eq("user_id", sender_id) \
@@ -41,7 +41,7 @@ async def send_direct_message(
         raise HTTPException(status_code=403, detail="Not a member of this chat")
 
     # 3. Insert message
-    msg_res = await supabase.table("messages").insert({
+    msg_res =  supabase.table("messages").insert({
         "chat_id": chat_id,
         "sender_id": sender_id,
         "content": content
@@ -63,7 +63,7 @@ async def get_direct_messages(
     """
 
     # 1. Find existing direct chat
-    chat_res = await supabase.table("chat") \
+    chat_res = supabase.table("chat") \
         .select("id") \
         .eq("type", "direct") \
         .or_(
@@ -80,7 +80,7 @@ async def get_direct_messages(
     chat_id = chat_res.data[0]["id"]
 
     # 2. Verify sender is still a member
-    member_res = await supabase.table("chat_members") \
+    member_res =  supabase.table("chat_members") \
         .select("chat_id") \
         .eq("chat_id", chat_id) \
         .eq("user_id", sender_id) \
@@ -91,7 +91,7 @@ async def get_direct_messages(
         raise HTTPException(status_code=403, detail="Not a member of this chat")
 
     # 3. Fetch messages
-    messages_res = await supabase.table("messages") \
+    messages_res =  supabase.table("messages") \
         .select("*") \
         .eq("chat_id", chat_id) \
         .is_("deleted_at", None) \
