@@ -1,4 +1,5 @@
-# app/utils/auth.py
+# app/middlewares/secure_route.py
+
 import jwt
 from fastapi import HTTPException, status
 from app.models.config import settings
@@ -13,7 +14,12 @@ def verify_jwt_token(token: str) -> str:
             algorithms=["HS256"],
             audience="authenticated"
         )
+
+        if "sub" not in payload:
+            raise HTTPException(status_code=401, detail="Invalid token payload")
+        
         return payload.get("sub")  # user_id
+    
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:

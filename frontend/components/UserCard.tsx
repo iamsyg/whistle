@@ -3,6 +3,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useDispatch, useSelector } from 'react-redux';
+import { setSelectedConversationId } from '@/store/slices/message/conversationSlice';
+import { RootState } from '@/store/store';
 
 export interface Contact {
   id: string;
@@ -21,11 +24,24 @@ interface UserCardProps {
 }
 
 const UserCard: React.FC<UserCardProps> = ({ contact, onPress, onInvite }) => {
+
+  const dispatch = useDispatch();
+
+  const selectedConversationId = useSelector(
+    (state: RootState) => state.conversation.selectedConversationId
+  );
+
+  const isSelected = selectedConversationId === contact.id;
+
+  const handlePress = () => {
+    dispatch(setSelectedConversationId(contact.id));
+  };
+
   return (
     <TouchableOpacity
       style={styles.contactItem}
       activeOpacity={0.7}
-      onPress={() => onPress(contact)}
+      onPress={() => {onPress(contact); handlePress();}}
     >
       {/* Avatar */}
       <View

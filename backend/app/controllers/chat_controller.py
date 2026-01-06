@@ -1,49 +1,101 @@
-# # app/controllers/chat_controller.py
+# app/controllers/chat_controller.py
 
-# from app.utils.supabase_client import supabase
-
-# def create_direct_chat(user_ids: list[str], creator_id: str) -> dict:
-#     """
-#     Create a direct chat between 2 users
-#     """
-
-#     if len(user_ids) != 2:
-#         raise ValueError("Direct chat must have exactly 2 users")
-
-#     user1, user2 = user_ids
-
-#     res = supabase.rpc("get_or_create_direct_chat", {
-#         "u1": user1,
-#         "u2": user2,
-#         "creator": creator_id
-#     }).execute()
-
-#     if not res.data:
-#         raise RuntimeError("Failed to create or fetch direct chat")
-
-#     return res.data[0]
+from fastapi import HTTPException
+from app.utils.supabase_client import supabase
 
 
+async def send_direct_message(
+    sender_id: str,
+    receiver_id: str,
+    content: str
+):
+    """
+    Send a direct message between sender and receiver
+    """
 
-# def save_message(chat_id: str, sender_id: str, content: str) -> dict:
-#     """
-#     Persist message to DB
-#     """
+    # 1. Get or create direct chat
+    chat_res = await supabase.rpc(
+        "get_or_create_direct_chat",
+        {
+            "u1": sender_id,
+            "u2": receiver_id,
+            "creator": sender_id
+        }
+    ).execute()
 
-#     membership = supabase.table("chat_members") \
-#         .select("chat_id") \
-#         .eq("chat_id", chat_id) \
-#         .eq("user_id", sender_id) \
-#         .is_("left_at", None) \
-#         .execute()
+    if not chat_res.data:
+        raise HTTPException(status_code=500, detail="Failed to get or create chat")
 
-#     if not membership.data:
-#         raise PermissionError("User is not a member of this chat")
-    
-#     res = supabase.table("messages").insert({
-#         "chat_id": chat_id,
-#         "sender_id": sender_id,
-#         "content": content,
-#     }).execute()
+    chat = chat_res.data
+    chat_id = chat["id"]
 
-#     return res.data[0]
+    # 2. Verify sender is member (safety check)
+    member_res = await supabase.table("chat_members") \
+        .select("chat_id") \
+        .eq("chat_id", chat_id) \
+        .eq("user_id", sender_id) \
+        .is_("left_at", None) \
+        .execute()
+
+    if not member_res.data:
+        raise HTTPException(status_code=403, detail="Not a member of this chat")
+
+    # 3. Insert message
+    msg_res = await supabase.table("messages").insert({
+        "chat_id": chat_id,
+        "sender_id": sender_id,
+        "content": content
+    }).execute()
+
+    if not msg_res.data:
+        raise HTTPException(status_code=500, detail="Failed to send message")
+
+    return msg_res.data[0]
+
+
+
+async def get_direct_messages(
+    sender_id: str,
+    chat_user_id: str
+):
+    """
+    Fetch all messages in a direct chat between sender and chat_user
+    """
+
+    # 1. Find existing direct chat
+    chat_res = await supabase.table("chat") \
+        .select("id") \
+        .eq("type", "direct") \
+        .or_(
+            f"and(user1.eq.{sender_id},user2.eq.{chat_user_id}),"
+            f"and(user1.eq.{chat_user_id},user2.eq.{sender_id})"
+        ) \
+        .limit(1) \
+        .execute()
+
+    # If no conversation → return empty array (same as Mongo logic)
+    if not chat_res.data:
+        return []
+
+    chat_id = chat_res.data[0]["id"]
+
+    # 2. Verify sender is still a member
+    member_res = await supabase.table("chat_members") \
+        .select("chat_id") \
+        .eq("chat_id", chat_id) \
+        .eq("user_id", sender_id) \
+        .is_("left_at", None) \
+        .execute()
+
+    if not member_res.data:
+        raise HTTPException(status_code=403, detail="Not a member of this chat")
+
+    # 3. Fetch messages
+    messages_res = await supabase.table("messages") \
+        .select("*") \
+        .eq("chat_id", chat_id) \
+        .is_("deleted_at", None) \
+        .order("created_at", desc=False) \
+        .execute()
+
+    return messages_res.data
