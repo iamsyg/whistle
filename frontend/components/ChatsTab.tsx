@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 // import MessageBubble from './MessageBubble';
 import MessageLayout from './MessageLayout';
+import useGetMessage from '@/contexts/getMessage';
 
 interface Message {
   id: string;
@@ -27,8 +28,8 @@ interface ChatsTabProps {
 }
 
 const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [messages_1, setMessages_1] = useState<Message[]>([]);
+  const [loading_1, setLoading_1] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
@@ -132,15 +133,18 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
     },
   ];
 
+  const { loading, messages } = useGetMessage();
+  console.log('Messages in ChatsTab:', messages);
+
   useEffect(() => {
     loadMessages();
   }, []);
 
   const loadMessages = () => {
-    setLoading(true);
+    setLoading_1(true);
     setTimeout(() => {
-      setMessages(mockMessages);
-      setLoading(false);
+      setMessages_1(mockMessages);
+      setLoading_1(false);
     }, 500);
   };
 
@@ -178,14 +182,14 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {loading ? (
-        <View style={styles.loadingContainer}>
+      {loading_1 ? (
+        <View style={styles.loading_1Container}>
           <ActivityIndicator size="large" color={isDarkMode ? '#00A884' : '#008069'} />
         </View>
       ) : (
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={messages_1}
           renderItem={renderMessage}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messagesList}
@@ -200,7 +204,7 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
             />
           }
           onContentSizeChange={() => {
-            if (messages.length > 0) {
+            if (messages_1.length > 0) {
               flatListRef.current?.scrollToEnd({ animated: true });
             }
           }}
@@ -214,7 +218,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  loadingContainer: {
+  loading_1Container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',

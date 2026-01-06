@@ -6,16 +6,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { setSelectedConversationId } from '@/store/slices/message/conversationSlice';
 import { RootState } from '@/store/store';
+import { Contact } from '@/types/contact';
 
-export interface Contact {
-  id: string;
-  name: string;
-  phone: string;
-  hash: string;
-  isRegistered: boolean;
-  isSelected: boolean;
-  avatarColor: string;
-}
+// export interface Contact {
+//   contactId: string;      // local/contact/hash id
+//   profileId?: string;     // UUID from backend (ONLY if registered)
+//   name: string;
+//   phone: string;
+//   hash: string;
+//   isRegistered: boolean;
+//   isSelected: boolean;
+//   avatarColor: string;
+// }
 
 interface UserCardProps {
   contact: Contact;
@@ -31,17 +33,23 @@ const UserCard: React.FC<UserCardProps> = ({ contact, onPress, onInvite }) => {
     (state: RootState) => state.conversation.selectedConversationId
   );
 
-  const isSelected = selectedConversationId === contact.id;
+  const isSelected = contact.profileId && selectedConversationId === contact.profileId;
 
   const handlePress = () => {
-    dispatch(setSelectedConversationId(contact.id));
-  };
+
+  if (!contact.isRegistered || !contact.profileId) return;
+  dispatch(setSelectedConversationId(contact.profileId));
+};
 
   return (
     <TouchableOpacity
       style={styles.contactItem}
       activeOpacity={0.7}
-      onPress={() => {onPress(contact); handlePress();}}
+      onPress={() => {
+        if (!contact.isRegistered) return;
+        onPress(contact);
+        handlePress();
+      }}
     >
       {/* Avatar */}
       <View

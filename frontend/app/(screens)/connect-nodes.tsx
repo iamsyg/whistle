@@ -25,15 +25,8 @@ import { getDeviceCountryDialCode } from '../../utils/countryCode';
 import { routeToScreen } from 'expo-router/build/useScreens';
 import UserCard from '@/components/UserCard';
 
-interface Contact {
-  id: string;
-  name: string;
-  phone: string;
-  hash: string;
-  isRegistered: boolean;
-  isSelected: boolean;
-  avatarColor: string;
-}
+import { Contact } from '@/types/contact';
+import { MatchedContact } from '@/types/contact';
 
 export default function ConnectNodesScreen() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -182,7 +175,7 @@ export default function ConnectNodesScreen() {
                   const colorIndex = Math.floor(Math.random() * avatarColors.length);
 
                   processedContacts.push({
-                    id: `${contact.id}-${hash}`,
+                    contactId: `${contact.id}-${hash}`,
                     name: contact.name || 'Unknown',
                     phone: normalizedPhone,
                     hash,
@@ -217,19 +210,19 @@ export default function ConnectNodesScreen() {
           return;
         }
 
-        // Get matched hashes from backend
-        const matchedHashes = new Set(
-          backendResponse.data.matched_contacts.map(
-            (u: any) => u.phone_number_hash
-          )
+        const matchedContacts = backendResponse.data.matched_contacts as MatchedContact[];
+
+        const matchedMap = new Map<string, string>(
+          matchedContacts.map(u => [u.phone_number_hash, u.id])
         );
 
-        console.log('Matched hashes count:', matchedHashes.size);
+        console.log('Matched hashes count:', matchedMap.size);
 
         // Update contacts with registration status
-        const finalContacts = uniqueContacts.map(c => ({
+        const finalContacts: Contact[] = uniqueContacts.map(c => ({
           ...c,
-          isRegistered: matchedHashes.has(c.hash)
+          isRegistered: matchedMap.has(c.hash),
+          profileId: matchedMap.get(c.hash), // string | undefined ✅
         }));
 
         setContacts(finalContacts);
@@ -267,14 +260,14 @@ export default function ConnectNodesScreen() {
     }
 
     const updatedContacts = contacts.map(c =>
-      c.id === contact.id ? { ...c, isSelected: !c.isSelected } : c
+      c.contactId === contact.contactId ? { ...c, isSelected: !c.isSelected } : c
     );
     setContacts(updatedContacts);
 
     // Update selected contacts list
     const isCurrentlySelected = contact.isSelected;
     if (isCurrentlySelected) {
-      setSelectedContacts(prev => prev.filter(c => c.id !== contact.id));
+      setSelectedContacts(prev => prev.filter(c => c.contactId !== contact.contactId));
     } else {
       setSelectedContacts(prev => [...prev, { ...contact, isSelected: true }]);
     }
@@ -412,7 +405,7 @@ export default function ConnectNodesScreen() {
           <FlatList
             data={contacts}
             renderItem={renderContactItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.contactId}
             contentContainerStyle={styles.contactsList}
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={

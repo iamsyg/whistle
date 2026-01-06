@@ -15,11 +15,9 @@ const useGetMessage = () => {
         (state: RootState) => state.conversation.selectedConversationId
     );
 
-
     const messages = useSelector(
         (state: RootState) => state.conversation.messages
     );
-
 
     useEffect(() => {
 
@@ -28,20 +26,23 @@ const useGetMessage = () => {
         const getMessages = async () => {
 
             try {
-
                 setLoading(true);
                 const { data: sessionData } = await supabase.auth.getSession();
                 const accessToken = sessionData?.session?.access_token;
 
+                if (!accessToken) {
+                    console.log("No access token found: /frontend/contexts/getMessage.ts");
+                    setLoading(false);
+                    return;
+                }
+
                 const res = await fetch(
-                    `${process.env.EXPO_PUBLIC_BACKEND_URL}/direct/send/${selectedConversationId}`, {
-                    method: "POST",
+                    `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/get/${selectedConversationId}`, {
+                    method: "GET",
                     headers: {
-                        "Content-Type": "application/json",
                         Authorization: `Bearer ${accessToken}`,
                     }
                 }
-
                 );
 
                 const data = await res.json();
