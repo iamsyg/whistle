@@ -6,7 +6,7 @@ export interface messageState {
   id: string;
   text: string;
   senderId: string;
-  timestamp: Date;
+  timestamp: string;
   isRead: boolean;
   type: 'text' | 'image' | 'document' //| 'task' | 'split';
   metadata?: any;
@@ -16,7 +16,7 @@ const initialState: messageState = {
     id: '',
     text: '',
     senderId: '',
-    timestamp: new Date(),
+    timestamp: new Date().toISOString(),
     isRead: false,
     type: 'text',
     metadata: {},
@@ -35,8 +35,8 @@ const messageSlice = createSlice({
     setMessageSenderId: (state, action: PayloadAction<string>) => {
       state.senderId = action.payload;
     },
-    setMessageTimestamp: (state, action: PayloadAction<Date>) => {
-      state.timestamp = action.payload;
+    setMessageTimestamp: (state, action: PayloadAction<string>) => {
+    state.timestamp = action.payload;
     },
     setMessageIsRead: (state, action: PayloadAction<boolean>) => {
       state.isRead = action.payload;
@@ -51,7 +51,7 @@ const messageSlice = createSlice({
       state.id = '';
       state.text = '';
       state.senderId = '';
-      state.timestamp = new Date();
+      state.timestamp = new Date().toISOString();
       state.isRead = false;
       state.type = 'text';
       state.metadata = {};
