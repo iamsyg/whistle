@@ -17,16 +17,6 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { FrontendMessage } from '@/types/frontend/message';
 
-// interface Message {
-//   id: string;
-//   text: string;
-//   senderId: string;
-//   timestamp: Date;
-//   isRead: boolean;
-//   type: 'text' | 'image' | 'document' //| 'task' | 'split';
-//   metadata?: any;
-// }
-
 interface ChatsTabProps {
   isDarkMode?: boolean;
 }
@@ -139,10 +129,26 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
   const myProfileId = useSelector((state: RootState) => state.profile.userId);
 
 
-  const uiMessages = useMemo(
-    () => backendMessages.map((m) => mapBackendMessageToUI(m, myProfileId)),
-    [backendMessages, myProfileId]
+  // const uiMessages = useMemo(
+  //   () => backendMessages.map((m) => mapBackendMessageToUI(m, myProfileId)),
+  //   [backendMessages, myProfileId]
+  // );
+
+  const uiMessages = useMemo(() => {
+  if (!myProfileId) return [];
+  return backendMessages.map((m) =>
+    mapBackendMessageToUI(m, myProfileId)
   );
+}, [backendMessages, myProfileId]);
+
+
+  useEffect(() => {
+  console.log('🧑 My Profile ID:', myProfileId);
+  backendMessages.forEach((m) => {
+    console.log('📨 Message sender:', m.sender_id);
+  });
+}, [backendMessages, myProfileId]);
+
 
   useEffect(() => {
     if (uiMessages.length > 0) {
@@ -187,7 +193,7 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {loading ? (
+      {loading && !myProfileId ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={isDarkMode ? '#00A884' : '#008069'} />
         </View>

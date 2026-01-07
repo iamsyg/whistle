@@ -7,6 +7,7 @@ import { SplashScreen } from 'expo-router';
 import { Provider } from 'react-redux';
 import { store } from '../store/store';
 import { useEffect } from 'react';
+import AuthBootstrap from '../components/AuthBootstrap';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -19,6 +20,7 @@ export default function RootLayout() {
   return (
     <Provider store={store}>
       <SafeAreaProvider>
+        <AuthBootstrap />
         <View style={styles.container}>
           <Stack screenOptions={{ headerShown: false }}>
             {/* Always load tabs – auth is bypassed */}
