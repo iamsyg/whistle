@@ -6,8 +6,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { setMessages } from "@/store/slices/message/conversationSlice";
 import { supabase } from "@/utils/supabase";
+import { BackendMessage } from "@/types/backend/message";
 
-const useGetMessage = () => {
+interface MessageState {
+  loading: boolean;
+  messages: BackendMessage[];
+}
+
+function useGetMessage(): MessageState {
     const [loading, setLoading] = useState(false);
     const dispatch = useDispatch();
 
@@ -45,12 +51,17 @@ const useGetMessage = () => {
                 }
                 );
 
-                const data = await res.json();
+                if(!res.ok) {
+                    throw new Error("Failed to fetch messages: /chat/direct/get/{} not working");
+                }
+
+                const data: BackendMessage[] = await res.json();
 
                 dispatch(setMessages(data));
-                setLoading(false);
             } catch (error) {
                 console.log("Error in getting messages", error);
+                setLoading(false);
+            } finally {
                 setLoading(false);
             }
         };

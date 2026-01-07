@@ -1,11 +1,11 @@
 // store/slices/chat/conversationSlice.ts
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { messageState } from "./messageSlice";
+import { BackendMessage } from '@/types/backend/message';
 
 interface ConversationState {
   selectedConversationId: string | null;
-  messages: messageState[];
+  messages: BackendMessage[];
 }
 
 const initialState: ConversationState = {
@@ -24,10 +24,10 @@ const conversationSlice = createSlice({
       state.selectedConversationId = action.payload;
       state.messages = []; // reset on switch (important)
     },
-    setMessages: (state, action: PayloadAction<messageState[]>) => {
+    setMessages: (state, action: PayloadAction<BackendMessage[]>) => {
       state.messages = action.payload;
     },
-    addMessage: (state, action: PayloadAction<messageState>) => {
+    addMessage: (state, action: PayloadAction<BackendMessage>) => {
       state.messages.push(action.payload);
     },
     clearConversation: (state) => {
