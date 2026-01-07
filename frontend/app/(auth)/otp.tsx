@@ -113,38 +113,6 @@ export default function OTPScreen() {
     inputRefs.current[0]?.focus();
   };
 
-  //   const normalizePhoneNumber = (phone: string): string => {
-  //   // Remove spaces, hyphens, brackets
-  //   const cleaned = phone.replace(/[^\d+]/g, "");
-
-  //   // Must start with +
-  //   if (!cleaned.startsWith("+")) {
-  //     throw new Error("Phone number must be in E.164 format");
-  //   }
-
-  //   // E.164 length: max 15 digits after +
-  //   const digits = cleaned.slice(1);
-  //   if (digits.length < 7 || digits.length > 15) {
-  //     throw new Error("Invalid E.164 phone number length");
-  //   }
-
-  //   return `+${digits}`;
-  // };
-
-
-  // const hashPhoneNumber = async (phoneNumber: string): Promise<string> => {
-  //     try {
-  //       const hash = await Crypto.digestStringAsync(
-  //         Crypto.CryptoDigestAlgorithm.SHA256,
-  //         phoneNumber
-  //       );
-  //       return hash;
-  //     } catch (error) {
-  //       console.error('Error hashing phone number:', error);
-  //       throw error;
-  //     }
-  //   };
-
   const handleVerifyOTP = async () => {
     const otpString = otp.join('');
 
@@ -191,8 +159,20 @@ export default function OTPScreen() {
       // Step 3: Get access token
       console.log("Step 3: Getting access token...");
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      // const { data: sessionData } = await supabase.auth.getSession();
+      // const accessToken = sessionData?.session?.access_token;
+
+      const getFreshAccessToken = async () => {
+        const { data, error } = await supabase.auth.refreshSession();
+
+        if (error || !data.session?.access_token) {
+          throw new Error('Unable to refresh session');
+        }
+
+        return data.session.access_token;
+      };
+
+      const accessToken = await getFreshAccessToken();
 
       if (!accessToken) {
         console.error("No access token found");
