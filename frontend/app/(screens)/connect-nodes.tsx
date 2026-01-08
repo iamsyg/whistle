@@ -1,6 +1,5 @@
 // app/(screens)/connect-nodes.tsx
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,38 +11,49 @@ import {
   FlatList,
 } from 'react-native';
 import * as Contacts from 'expo-contacts';
-import * as Crypto from 'expo-crypto';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useDispatch, useSelector } from 'react-redux';
+
 import Header from '@/components/Header';
 import FloatingActionButton from '@/components/FloatingActionButton';
-import { supabase } from '@/utils/supabase';
-
-import { normalizePhoneNumber, hashPhoneNumber, debugPhoneNumber } from '@/utils/phoneUtils';
-
-import { getDeviceCountryDialCode } from '../../utils/countryCode';
-import { routeToScreen } from 'expo-router/build/useScreens';
 import UserCard from '@/components/UserCard';
-
-import { Contact } from '@/types/contact';
-import { MatchedContact } from '@/types/contact';
+import { supabase } from '@/utils/supabase';
+import { normalizePhoneNumber, hashPhoneNumber, debugPhoneNumber } from '@/utils/phoneUtils';
+import { getDeviceCountryDialCode } from '@/utils/countryCode';
+import { setContacts, setContactsLoading } from '@/store/slices/contacts/contactsSlice';
+import { RootState } from '@/store/store';
+import { Contact, MatchedContact } from '@/types/contact';
 
 export default function ConnectNodesScreen() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [filteredContacts, setFilteredContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [selectedContacts, setSelectedContacts] = useState<Contact[]>([]);
 
-  // Generate avatar colors
-  const avatarColors = ['#FF6B6B', '#4ECDC4', '#FFD166', '#06D6A0', '#118AB2', '#EF476F', '#073B4C', '#7209B7'];
+  const dispatch = useDispatch();
+  const contacts = useSelector((state: RootState) => state.contacts.all);
+  
+  // ✅ Memoized to prevent unnecessary recalculations
+  const selectedContacts = useMemo(
+    () => contacts.filter(c => c.isSelected),
+    [contacts]
+  );
 
-  // Request contacts permission
-  const requestContactsPermission = async () => {
+  const registeredContacts = useMemo(
+    () => contacts.filter(c => c.isRegistered),
+    [contacts]
+  );
+
+  // Avatar colors
+  const avatarColors = useMemo(() => [
+    '#FF6B6B', '#4ECDC4', '#FFD166', '#06D6A0', 
+    '#118AB2', '#EF476F', '#073B4C', '#7209B7'
+  ], []);
+
+  // ✅ Request contacts permission
+  const requestContactsPermission = async (): Promise<boolean> => {
     try {
       const { status } = await Contacts.requestPermissionsAsync();
-
       if (status === 'granted') {
         setPermissionGranted(true);
         return true;
@@ -53,7 +63,7 @@ export default function ConnectNodesScreen() {
           'Contacts permission is required to find friends.',
           [
             { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
-            { text: 'Try Again', onPress: () => requestContactsPermission() }
+            { text: 'Try Again', onPress: requestContactsPermission }
           ]
         );
         return false;
@@ -65,21 +75,19 @@ export default function ConnectNodesScreen() {
     }
   };
 
-  // Send hashes to backend
+  // ✅ Send hashes to backend with improved error handling
   const sendToBackend = async (hashedPhoneNumbers: string[]) => {
     console.log('Sending hashes to backend:', hashedPhoneNumbers.length);
 
-    // Don't send if no valid contacts
     if (hashedPhoneNumbers.length === 0) {
       console.log('No valid contacts to match, skipping backend call');
       return { success: true, data: { matched_contacts: [], count: 0 } };
     }
 
     const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-
     if (!backendUrl) {
       console.error('EXPO_PUBLIC_BACKEND_URL not set!');
-      Alert.alert('Error', 'Backend URL not configured.');
+      Alert.alert('Configuration Error', 'Backend URL not configured.');
       return { success: false };
     }
 
@@ -89,12 +97,12 @@ export default function ConnectNodesScreen() {
 
       if (!accessToken) {
         console.error('No access token found');
-        Alert.alert('Error', 'Authentication required. Please log in again.');
+        Alert.alert('Authentication Error', 'Please log in again.');
+        router.replace('/(auth)/login');
         return { success: false };
       }
 
       console.log('Fetching from:', `${backendUrl}/contacts/match-contacts`);
-
       const response = await fetch(`${backendUrl}/contacts/match-contacts`, {
         method: 'POST',
         headers: {
@@ -109,17 +117,20 @@ export default function ConnectNodesScreen() {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Backend response error:', errorText);
-        Alert.alert('Error', 'Failed to match contacts with backend.');
+        
+        // ✅ Better error messaging
+        if (response.status === 401) {
+          Alert.alert('Session Expired', 'Please log in again.');
+          router.replace('/(auth)/login');
+        } else {
+          Alert.alert('Sync Error', 'Failed to match contacts. Please try again.');
+        }
         return { success: false };
       }
 
       const data = await response.json();
       console.log('Matched contacts:', data.count);
-
-      return {
-        success: true,
-        data
-      };
+      return { success: true, data };
     } catch (error) {
       console.error('Backend request error:', error);
       Alert.alert(
@@ -130,17 +141,18 @@ export default function ConnectNodesScreen() {
     }
   };
 
-  // Fetch and process contacts
+  // ✅ Fetch and process contacts
   const fetchContacts = async () => {
     if (!permissionGranted) {
       const granted = await requestContactsPermission();
       if (!granted) return;
     }
 
+    setSyncing(true);
     setLoading(true);
+    dispatch(setContactsLoading(true));
 
     try {
-      // Get device's country code for phone normalization
       const defaultCountryCode = getDeviceCountryDialCode();
       console.log('Using default country code:', defaultCountryCode);
 
@@ -155,23 +167,20 @@ export default function ConnectNodesScreen() {
           if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
             for (const phone of contact.phoneNumbers) {
               if (phone.number) {
-                // Use device's country code as default
                 const normalizedPhone = normalizePhoneNumber(phone.number, defaultCountryCode);
-
+                
                 if (!normalizedPhone) {
                   console.log('Skipping invalid phone:', phone.number);
                   continue;
                 }
 
-                // Debug first contact for verification
+                // Debug first contact
                 if (processedContacts.length === 0) {
                   await debugPhoneNumber(phone.number, 'Connect Nodes - First Contact', defaultCountryCode);
                 }
 
                 if (normalizedPhone.length >= 10) {
                   const hash = await hashPhoneNumber(normalizedPhone);
-
-                  // Assign random color
                   const colorIndex = Math.floor(Math.random() * avatarColors.length);
 
                   processedContacts.push({
@@ -179,7 +188,7 @@ export default function ConnectNodesScreen() {
                     name: contact.name || 'Unknown',
                     phone: normalizedPhone,
                     hash,
-                    isRegistered: false, // always false initially
+                    isRegistered: false,
                     isSelected: false,
                     avatarColor: avatarColors[colorIndex],
                   });
@@ -203,16 +212,13 @@ export default function ConnectNodesScreen() {
         );
 
         if (!backendResponse?.success) {
-          console.warn('Backend match failed');
-          // Still show contacts, but mark all as not registered
-          setContacts(uniqueContacts);
-          setFilteredContacts(uniqueContacts.filter(c => c.isRegistered));
+          console.warn('Backend match failed - showing unmatched contacts');
+          dispatch(setContacts(uniqueContacts));
           return;
         }
 
         const matchedContacts = backendResponse.data.matched_contacts as MatchedContact[];
-
-        const matchedMap = new Map<string, string>(
+        const matchedMap = new Map(
           matchedContacts.map(u => [u.phone_number_hash, u.id])
         );
 
@@ -222,14 +228,11 @@ export default function ConnectNodesScreen() {
         const finalContacts: Contact[] = uniqueContacts.map(c => ({
           ...c,
           isRegistered: matchedMap.has(c.hash),
-          profileId: matchedMap.get(c.hash), // string | undefined ✅
+          profileId: matchedMap.get(c.hash),
         }));
 
-        setContacts(finalContacts);
-        setFilteredContacts(finalContacts.filter(c => c.isRegistered));
-
+        dispatch(setContacts(finalContacts));
         console.log('Registered contacts:', finalContacts.filter(c => c.isRegistered).length);
-
       } else {
         Alert.alert('No Contacts', 'No contacts found with phone numbers.');
       }
@@ -237,23 +240,21 @@ export default function ConnectNodesScreen() {
       console.error('Error fetching contacts:', error);
       Alert.alert('Error', 'Failed to fetch contacts.');
     } finally {
+      setSyncing(false);
       setLoading(false);
+      dispatch(setContactsLoading(false));
     }
   };
 
-  // Handle contact selection
-  const handleContactSelect = (contact: Contact) => {
+  // ✅ Handle contact selection
+  const handleContactSelect = useCallback((contact: Contact) => {
     if (!contact.isRegistered) {
-      // Show invite option for unregistered contacts
       Alert.alert(
         'Invite to App',
         `Invite ${contact.name} to join the app?`,
         [
           { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Send Invite',
-            onPress: () => handleInviteContact(contact)
-          }
+          { text: 'Send Invite', onPress: () => handleInviteContact(contact) }
         ]
       );
       return;
@@ -262,30 +263,21 @@ export default function ConnectNodesScreen() {
     const updatedContacts = contacts.map(c =>
       c.contactId === contact.contactId ? { ...c, isSelected: !c.isSelected } : c
     );
-    setContacts(updatedContacts);
+    dispatch(setContacts(updatedContacts));
+  }, [contacts, dispatch]);
 
-    // Update selected contacts list
-    const isCurrentlySelected = contact.isSelected;
-    if (isCurrentlySelected) {
-      setSelectedContacts(prev => prev.filter(c => c.contactId !== contact.contactId));
-    } else {
-      setSelectedContacts(prev => [...prev, { ...contact, isSelected: true }]);
-    }
-  };
-
-  // Handle invite contact
-  const handleInviteContact = (contact: Contact) => {
+  // ✅ Handle invite contact
+  const handleInviteContact = useCallback((contact: Contact) => {
     Alert.alert(
       'Invite Sent',
       `Invitation sent to ${contact.name}`,
       [{ text: 'OK' }]
     );
-  };
+  }, []);
 
-  // Handle floating button action
-  const handleFloatingButtonPress = () => {
+  // ✅ Handle floating button action
+  const handleFloatingButtonPress = useCallback(() => {
     if (selectedContacts.length === 1) {
-      // Start individual chat
       const contact = selectedContacts[0];
       Alert.alert(
         'Start Chat',
@@ -302,7 +294,6 @@ export default function ConnectNodesScreen() {
         ]
       );
     } else if (selectedContacts.length > 1) {
-      // Create group chat
       Alert.alert(
         'Create Group',
         `Create a group chat with ${selectedContacts.length} people?`,
@@ -318,35 +309,56 @@ export default function ConnectNodesScreen() {
         ]
       );
     }
-  };
+  }, [selectedContacts]);
 
-  // Reset all selections
-  const resetSelection = () => {
-    setContacts(prev => prev.map(c => ({ ...c, isSelected: false })));
-    setSelectedContacts([]);
+  // ✅ Reset selection
+  const resetSelection = useCallback(() => {
+    dispatch(
+      setContacts(contacts.map(c => ({ ...c, isSelected: false })))
+    );
     router.push('/(screens)/chatScreen');
-  };
+  }, [contacts, dispatch]);
 
-  // Get floating button configuration
-  const getFloatingButtonConfig = () => {
+  // ✅ Clear all selections
+  const clearAllSelections = useCallback(() => {
+    dispatch(
+      setContacts(contacts.map(c => ({ ...c, isSelected: false })))
+    );
+  }, [contacts, dispatch]);
+
+  // ✅ Get floating button configuration
+  const floatingButtonConfig = useMemo(() => {
     if (selectedContacts.length === 0) {
-      return { label: undefined, icon: 'add' as const, backgroundColor: '#1971c2' };
+      return {
+        label: undefined,
+        icon: 'add' as const,
+        backgroundColor: '#1971c2'
+      };
     } else if (selectedContacts.length === 1) {
-      return { label: 'Message', icon: 'chatbubble' as const, backgroundColor: '#4CAF50' };
+      return {
+        label: 'Message',
+        icon: 'chatbubble' as const,
+        backgroundColor: '#4CAF50'
+      };
     } else {
-      return { label: 'Group', icon: 'people' as const, backgroundColor: '#FF9800' };
+      return {
+        label: 'Group',
+        icon: 'people' as const,
+        backgroundColor: '#FF9800'
+      };
     }
-  };
+  }, [selectedContacts.length]);
 
-  const renderContactItem = ({ item }: { item: Contact }) => (
+  // ✅ Render contact item
+  const renderContactItem = useCallback(({ item }: { item: Contact }) => (
     <UserCard
       contact={item}
-      onPress={handleContactSelect}
-      onInvite={handleInviteContact}
+      onPress={() => handleContactSelect(item)}
+      onInvite={() => handleInviteContact(item)}
     />
-  );
+  ), [handleContactSelect, handleInviteContact]);
 
-  // Check permission on mount
+  // ✅ Check permission on mount
   useEffect(() => {
     checkPermission();
   }, []);
@@ -359,14 +371,11 @@ export default function ConnectNodesScreen() {
     }
   };
 
-  const floatingButtonConfig = getFloatingButtonConfig();
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <Header
         title="Connect Nodes"
-        searchPlaceholder="Search contacts..."
         onSearch={(query) => console.log('Search contacts:', query)}
         showBackButton={true}
         onBackPress={() => router.back()}
@@ -380,19 +389,30 @@ export default function ConnectNodesScreen() {
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {contacts.filter(c => c.isRegistered).length}
-          </Text>
+          <Text style={styles.statNumber}>{registeredContacts.length}</Text>
           <Text style={styles.statLabel}>On App</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statNumber}>
-            {selectedContacts.length}
-          </Text>
+          <Text style={styles.statNumber}>{selectedContacts.length}</Text>
           <Text style={styles.statLabel}>Selected</Text>
         </View>
       </View>
+
+      {/* ✅ Selected Count Bar */}
+      {/* {selectedContacts.length > 0 && (
+        <View style={styles.selectedCountContainer}>
+          <Text style={styles.selectedCountText}>
+            {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''} selected
+          </Text>
+          <TouchableOpacity
+            style={styles.clearSelectionButton}
+            onPress={clearAllSelections}
+          >
+            <Text style={styles.clearSelectionText}>Clear All</Text>
+          </TouchableOpacity>
+        </View>
+      )} */}
 
       {/* Contacts List */}
       <View style={styles.contactsSection}>
@@ -405,7 +425,7 @@ export default function ConnectNodesScreen() {
           <FlatList
             data={contacts}
             renderItem={renderContactItem}
-            keyExtractor={(item) => item.contactId}
+            keyExtractor={item => item.contactId}
             contentContainerStyle={styles.contactsList}
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={
@@ -413,29 +433,35 @@ export default function ConnectNodesScreen() {
                 <Text style={styles.sectionTitle}>
                   All Contacts ({contacts.length})
                 </Text>
-                <TouchableOpacity
-                  style={styles.syncButton}
-                  onPress={fetchContacts}
-                  disabled={syncing}
-                >
-                  {syncing ? (
-                    <ActivityIndicator size="small" color="#1971c2" />
-                  ) : (
-                    <>
-                      <Ionicons name="sync" size={16} color="#1971c2" />
-                      <Text style={styles.syncButtonText}>Sync</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                {syncing ? (
+                  <ActivityIndicator size="small" color="#1971c2" />
+                ) : (
+                  <TouchableOpacity
+                    style={styles.syncButton}
+                    onPress={fetchContacts}
+                  >
+                    <Ionicons name="refresh" size={14} color="#1971c2" />
+                    <Text style={styles.syncButtonText}>Sync</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             }
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <Ionicons name="people" size={64} color="#ccc" />
+                <Ionicons name="people-outline" size={64} color="#ccc" />
                 <Text style={styles.emptyStateTitle}>No contacts found</Text>
                 <Text style={styles.emptyStateText}>
                   Sync your contacts to find friends
                 </Text>
+                <TouchableOpacity
+                  style={styles.syncContactsButton}
+                  onPress={fetchContacts}
+                >
+                  <Ionicons name="sync" size={20} color="white" />
+                  <Text style={styles.syncContactsButtonText}>
+                    Sync Contacts
+                  </Text>
+                </TouchableOpacity>
               </View>
             }
           />
@@ -561,85 +587,6 @@ const styles = StyleSheet.create({
   contactsList: {
     paddingHorizontal: 16,
     paddingBottom: 100,
-  },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    marginBottom: 8,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  avatarContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-    position: 'relative',
-  },
-  selectedAvatar: {
-    borderWidth: 3,
-    borderColor: '#1971c2',
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: 'white',
-  },
-  selectedCheckmark: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: '#1971c2',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
-  },
-  contactInfo: {
-    flex: 1,
-  },
-  contactName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  contactPhone: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  inviteLabel: {
-    fontSize: 12,
-    color: '#FF9800',
-    fontWeight: '500',
-  },
-  inviteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F7FF',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#1971c2',
-    gap: 4,
-  },
-  inviteButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1971c2',
   },
   emptyState: {
     alignItems: 'center',

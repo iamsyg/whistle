@@ -6,6 +6,7 @@ import emailAuthReducer from './slices/auth/emailAuthSlice';
 import profileReducer from './slices/auth/profileSlice';
 import conversationReducer from './slices/message/conversationSlice';
 import messageRuducer from './slices/message/messageSlice';
+import contactsReducer from './slices/contacts/contactsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     profile: profileReducer,
     conversation: conversationReducer,
     message: messageRuducer,
+    contacts: contactsReducer,
   },
 });
 
