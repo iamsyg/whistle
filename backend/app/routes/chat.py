@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, Body
 from app.controllers.chat_controller import send_direct_message, get_direct_messages
-from app.utils.secure_route import verify_jwt_token
+from app.middlewares.secure_route import verify_jwt_token
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
