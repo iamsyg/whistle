@@ -41,3 +41,27 @@ async def get_messages_endpoint(
     )
 
     return messages
+
+
+
+
+# @router.post("/direct/init/{other_user_id}")
+# async def init_direct_chat(
+#     other_user_id: str,
+#     sender_id: str = Depends(verify_jwt_token)
+# ):
+#     """
+#     Get or create direct chat and return chatId
+#     """
+#     chat = await get_or_create_direct_chat_controller(
+#         sender_id=sender_id,
+#         other_user_id=other_user_id
+#     )
+
+#     return {
+#         "id": chat["id"],
+#         "type": chat["type"],
+#         "user1": chat["user1"],
+#         "user2": chat["user2"],
+#         "created_at": chat["created_at"]
+#     }

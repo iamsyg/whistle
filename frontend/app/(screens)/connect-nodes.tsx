@@ -276,48 +276,127 @@ export default function ConnectNodesScreen() {
   }, []);
 
   // ✅ Handle floating button action
-  const handleFloatingButtonPress = useCallback(() => {
-    if (selectedContacts.length === 1) {
-      const contact = selectedContacts[0];
-      Alert.alert(
-        'Start Chat',
-        `Start a chat with ${contact.name}?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Start Chat',
-            onPress: () => {
-              console.log('Starting chat with:', contact.name);
-              resetSelection();
-            }
-          }
-        ]
-      );
-    } else if (selectedContacts.length > 1) {
-      Alert.alert(
-        'Create Group',
-        `Create a group chat with ${selectedContacts.length} people?`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Create Group',
-            onPress: () => {
-              console.log('Creating group with:', selectedContacts.map(c => c.name));
-              resetSelection();
-            }
-          }
-        ]
-      );
-    }
-  }, [selectedContacts]);
+  // const handleFloatingButtonPress = useCallback(() => {
+  //   if (selectedContacts.length === 1) {
+  //     const contact = selectedContacts[0];
+  //     Alert.alert(
+  //       'Start Chat',
+  //       `Start a chat with ${contact.name}?`,
+  //       [
+  //         { text: 'Cancel', style: 'cancel' },
+  //         {
+  //           text: 'Start Chat',
+  //           onPress: () => {
+  //             console.log('Starting chat with:', contact.name);
+  //             resetSelection();
+  //           }
+  //         }
+  //       ]
+  //     );
+  //   } else if (selectedContacts.length > 1) {
+  //     Alert.alert(
+  //       'Create Group',
+  //       `Create a group chat with ${selectedContacts.length} people?`,
+  //       [
+  //         { text: 'Cancel', style: 'cancel' },
+  //         {
+  //           text: 'Create Group',
+  //           onPress: () => {
+  //             console.log('Creating group with:', selectedContacts.map(c => c.name));
+  //             resetSelection();
+  //           }
+  //         }
+  //       ]
+  //     );
+  //   }
+  // }, [selectedContacts]);
 
   // ✅ Reset selection
-  const resetSelection = useCallback(() => {
-    dispatch(
-      setContacts(contacts.map(c => ({ ...c, isSelected: false })))
+  // const resetSelection = useCallback(() => {
+  //   dispatch(
+  //     setContacts(contacts.map(c => ({ ...c, isSelected: false })))
+  //   );
+  //   router.push('/(screens)/chatScreen');
+  // }, [contacts, dispatch]);
+
+  const handleFloatingButtonPress = useCallback(() => {
+  if (selectedContacts.length === 1) {
+    const contact = selectedContacts[0];
+    
+    if (!contact.profileId) {
+      Alert.alert('Error', 'Cannot start chat. Contact not registered.');
+      return;
+    }
+    
+    Alert.alert(
+      'Start Chat',
+      `Start a chat with ${contact.name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Start Chat',
+          onPress: () => {
+            console.log('Starting chat with:', contact.name, 'ID:', contact.profileId);
+            
+            // Clear selections
+            dispatch(
+              setContacts(contacts.map(c => ({ ...c, isSelected: false })))
+            );
+            
+            // Navigate with contactId
+            router.push({
+              pathname: '/(screens)/chatScreen',
+              params: {
+                contactId: contact.profileId,
+              }
+            });
+          }
+        }
+      ]
     );
+  } else if (selectedContacts.length > 1) {
+    // Create group chat
+    Alert.alert(
+      'Create Group',
+      `Create a group chat with ${selectedContacts.length} people?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Create Group',
+          onPress: () => {
+            console.log('Creating group with:', selectedContacts.map(c => c.name));
+            // TODO: Implement group chat creation
+            dispatch(
+              setContacts(contacts.map(c => ({ ...c, isSelected: false })))
+            );
+          }
+        }
+      ]
+    );
+  }
+}, [selectedContacts, contacts, dispatch]);
+
+  const resetSelection = useCallback(() => {
+  const selectedContact = selectedContacts[0]; // Get the selected contact
+  
+  // Clear selections in Redux
+  dispatch(
+    setContacts(contacts.map(c => ({ ...c, isSelected: false })))
+  );
+  
+  // Navigate to chat screen with contactId
+  if (selectedContact?.profileId) {
+    router.push({
+      pathname: '/(screens)/chatScreen',
+      params: {
+        contactId: selectedContact.profileId, // ✅ Pass profileId as contactId
+      }
+    });
+  } else {
+    console.error('Selected contact has no profileId');
     router.push('/(screens)/chatScreen');
-  }, [contacts, dispatch]);
+  }
+}, [contacts, selectedContacts, dispatch]);
 
   // ✅ Clear all selections
   const clearAllSelections = useCallback(() => {
