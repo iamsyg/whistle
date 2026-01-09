@@ -13,13 +13,17 @@ interface MessageState {
   messages: BackendMessage[];
 }
 
-function useGetMessage(): MessageState {
+function useGetMessage(chatId: string | null): MessageState {
     const [loading, setLoading] = useState(false);
     const dispatch = useDispatch();
 
-    const selectedConversationId = useSelector(
-        (state: RootState) => state.conversation.selectedConversationId
-    );
+    // const selectedConversationId = useSelector(
+    //     (state: RootState) => state.conversation.selectedConversationId
+    // );
+
+    useEffect(() => {
+  if (!chatId) return;
+    }, [chatId]);
 
     const messages = useSelector(
         (state: RootState) => state.conversation.messages
@@ -27,7 +31,7 @@ function useGetMessage(): MessageState {
 
     useEffect(() => {
 
-        if (!selectedConversationId) return;
+        if (!chatId) return;
 
         const getMessages = async () => {
 
@@ -43,7 +47,7 @@ function useGetMessage(): MessageState {
                 }
 
                 const res = await fetch(
-                    `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/get/${selectedConversationId}`, {
+                    `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/get/${chatId}`, {
                     method: "GET",
                     headers: {
                         Authorization: `Bearer ${accessToken}`,
@@ -66,7 +70,7 @@ function useGetMessage(): MessageState {
             }
         };
         getMessages();
-    }, [selectedConversationId, dispatch]);
+    }, [chatId, dispatch]);
     return { loading, messages };
 };
 

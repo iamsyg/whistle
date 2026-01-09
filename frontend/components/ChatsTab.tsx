@@ -19,9 +19,10 @@ import { FrontendMessage } from '@/types/frontend/message';
 
 interface ChatsTabProps {
   isDarkMode?: boolean;
+  chatId?: string | null;
 }
 
-const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
+const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false, chatId = null }) => {
 
   const flatListRef = useRef<FlatList<FrontendMessage>>(null);
 
@@ -125,14 +126,8 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
   //   },
   // ];
 
-  const { loading, messages: backendMessages } = useGetMessage();
+  const { loading, messages: backendMessages } = useGetMessage(chatId);
   const myProfileId = useSelector((state: RootState) => state.profile.userId);
-
-
-  // const uiMessages = useMemo(
-  //   () => backendMessages.map((m) => mapBackendMessageToUI(m, myProfileId)),
-  //   [backendMessages, myProfileId]
-  // );
 
   const uiMessages = useMemo(() => {
   if (!myProfileId) return [];

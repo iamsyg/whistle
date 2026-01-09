@@ -36,14 +36,14 @@ export default function ChatScreen() {
   const [isCallSheetVisible, setIsCallSheetVisible] = useState(false);
   const [isMenuSheetVisible, setIsMenuSheetVisible] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  // const [chatId, setChatId] = useState<string | null>(null);
+  const [chatId, setChatId] = useState<string | null>(null);
   
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
 
   // Get params and Redux state
   const { contactId } = useLocalSearchParams<{ contactId: string }>();
-  // const myUserId = useSelector((state: RootState) => state.profile.userId);
+  const myUserId = useSelector((state: RootState) => state.profile.userId);
   const contacts = useSelector((state: RootState) => state.contacts.all);
 
   // ✅ Find contact from Redux store using profileId
@@ -95,48 +95,32 @@ export default function ChatScreen() {
     return data.session.access_token;
   };
 
-  // ✅ Initialize chat when component mounts
-  // useEffect(() => {
-  //   if (!contactId || !myUserId || chatId) return;
+  useEffect(() => {
+  if (!contactId || !myUserId || chatId) return;
 
-  //   const initChat = async () => {
-  //     try {
-  //       const token = await getAccessToken();
-  //       if (!token) {
-  //         console.error('No auth token available');
-  //         return;
-  //       }
+  const initChat = async () => {
+    const token = await getAccessToken();
+    if (!token) return;
 
-  //       console.log('Initializing chat with contactId:', contactId);
+    const res = await fetch(
+      `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/init/${contactId}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
-  //       const res = await fetch(
-  //         `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/init/${contactId}`,
-  //         {
-  //           method: 'POST',
-  //           headers: {
-  //             Authorization: `Bearer ${token}`,
-  //             'Content-Type': 'application/json',
-  //           },
-  //         }
-  //       );
+    const data = await res.json();
+    setChatId(data.chat_id);
+    console.log('Chat initialized:', data.chat_id);
+  };
 
-  //       if (!res.ok) {
-  //         console.error('Chat init failed:', res.status);
-  //         const errorText = await res.text();
-  //         console.error('Error details:', errorText);
-  //         return;
-  //       }
+  initChat();
+}, [contactId, myUserId, chatId]);
 
-  //       const chat = await res.json();
-  //       console.log('Chat initialized:', chat.id);
-  //       setChatId(chat.id);
-  //     } catch (err) {
-  //       console.error('Init chat error:', err);
-  //     }
-  //   };
 
-  //   initChat();
-  // }, [contactId, myUserId, chatId]);
 
   // ✅ Debug logging
   useEffect(() => {
@@ -180,6 +164,7 @@ export default function ChatScreen() {
             {activeTab === 'chats' && (
               <ChatsTab
                 isDarkMode={isDarkMode}
+                chatId={chatId}
               />
             )}
             {activeTab === 'tasks' && <TasksTab isDarkMode={isDarkMode} />}
