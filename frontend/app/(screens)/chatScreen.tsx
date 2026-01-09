@@ -29,8 +29,12 @@ import { supabase } from '@/utils/supabase';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { Contact } from '@/types/contact';
+import useSendMessage from '@/contexts/sendMessage';
+import { useDispatch } from 'react-redux';
+import { setSelectedConversationId } from '@/store/slices/message/conversationSlice';
 
 export default function ChatScreen() {
+ 
   const [activeTab, setActiveTab] = useState<'chats' | 'tasks' | 'splits'>('chats');
   const [isAttachmentSheetVisible, setIsAttachmentSheetVisible] = useState(false);
   const [isCallSheetVisible, setIsCallSheetVisible] = useState(false);
@@ -41,16 +45,20 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const flatListRef = useRef<FlatList>(null);
 
+  const dispatch = useDispatch();
+
   // Get params and Redux state
-  const { contactId } = useLocalSearchParams<{ contactId: string }>();
+  const { contactProfileId } = useLocalSearchParams<{ contactProfileId: string }>();
   const myUserId = useSelector((state: RootState) => state.profile.userId);
   const contacts = useSelector((state: RootState) => state.contacts.all);
 
   // ✅ Find contact from Redux store using profileId
   const contact = useMemo(
-    () => contacts.find((c: Contact) => c.profileId === contactId),
-    [contacts, contactId]
+    () => contacts.find((c: Contact) => c.profileId === contactProfileId),
+    [contacts, contactProfileId]
   );
+
+  const { sendMessage, loading } = useSendMessage(contactProfileId);
 
   // ✅ Determine header title with fallback chain
   const headerTitle = useMemo(() => {
@@ -96,14 +104,14 @@ export default function ChatScreen() {
   };
 
   useEffect(() => {
-  if (!contactId || !myUserId || chatId) return;
+  if (!contactProfileId || !myUserId || chatId) return;
 
   const initChat = async () => {
     const token = await getAccessToken();
     if (!token) return;
 
     const res = await fetch(
-      `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/init/${contactId}`,
+      `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/init/${contactProfileId}`,
       {
         method: 'POST',
         headers: {
@@ -114,20 +122,21 @@ export default function ChatScreen() {
 
     const data = await res.json();
     setChatId(data.chat_id);
+    dispatch(setSelectedConversationId(data.chat_id));
     console.log('Chat initialized:', data.chat_id);
   };
 
   initChat();
-}, [contactId, myUserId, chatId]);
+}, [contactProfileId, myUserId, chatId]);
 
 
 
   // ✅ Debug logging
   useEffect(() => {
-    console.log('ChatScreen - Selected contact profile ID:', contactId);
+    console.log('ChatScreen - Selected contact profile ID:', contactProfileId);
     console.log('ChatScreen - Found Contact:', contact);
     console.log('ChatScreen - Header Title:', headerTitle);
-  }, [contactId, contact, headerTitle]);
+  }, [contactProfileId, contact, headerTitle]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: isDarkMode ? '#0D1418' : '#FFFFFF' }]}>
@@ -175,7 +184,7 @@ export default function ChatScreen() {
         {/* Chat Input (only in chats tab) */}
         {activeTab === 'chats' && (
           <ChatInput
-            onSend={handleSendMessage}
+            onSend={sendMessage}
             onAttachmentPress={() => setIsAttachmentSheetVisible(true)}
             isDarkMode={isDarkMode}
           />

@@ -1,15 +1,15 @@
 # app/routers/chat.py
 
 from fastapi import APIRouter, Depends, Body
-from app.controllers.chat_controller import send_direct_message, get_direct_messages, get_or_create_direct_chat_controller
+from app.controllers.chat_controller import send_message_to_chat, get_direct_messages, get_or_create_direct_chat_controller
 from app.middlewares.secure_route import verify_jwt_token
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
-@router.post("/direct/send/{receiver_id}")
+@router.post("/send/{chat_id}")
 async def send_message_endpoint(
-    receiver_id: str,
+    chat_id: str,
     content: str = Body(..., embed=True),
     sender_id: str = Depends(verify_jwt_token)
 ):
@@ -17,13 +17,57 @@ async def send_message_endpoint(
     Send message to a user (direct chat)
     """
 
-    message = await send_direct_message(
+    message = await send_message_to_chat(
         sender_id=sender_id,
-        receiver_id=receiver_id,
+        chat_id=chat_id,
         content=content
     )
 
     return message
+    
+
+
+
+
+# =============================================================================================
+
+
+
+
+
+
+@router.post("/direct/send/{receiver_id}")
+async def send_direct_message_endpoint(
+    receiver_id: str,
+    content: str = Body(..., embed=True),
+    sender_id: str = Depends(verify_jwt_token)
+):
+    chat_id = await get_or_create_direct_chat_controller(
+        sender_id=sender_id,
+        other_user_id=receiver_id
+    )
+
+    message = await send_message_to_chat(
+        sender_id=sender_id,
+        chat_id=chat_id,
+        content=content
+    )
+
+    return {
+        "chat_id": chat_id,
+        "message": message
+    }
+
+
+
+
+
+
+# ======================================================================================
+
+
+
+
 
 
 @router.get("/direct/get/{chat_id}")
@@ -41,6 +85,9 @@ async def get_messages_endpoint(
     )
 
     return messages
+
+
+
 
 
 

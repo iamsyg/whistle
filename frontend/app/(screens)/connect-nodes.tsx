@@ -347,7 +347,7 @@ export default function ConnectNodesScreen() {
             router.push({
               pathname: '/(screens)/chatScreen',
               params: {
-                contactId: contact.profileId,
+                contactProfileId: contact.profileId,
               }
             });
           }
@@ -386,10 +386,11 @@ export default function ConnectNodesScreen() {
   
   // Navigate to chat screen with contactId
   if (selectedContact?.profileId) {
+    console.log('Navigating to chat with contact ID:', selectedContact.profileId);
     router.push({
       pathname: '/(screens)/chatScreen',
       params: {
-        contactId: selectedContact.profileId, // ✅ Pass profileId as contactId
+        contactProfileId: selectedContact.profileId, // ✅ Pass profileId as contactId
       }
     });
   } else {

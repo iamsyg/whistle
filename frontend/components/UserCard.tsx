@@ -29,16 +29,14 @@ const UserCard: React.FC<UserCardProps> = ({ contact, onPress, onInvite }) => {
 
   const dispatch = useDispatch();
 
-  const selectedConversationId = useSelector(
-    (state: RootState) => state.conversation.selectedConversationId
-  );
 
-  const isSelected = contact.profileId && selectedConversationId === contact.profileId;
+
 
   const handlePress = () => {
 
-  if (!contact.isRegistered || !contact.profileId) return;
-  dispatch(setSelectedConversationId(contact.profileId));
+  if (!contact.isRegistered) return;
+
+  onPress(contact); // let parent handle selection
 };
 
   return (

@@ -4,53 +4,88 @@ from fastapi import HTTPException
 from app.utils.supabase_client import supabase
 
 
-async def send_direct_message(
+async def send_message_to_chat(
     sender_id: str,
-    receiver_id: str,
+    chat_id: str,
     content: str
 ):
     """
     Send a direct message between sender and receiver
     """
 
-    # 1. Get or create direct chat
-    chat_res = supabase.rpc(
-        "get_or_create_direct_chat",
-        {
-            "u1": sender_id,
-            "u2": receiver_id,
-            "creator": sender_id
-        }
-    ).execute()
+    # # 1. Get or create direct chat
+    # chat_res = supabase.rpc(
+    #     "get_or_create_direct_chat",
+    #     {
+    #         "u1": sender_id,
+    #         "u2": chat_id,
+    #         "creator": sender_id
+    #     }
+    # ).execute()
 
-    if not chat_res.data:
-        raise HTTPException(status_code=500, detail="Failed to get or create chat")
+    # if not chat_res.data:
+    #     raise HTTPException(status_code=500, detail="Failed to get or create chat")
 
-    chat = chat_res.data
-    chat_id = chat["id"]
+    # chat = chat_res.data
+    # chat_id = chat["id"]
 
-    # 2. Verify sender is member (safety check)
-    member_res =  supabase.table("chat_members") \
-        .select("chat_id") \
-        .eq("chat_id", chat_id) \
-        .eq("user_id", sender_id) \
-        .is_("left_at", None) \
-        .execute()
+    # # 2. Verify sender is member (safety check)
+    # member_res =  supabase.table("chat_members") \
+    #     .select("chat_id") \
+    #     .eq("chat_id", chat_id) \
+    #     .eq("user_id", sender_id) \
+    #     .is_("left_at", None) \
+    #     .execute()
 
-    if not member_res.data:
-        raise HTTPException(status_code=403, detail="Not a member of this chat")
+    # if not member_res.data:
+    #     raise HTTPException(status_code=403, detail="Not a member of this chat")
 
-    # 3. Insert message
-    msg_res =  supabase.table("messages").insert({
-        "chat_id": chat_id,
-        "sender_id": sender_id,
-        "content": content
-    }).execute()
+    # # 3. Insert message
+    # msg_res =  supabase.table("messages").insert({
+    #     "chat_id": chat_id,
+    #     "sender_id": sender_id,
+    #     "content": content
+    # }).execute()
 
-    if not msg_res.data:
-        raise HTTPException(status_code=500, detail="Failed to send message")
+    # if not msg_res.data:
+    #     raise HTTPException(status_code=500, detail="Failed to send message")
 
-    return msg_res.data[0]
+    # return msg_res.data[0]
+
+
+    # 1. Verify membership
+
+    try:
+
+        member_res = supabase.table("chat_members") \
+            .select("chat_id") \
+            .eq("chat_id", chat_id) \
+            .eq("user_id", sender_id) \
+            .is_("left_at", None) \
+            .execute()
+        
+        print("Membership check result:", member_res.data)
+
+        if not member_res.data:
+            raise HTTPException(status_code=403, detail="Not a member of this chat")
+
+        # 2. Insert message
+        msg_res = supabase.table("messages").insert({
+            "chat_id": chat_id,
+            "sender_id": sender_id,
+            "content": content
+        }).execute()
+
+        print("Message insert result:", msg_res.data)
+
+        if not msg_res.data:
+            raise HTTPException(status_code=500, detail="Failed to send message")
+
+        return msg_res.data[0]
+    
+    except Exception as e:
+        print("Error in send_direct_message:", e)
+        raise e
 
 
 
