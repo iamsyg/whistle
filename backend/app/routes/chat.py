@@ -97,9 +97,13 @@ async def init_direct_chat(
     other_user_id: str,
     sender_id: str = Depends(verify_jwt_token)
 ):
-    chat = await get_or_create_direct_chat_controller(
+    chat_id = await get_or_create_direct_chat_controller(
         sender_id=sender_id,
         other_user_id=other_user_id
     )
 
-    return {"chat_id": chat["id"]}
+    print(f"Direct chat initialized between {sender_id} and {other_user_id}: {chat_id}")
+
+    # return {"chat_id": chat["id"]}
+    return {"chat_id": chat_id}
+

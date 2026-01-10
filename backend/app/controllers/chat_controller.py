@@ -13,48 +13,6 @@ async def send_message_to_chat(
     Send a direct message between sender and receiver
     """
 
-    # # 1. Get or create direct chat
-    # chat_res = supabase.rpc(
-    #     "get_or_create_direct_chat",
-    #     {
-    #         "u1": sender_id,
-    #         "u2": chat_id,
-    #         "creator": sender_id
-    #     }
-    # ).execute()
-
-    # if not chat_res.data:
-    #     raise HTTPException(status_code=500, detail="Failed to get or create chat")
-
-    # chat = chat_res.data
-    # chat_id = chat["id"]
-
-    # # 2. Verify sender is member (safety check)
-    # member_res =  supabase.table("chat_members") \
-    #     .select("chat_id") \
-    #     .eq("chat_id", chat_id) \
-    #     .eq("user_id", sender_id) \
-    #     .is_("left_at", None) \
-    #     .execute()
-
-    # if not member_res.data:
-    #     raise HTTPException(status_code=403, detail="Not a member of this chat")
-
-    # # 3. Insert message
-    # msg_res =  supabase.table("messages").insert({
-    #     "chat_id": chat_id,
-    #     "sender_id": sender_id,
-    #     "content": content
-    # }).execute()
-
-    # if not msg_res.data:
-    #     raise HTTPException(status_code=500, detail="Failed to send message")
-
-    # return msg_res.data[0]
-
-
-    # 1. Verify membership
-
     try:
 
         member_res = supabase.table("chat_members") \
@@ -135,4 +93,7 @@ async def get_or_create_direct_chat_controller(
     if not chat_res.data:
         raise HTTPException(status_code=500, detail="Failed to get or create chat")
 
-    return chat_res.data
+    # return chat_res.data
+
+    chat = chat_res.data[0] if isinstance(chat_res.data, list) else chat_res.data
+    return chat["id"]
