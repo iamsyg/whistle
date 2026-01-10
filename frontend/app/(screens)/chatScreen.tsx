@@ -11,8 +11,10 @@ import {
   Platform,
   TouchableOpacity,
   Modal,
+  Alert,
   Keyboard,
   TouchableWithoutFeedback,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Header from '@/components/MessagingHeader';
@@ -31,7 +33,8 @@ import { RootState } from '@/store/store';
 import { Contact } from '@/types/contact';
 import useSendMessage from '@/contexts/sendMessage';
 import { useDispatch } from 'react-redux';
-import { setConversation } from '@/store/slices/message/conversationSlice';
+import { clearConversation, setConversation } from '@/store/slices/message/conversationSlice';
+import useGetChatId from '@/contexts/getChatId';
 
 export default function ChatScreen() {
 
@@ -57,14 +60,12 @@ export default function ChatScreen() {
     contactProfileId ? state.contacts.byProfileId[contactProfileId] : undefined
   );
 
-
-  // ✅ Find contact from Redux store using profileId
-  // const contact = useMemo(
-  //   () => contacts.find((c: Contact) => c.profileId === contactProfileId),
-  //   [contacts, contactProfileId]
-  // );
+  const conversationId = useSelector(
+    (state: RootState) => state.conversation.selectedConversationId
+  )
 
   const { sendMessage, loading } = useSendMessage();
+  const { loading: initializingChat, error: chatError } = useGetChatId();
 
   // ✅ Determine header title with fallback chain
   const headerTitle = useMemo(() => {
@@ -103,57 +104,42 @@ export default function ChatScreen() {
     setIsMenuSheetVisible(false);
   };
 
-  const getAccessToken = async () => {
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session) return null;
-    return data.session.access_token;
-  };
+  useEffect(() => {
+    if (!contactProfileId) {
+      console.warn('⚠️  No contact selected, redirecting...');
+      Alert.alert('Error', 'No contact selected', [
+        { text: 'OK', onPress: () => router.back() }
+      ]);
+    }
+  }, [contactProfileId]);
 
   useEffect(() => {
-    if (!contactProfileId || !myUserId) return;
-
-    const initChat = async () => {
-      const token = await getAccessToken();
-      if (!token) return;
-
-      const res = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/init/${contactProfileId}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await res.json();
-      // setChatId(data.chat_id);
-      // dispatch(setSelectedConversationId(data.chat_id));
-
-      dispatch(setConversation({
-        contactProfileId: contactProfileId,
-        conversationId: data.chat_id
-      }))
-
-      console.log('Chat initialized:', data.chat_id);
+    return () => {
+      console.log('🧹 Clearing conversation on unmount');
+      dispatch(clearConversation());
     };
+  }, [dispatch]);
 
-    initChat();
-  }, [contactProfileId, myUserId]);
-
-
+  useGetChatId();
 
   // ✅ Debug logging
   useEffect(() => {
-    console.log('ChatScreen - Selected contact profile ID:', contactProfileId);
-    console.log('ChatScreen - Found Contact:', contact);
-    console.log('ChatScreen - Header Title:', headerTitle);
-  }, [contactProfileId, contact, headerTitle]);
+    console.log('📱 ChatScreen State:');
+    console.log('  - Contact Profile ID:', contactProfileId);
+    console.log('  - Contact Name:', contact?.name);
+    console.log('  - Conversation ID:', conversationId);
+    console.log('  - Initializing:', initializingChat);
+    console.log('  - Error:', chatError);
+  }, [contactProfileId, contact, conversationId, initializingChat, chatError]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDarkMode ? '#0D1418' : '#FFFFFF' }]}>
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? '#0D1418' : '#FFFFFF' }
+      ]}
+    >
       <View style={styles.headerContainer}>
-        {/* Header */}
         <Header
           title={headerTitle}
           subtitle={lastSeenStatus}
@@ -167,7 +153,6 @@ export default function ChatScreen() {
           isDarkMode={isDarkMode}
         />
 
-        {/* Tab Bar */}
         <TabBar
           activeTab={activeTab}
           onTabChange={handleTabChange}
@@ -182,18 +167,23 @@ export default function ChatScreen() {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.content}>
-            {activeTab === 'chats' && (
-              <ChatsTab
-                isDarkMode={isDarkMode}
-              />
+            {/* ✅ Show loading overlay while initializing */}
+            {initializingChat ? (
+              <View style={styles.initializingContainer}>
+                <ActivityIndicator size="large" color="#1971c2" />
+              </View>
+            ) : (
+              <>
+                {activeTab === 'chats' && <ChatsTab isDarkMode={isDarkMode} />}
+                {activeTab === 'tasks' && <TasksTab isDarkMode={isDarkMode} />}
+                {activeTab === 'splits' && <SplitsTab isDarkMode={isDarkMode} />}
+              </>
             )}
-            {activeTab === 'tasks' && <TasksTab isDarkMode={isDarkMode} />}
-            {activeTab === 'splits' && <SplitsTab isDarkMode={isDarkMode} />}
           </View>
         </TouchableWithoutFeedback>
 
-        {/* Chat Input (only in chats tab) */}
-        {activeTab === 'chats' && (
+        {/* Chat Input (only in chats tab and after chat is initialized) */}
+        {activeTab === 'chats' && conversationId && !initializingChat && (
           <ChatInput
             onSend={sendMessage}
             onAttachmentPress={() => setIsAttachmentSheetVisible(true)}
@@ -231,13 +221,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  headerContainer: {
-    // Header and TabBar stay fixed at top
-  },
+  headerContainer: {},
   keyboardView: {
     flex: 1,
   },
   content: {
     flex: 1,
+  },
+  initializingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
