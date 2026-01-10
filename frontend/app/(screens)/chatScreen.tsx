@@ -48,17 +48,26 @@ export default function ChatScreen() {
   const dispatch = useDispatch();
 
   // Get params and Redux state
-  const { contactProfileId } = useLocalSearchParams<{ contactProfileId: string }>();
-  const myUserId = useSelector((state: RootState) => state.profile.userId);
-  const contacts = useSelector((state: RootState) => state.contacts.all);
+  // const { contactProfileId } = useLocalSearchParams<{ contactProfileId: string }>();
 
-  // ✅ Find contact from Redux store using profileId
-  const contact = useMemo(
-    () => contacts.find((c: Contact) => c.profileId === contactProfileId),
-    [contacts, contactProfileId]
+  const contactProfileId = useSelector(
+    (state: RootState) => state.conversation.contactProfileId
   );
 
-  const { sendMessage, loading } = useSendMessage(contactProfileId);
+  const myUserId = useSelector((state: RootState) => state.profile.userId);
+
+  const contact = useSelector((state: RootState) => 
+  contactProfileId ? state.contacts.byProfileId[contactProfileId] : undefined
+  );
+
+
+  // ✅ Find contact from Redux store using profileId
+  // const contact = useMemo(
+  //   () => contacts.find((c: Contact) => c.profileId === contactProfileId),
+  //   [contacts, contactProfileId]
+  // );
+
+  const { sendMessage, loading } = useSendMessage();
 
   // ✅ Determine header title with fallback chain
   const headerTitle = useMemo(() => {

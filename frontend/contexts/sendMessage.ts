@@ -9,13 +9,20 @@ import {
 } from "@/store/slices/message/conversationSlice";
 import { supabase } from "@/utils/supabase";
 
-const useSendMessage = (receiverId?: string) => {
+const useSendMessage = () => {
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
 
   const selectedConversationId = useSelector(
     (state: RootState) => state.conversation.selectedConversationId
   );
+
+  const receiverId = useSelector(
+    (state: RootState) => state.conversation.contactProfileId
+  );
+
+  console.log("useSendMessage - selectedConversationId:", selectedConversationId);
+  console.log("useSendMessage - receiverId:", receiverId);
 
   const sendMessage = async (content: string) => {
     if (!content.trim()) return;
