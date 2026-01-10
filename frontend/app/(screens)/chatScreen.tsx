@@ -31,19 +31,16 @@ import { RootState } from '@/store/store';
 import { Contact } from '@/types/contact';
 import useSendMessage from '@/contexts/sendMessage';
 import { useDispatch } from 'react-redux';
-import { setSelectedConversationId } from '@/store/slices/message/conversationSlice';
+import { setConversation } from '@/store/slices/message/conversationSlice';
 
 export default function ChatScreen() {
- 
+
   const [activeTab, setActiveTab] = useState<'chats' | 'tasks' | 'splits'>('chats');
   const [isAttachmentSheetVisible, setIsAttachmentSheetVisible] = useState(false);
   const [isCallSheetVisible, setIsCallSheetVisible] = useState(false);
   const [isMenuSheetVisible, setIsMenuSheetVisible] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [chatId, setChatId] = useState<string | null>(null);
-  
-  const insets = useSafeAreaInsets();
-  const flatListRef = useRef<FlatList>(null);
+  // const [chatId, setChatId] = useState<string | null>(null);
 
   const dispatch = useDispatch();
 
@@ -56,8 +53,8 @@ export default function ChatScreen() {
 
   const myUserId = useSelector((state: RootState) => state.profile.userId);
 
-  const contact = useSelector((state: RootState) => 
-  contactProfileId ? state.contacts.byProfileId[contactProfileId] : undefined
+  const contact = useSelector((state: RootState) =>
+    contactProfileId ? state.contacts.byProfileId[contactProfileId] : undefined
   );
 
 
@@ -113,30 +110,36 @@ export default function ChatScreen() {
   };
 
   useEffect(() => {
-  if (!contactProfileId || !myUserId || chatId) return;
+    if (!contactProfileId || !myUserId) return;
 
-  const initChat = async () => {
-    const token = await getAccessToken();
-    if (!token) return;
+    const initChat = async () => {
+      const token = await getAccessToken();
+      if (!token) return;
 
-    const res = await fetch(
-      `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/init/${contactProfileId}`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      }
-    );
+      const res = await fetch(
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/init/${contactProfileId}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-    const data = await res.json();
-    setChatId(data.chat_id);
-    dispatch(setSelectedConversationId(data.chat_id));
-    console.log('Chat initialized:', data.chat_id);
-  };
+      const data = await res.json();
+      // setChatId(data.chat_id);
+      // dispatch(setSelectedConversationId(data.chat_id));
 
-  initChat();
-}, [contactProfileId, myUserId, chatId]);
+      dispatch(setConversation({
+        contactProfileId: contactProfileId,
+        conversationId: data.chat_id
+      }))
+
+      console.log('Chat initialized:', data.chat_id);
+    };
+
+    initChat();
+  }, [contactProfileId, myUserId]);
 
 
 
@@ -182,7 +185,6 @@ export default function ChatScreen() {
             {activeTab === 'chats' && (
               <ChatsTab
                 isDarkMode={isDarkMode}
-                chatId={chatId}
               />
             )}
             {activeTab === 'tasks' && <TasksTab isDarkMode={isDarkMode} />}
