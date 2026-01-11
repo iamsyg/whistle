@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.controllers.auth import check_phone_hash, insert_phone_hash_and_user_id
+from app.controllers.auth_controller import check_phone_hash, insert_phone_hash_and_user_id
 from app.models.auth import CheckPhoneRequest, InsertPhoneRequest
 
 router = APIRouter(

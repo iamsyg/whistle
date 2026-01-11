@@ -1,47 +1,4 @@
-# # /app/controllers/match_contacts.py
-
-# from app.utils.supabase_client import supabase
-# from postgrest.exceptions import APIError
-
-# MAX_CONTACT_HASHES = 5000  # safe upper bound
-
-# def match_contacts(phone_hashes: list[str]) -> list[dict]:
-#     if not phone_hashes:
-#         return []
-
-#     if len(phone_hashes) > MAX_CONTACT_HASHES:
-#         raise ValueError("Too many contact hashes")
-
-#     try:
-#         res = supabase.rpc(
-#             "match_contacts",
-#             {"hashes": phone_hashes}
-#         ).execute()
-
-#         # Safe logging
-#         print(f"Matched {len(res.data)} contacts from {len(phone_hashes)} hashes")
-
-#         print(f"RPC response data sample: {res.data[:2]}")  # log first 2 entries for debugging
-
-#         return res.data or []
-
-#     except APIError as e:
-#         print(f"Supabase RPC error: {e}")
-#         raise Exception("Failed to match contacts") from e
-
-#     except Exception as e:
-#         print(f"Unknown match_contacts error: {e}")
-#         raise
-
-
-
-
-
-
-
-
-
-
+# backend/app/controllers/contact_controller.py
 
 from app.utils.supabase_client import supabase
 from postgrest.exceptions import APIError

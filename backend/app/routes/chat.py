@@ -2,7 +2,7 @@
 
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException
-from app.controllers.chat_controller import send_message_to_chat, get_direct_messages, get_or_create_direct_chat_controller
+from app.controllers.message_controller import send_message_to_chat, get_direct_messages, get_or_create_direct_chat_controller
 from app.middlewares.secure_route import verify_jwt_token
 from app.services.websocket_manager import ws_manager
 

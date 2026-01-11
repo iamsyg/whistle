@@ -1,4 +1,4 @@
-# app/controllers/chat_controller.py
+# app/controllers/message_controller.py
 
 from fastapi import HTTPException
 from app.utils.supabase_client import supabase

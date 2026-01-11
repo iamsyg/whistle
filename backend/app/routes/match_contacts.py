@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, status
 from app.models.match_contacts import MatchContactsRequest
-from app.controllers.match_contacts import match_contacts
+from app.controllers.contact_controller import match_contacts
 
 router = APIRouter(
     prefix="/contacts",
