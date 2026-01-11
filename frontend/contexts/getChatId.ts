@@ -1,81 +1,5 @@
 // // frontend/contexts/getChatId.ts
 
-// import React, { useEffect, useState } from "react";
-// // import useConversation from "../statemanage/useConversation.js";
-// import { useDispatch, useSelector } from 'react-redux';
-// import { RootState } from '@/store/store';
-// import { setConversation, setMessages } from "@/store/slices/message/conversationSlice";
-// import { supabase } from "@/utils/supabase";
-// import { BackendMessage } from "@/types/backend/message";
-
-
-// function useGetChatId() {
-
-//     const dispatch = useDispatch();
-
-//     const contactProfileId = useSelector(
-//         (state: RootState) => state.conversation.contactProfileId
-//     )
-
-//     const conversationId = useSelector(
-//         (state: RootState) => state.conversation.selectedConversationId
-//     );
-
-//     const getAccessToken = async () => {
-//         const { data, error } = await supabase.auth.getSession();
-//         if (error || !data.session) return null;
-//         return data.session.access_token;
-//     };
-
-//     useEffect(() => {
-
-//         if (!contactProfileId || !conversationId) return;
-
-//         const initChat = async () => {
-
-//             try {
-//                 const token = await getAccessToken();
-//                 if (!token) return;
-
-//                 const res = await fetch(
-//                     `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/init/${contactProfileId}`,
-//                     {
-//                         method: 'POST',
-//                         headers: {
-//                             Authorization: `Bearer ${token}`,
-//                         },
-//                     }
-//                 );
-
-//                 const data = await res.json();
-//                 // setChatId(data.chat_id);
-//                 // dispatch(setSelectedConversationId(data.chat_id));
-
-//                 dispatch(setConversation({
-//                     contactProfileId: contactProfileId,
-//                     conversationId: data.chat_id
-//                 }))
-
-//                 console.log('Chat initialized:', data.chat_id);
-//             }
-//             catch (error) {
-//                 console.error("Error initializing chat:", error);
-//             }
-
-//         };
-
-//         initChat();
-//     }, [contactProfileId, conversationId]);
-
-// }
-
-// export default useGetChatId;
-
-
-
-
-
-
 import { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
@@ -168,7 +92,7 @@ function useGetChatId(): UseGetChatIdState {
         console.log('   Contact Profile ID:', contactProfileId);
         console.log('   My User ID:', myUserId);
 
-        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/direct/init/${contactProfileId}`;
+        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/direct/init/${contactProfileId}`;
         console.log('📡 POST:', url);
 
         const res = await fetch(url, {
