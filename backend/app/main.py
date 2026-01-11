@@ -37,5 +37,4 @@ app.include_router(auth.router)
 app.include_router(match_contacts.router)
 app.include_router(chat.router, dependencies=[Depends(verify_jwt_token)])
 app.include_router(chat_ws.router)
-# app.include_router(chat_ws.router)
 

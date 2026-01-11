@@ -75,8 +75,6 @@ async def get_direct_messages(
     return messages_res.data
 
 
-
-
 async def get_or_create_direct_chat_controller(
     sender_id: str,
     other_user_id: str

@@ -54,7 +54,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-    const handleChangeText = (text: string) => {
+  const handleChangeText = (text: string) => {
     setMessage(text);
     if (onTyping && text.length > 0) {
       onTyping();
@@ -98,7 +98,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Top border */}
       <View style={[styles.topBorder, { backgroundColor: colors.border }]} />
-      
+
       <View style={styles.inputContainer}>
         {/* Attachment/Plus Button */}
         <TouchableOpacity
