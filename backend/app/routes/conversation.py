@@ -38,7 +38,7 @@ async def init_direct_chat(
 
 @router.get("/all/ids")
 async def get_user_all_chat_ids(
-    user_id: str 
+    user_id: str = Depends(verify_jwt_token)
 ):
     
     try:
