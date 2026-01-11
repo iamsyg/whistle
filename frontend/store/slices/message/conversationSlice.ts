@@ -7,7 +7,8 @@ interface ConversationState {
   selectedConversationId: string | null;
   contactProfileId: string | null;
   messages: BackendMessage[];
-   loading: boolean;
+  loading: boolean;
+  typingUsers: string[]; // ✅ Track who's typing
 }
 
 const initialState: ConversationState = {
@@ -15,6 +16,7 @@ const initialState: ConversationState = {
   contactProfileId: null,
   messages: [],
   loading: false,
+  typingUsers: [],
 };
 
 const conversationSlice = createSlice({
@@ -48,14 +50,30 @@ const conversationSlice = createSlice({
       state.messages = action.payload;
     },
     addMessage: (state, action: PayloadAction<BackendMessage>) => {
-      state.messages.push(action.payload);
+      // ✅ Prevent duplicate messages
+      const exists = state.messages.some(m => m.id === action.payload.id);
+      if (!exists) {
+        state.messages.push(action.payload);
+      }
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
     },
+    addTypingUser: (state, action: PayloadAction<string>) => {
+      if (!state.typingUsers.includes(action.payload)) {
+        state.typingUsers.push(action.payload);
+      }
+    },
+    
+    removeTypingUser: (state, action: PayloadAction<string>) => {
+      state.typingUsers = state.typingUsers.filter(id => id !== action.payload);
+    },
     clearConversation: (state) => {
       state.selectedConversationId = null;
+      state.contactProfileId = null;
       state.messages = [];
+      state.loading = false;
+      state.typingUsers = [];
     },
   },
 });
@@ -67,6 +85,8 @@ export const {
   setMessages,
   addMessage,
   setLoading,
+  addTypingUser,
+  removeTypingUser,
   clearConversation,
 } = conversationSlice.actions;
 

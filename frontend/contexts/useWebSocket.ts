@@ -1,0 +1,183 @@
+// frontend/contexts/useWebSocket.ts
+
+import { useEffect, useRef, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/store/store';
+import { addMessage } from '@/store/slices/message/conversationSlice';
+import { supabase } from '@/utils/supabase';
+import { BackendMessage } from '@/types/backend/message';
+
+interface WebSocketMessage {
+  type: 'new_message' | 'user_joined' | 'user_left' | 'typing' | 'error';
+  data?: BackendMessage;
+  user_id?: string;
+  timestamp?: string;
+  message?: string;
+}
+
+interface UseWebSocketReturn {
+  isConnected: boolean;
+  sendTypingIndicator: () => void;
+  reconnect: () => void;
+}
+
+export default function useWebSocket(): UseWebSocketReturn {
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const reconnectAttemptsRef = useRef<number>(0);
+  const isConnectedRef = useRef<boolean>(false);
+
+  const dispatch = useDispatch();
+  
+  const chatId = useSelector(
+    (state: RootState) => state.conversation.selectedConversationId
+  );
+  const myUserId = useSelector((state: RootState) => state.profile.userId);
+
+  const MAX_RECONNECT_ATTEMPTS = 2;
+  const RECONNECT_DELAY = 3000; // 3 seconds
+
+  const getAccessToken = async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session) return null;
+    return data.session.access_token;
+  };
+
+  const connect = useCallback(async () => {
+    // Skip if no chat selected or already connected
+    if (!chatId || !myUserId || isConnectedRef.current) {
+      return;
+    }
+
+    try {
+      const token = await getAccessToken();
+      if (!token) {
+        console.error('❌ No auth token for WebSocket');
+        return;
+      }
+
+      const wsUrl = `${process.env.EXPO_PUBLIC_WS_URL}/ws/chat/${chatId}?token=${token}`;
+      console.log('🔌 Connecting to WebSocket:', wsUrl);
+
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        console.log('✅ WebSocket connected to chat:', chatId);
+        isConnectedRef.current = true;
+        reconnectAttemptsRef.current = 0;
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message: WebSocketMessage = JSON.parse(event.data);
+          console.log('📥 WebSocket message received:', message.type);
+
+          switch (message.type) {
+            case 'new_message':
+              if (message.data) {
+                console.log('💬 New message from:', message.data.sender_id);
+                // Only add if it's not from us (we already have it from send API)
+                if (message.data.sender_id !== myUserId) {
+                  dispatch(addMessage(message.data));
+                }
+              }
+              break;
+
+            case 'user_joined':
+              console.log('👋 User joined:', message.user_id);
+              // Optional: Update UI to show user online
+              break;
+
+            case 'user_left':
+              console.log('👋 User left:', message.user_id);
+              // Optional: Update UI to show user offline
+              break;
+
+            case 'typing':
+              console.log('✍️  User typing:', message.user_id);
+              // Optional: Show typing indicator
+              break;
+
+            case 'error':
+              console.error('❌ WebSocket error:', message.message);
+              break;
+
+            default:
+              console.log('❓ Unknown message type:', message.type);
+          }
+        } catch (error) {
+          console.error('❌ Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+        isConnectedRef.current = false;
+      };
+
+      ws.onclose = (event) => {
+        console.log('🔌 WebSocket disconnected:', event.code, event.reason);
+        isConnectedRef.current = false;
+
+        // Attempt to reconnect
+        if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttemptsRef.current++;
+          console.log(`🔄 Reconnecting... (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect();
+          }, RECONNECT_DELAY);
+        } else {
+          console.error('❌ Max reconnection attempts reached');
+        }
+      };
+    } catch (error) {
+      console.error('❌ Error creating WebSocket:', error);
+      isConnectedRef.current = false;
+    }
+  }, [chatId, myUserId, dispatch]);
+
+  const disconnect = useCallback(() => {
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+    }
+
+    if (wsRef.current) {
+      console.log('🔌 Closing WebSocket connection');
+      wsRef.current.close();
+      wsRef.current = null;
+      isConnectedRef.current = false;
+    }
+  }, []);
+
+  const reconnect = useCallback(() => {
+    disconnect();
+    reconnectAttemptsRef.current = 0;
+    connect();
+  }, [disconnect, connect]);
+
+  const sendTypingIndicator = useCallback(() => {
+    if (wsRef.current && isConnectedRef.current) {
+      wsRef.current.send(JSON.stringify({ type: 'typing' }));
+    }
+  }, []);
+
+  // Connect when chat changes
+  useEffect(() => {
+    if (chatId && myUserId) {
+      connect();
+    }
+
+    // Cleanup on unmount or chat change
+    return () => {
+      disconnect();
+    };
+  }, [chatId, myUserId, connect, disconnect]);
+
+  return {
+    isConnected: isConnectedRef.current,
+    sendTypingIndicator,
+    reconnect,
+  };
+}

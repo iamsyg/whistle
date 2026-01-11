@@ -1,5 +1,70 @@
+# # app/middlewares/secure_route.py
+
+# import traceback
+# from fastapi import Header, HTTPException, status
+# from app.utils.supabase_client import supabase
+
+# async def verify_jwt_token(
+#     authorization: str = Header(...)
+# ) -> str:
+#     """
+#     Verify Supabase JWT and return user_id
+#     """
+
+#     if not authorization.startswith("Bearer "):
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Invalid authorization header format"
+#         )
+
+#     token = authorization.split(" ")[1]
+
+#     user_res = supabase.auth.get_user(token)
+
+#     if user_res.user is None:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Invalid or expired token"
+#         )
+
+#     return user_res.user.id  # ← VERIFIED user_id
+
+
+# def verify_jwt_token_ws(token: str) -> str:
+#     """
+#     ✅ FIXED: Verify JWT token for WebSocket connections using Supabase
+#     Returns user_id if valid, raises exception if invalid
+#     """
+#     try:
+#         if not token:
+#             raise Exception("No token provided")
+        
+#         print(f"🔐 Verifying WebSocket token...")
+        
+#         # ✅ Use Supabase to verify the token (same as REST API)
+#         user = supabase.auth.get_user(token)
+        
+#         if not user or not user.user:
+#             print(f"❌ Invalid token - no user found")
+#             raise Exception("Invalid or expired token")
+        
+#         user_id = user.user.id
+#         print(f"✅ Token verified for user: {user_id}")
+        
+#         return user_id
+        
+#     except Exception as e:
+#         print(f"❌ WebSocket token verification failed: {str(e)}")
+#         print(traceback.format_exc())
+#         raise Exception(f"Token verification failed: {str(e)}")
+
+
+
+
+
 # app/middlewares/secure_route.py
 
+import traceback
 from fastapi import Header, HTTPException, status
 from app.utils.supabase_client import supabase
 
@@ -9,7 +74,6 @@ async def verify_jwt_token(
     """
     Verify Supabase JWT and return user_id
     """
-
     if not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -18,12 +82,52 @@ async def verify_jwt_token(
 
     token = authorization.split(" ")[1]
 
-    user_res = supabase.auth.get_user(token)
+    try:
+        user_res = supabase.auth.get_user(token)
 
-    if user_res.user is None:
+        if user_res.user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token"
+            )
+
+        return user_res.user.id
+    except Exception as e:
+        print(f"❌ Token verification error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token"
         )
 
-    return user_res.user.id  # ← VERIFIED user_id
+
+def verify_jwt_token_ws(token: str) -> str:
+    """
+    Verify JWT token for WebSocket connections using Supabase
+    Returns user_id if valid, raises exception if invalid
+    """
+    try:
+        if not token:
+            print("❌ No token provided to verify_jwt_token_ws")
+            raise Exception("No token provided")
+        
+        print(f"🔐 Verifying WebSocket token (first 50 chars): {token[:50]}...")
+        
+        # ✅ Use Supabase client to verify
+        user_res = supabase.auth.get_user(token)
+        
+        print(f"📊 Supabase response: {user_res}")
+        
+        if not user_res or not user_res.user:
+            print(f"❌ Invalid token - no user found in response")
+            raise Exception("Invalid or expired token")
+        
+        user_id = user_res.user.id
+        print(f"✅ Token verified successfully for user: {user_id}")
+        
+        return user_id
+        
+    except Exception as e:
+        print(f"❌ WebSocket token verification failed: {str(e)}")
+        print(f"❌ Exception type: {type(e).__name__}")
+        print(traceback.format_exc())
+        raise Exception(f"Token verification failed: {str(e)}")

@@ -35,6 +35,7 @@ import useSendMessage from '@/contexts/sendMessage';
 import { useDispatch } from 'react-redux';
 import { clearConversation, setConversation } from '@/store/slices/message/conversationSlice';
 import useGetChatId from '@/contexts/getChatId';
+import useWebSocket from '@/contexts/useWebSocket';
 
 export default function ChatScreen() {
 
@@ -66,6 +67,7 @@ export default function ChatScreen() {
 
   const { sendMessage, loading } = useSendMessage();
   const { loading: initializingChat, error: chatError } = useGetChatId();
+  const { isConnected, sendTypingIndicator, reconnect } = useWebSocket(); // ✅ WebSocket
 
   // ✅ Determine header title with fallback chain
   const headerTitle = useMemo(() => {
@@ -128,9 +130,8 @@ export default function ChatScreen() {
     console.log('  - Contact Profile ID:', contactProfileId);
     console.log('  - Contact Name:', contact?.name);
     console.log('  - Conversation ID:', conversationId);
-    console.log('  - Initializing:', initializingChat);
-    console.log('  - Error:', chatError);
-  }, [contactProfileId, contact, conversationId, initializingChat, chatError]);
+    console.log('  - WebSocket Connected:', isConnected);
+  }, [contactProfileId, contact, conversationId, isConnected]);
 
   return (
     <SafeAreaView
@@ -188,6 +189,7 @@ export default function ChatScreen() {
             onSend={sendMessage}
             onAttachmentPress={() => setIsAttachmentSheetVisible(true)}
             isDarkMode={isDarkMode}
+            onTyping={sendTypingIndicator}
           />
         )}
       </KeyboardAvoidingView>

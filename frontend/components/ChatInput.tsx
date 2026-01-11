@@ -17,12 +17,14 @@ interface ChatInputProps {
   onSend: (message: string) => void;
   onAttachmentPress: () => void;
   isDarkMode?: boolean;
+  onTyping?: () => void;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
   onSend,
   onAttachmentPress,
   isDarkMode = false,
+  onTyping,
 }) => {
   const [message, setMessage] = useState('');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -48,9 +50,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
     if (message.trim()) {
       onSend(message);
       setMessage('');
-      Keyboard.dismiss();
+      // Keyboard.dismiss();
     }
   };
+
+    const handleChangeText = (text: string) => {
+    setMessage(text);
+    if (onTyping && text.length > 0) {
+      onTyping();
+    }
+  };
+
 
   const handleAttachment = () => {
     onAttachmentPress();
@@ -104,7 +114,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           <TextInput
             style={[styles.input, { color: colors.text }]}
             value={message}
-            onChangeText={setMessage}
+            onChangeText={handleChangeText}
             placeholder="Type a message..."
             placeholderTextColor={colors.textSecondary}
             multiline
@@ -112,6 +122,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             onContentSizeChange={handleContentSizeChange}
           />
           <TouchableOpacity
+            onPress={handleSend}
             style={[styles.emojiButton, { backgroundColor: colors.inputBackground }]}
             activeOpacity={0.7}
           >
