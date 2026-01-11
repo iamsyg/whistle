@@ -28,8 +28,12 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
 
   const chatId = useSelector((state: RootState) => state.conversation.selectedConversationId)
 
-  const { loading, messages: backendMessages } = useGetMessage(chatId);
+  const { loading } = useGetMessage(chatId);
   const myProfileId = useSelector((state: RootState) => state.profile.userId);
+
+  const backendMessages = useSelector(
+  (state: RootState) => state.conversation.messages
+);
 
   const uiMessages = useMemo(() => {
     if (!myProfileId) return [];
