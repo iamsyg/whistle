@@ -25,33 +25,81 @@ async def get_or_create_direct_chat_controller(
     return chat["id"]
 
 
-async def get_user_all_chat_ids_controller(user_id: str):
-
+async def get_user_all_chats_controller(user_id: str):
     try:
-        res = (
+        # 1️⃣ Fetch chats user is part of
+        chats_res = (
             supabase
             .table("chat_members")
-            .select("chat_id")
+            .select("""
+                chat_id,
+                chat:chat (
+                    id,
+                    type,
+                    user1,
+                    user2,
+                    last_message_at
+                )
+            """)
             .eq("user_id", user_id)
             .is_("left_at", None)
             .execute()
         )
 
-        print("Fetched chat IDs response:", res)
+        if not chats_res.data:
+            return []
 
-        if res.data is None:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to fetch chat IDs"
+        chat_cards = []
+
+        for row in chats_res.data:
+            chat = row["chat"]
+            chat_id = chat["id"]
+
+            # 2️⃣ Resolve other user (for direct chats)
+            other_user_id = None
+            if chat["type"] == "direct":
+                other_user_id = (
+                    chat["user2"]
+                    if chat["user1"] == user_id
+                    else chat["user1"]
+                )
+
+            other_user = None
+            if other_user_id:
+                user_res = (
+                    supabase
+                    .table("profile")
+                    .select("id, name, username, avatar_url")
+                    .eq("id", other_user_id)
+                    .single()
+                    .execute()
+                )
+                other_user = user_res.data
+
+            # 3️⃣ Fetch last message
+            msg_res = (
+                supabase
+                .table("messages")
+                .select("content, created_at, sender_id")
+                .eq("chat_id", chat_id)
+                .is_("deleted_at", None)
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
             )
 
-        # Extract chat IDs cleanly
-        chat_ids = [row["chat_id"] for row in res.data]
+            last_message = msg_res.data[0] if msg_res.data else None
 
-        print("✅ Chat IDs fetched:", chat_ids)
+            chat_cards.append({
+                "chat_id": chat_id,
+                "type": chat["type"],
+                "other_user": other_user,
+                "last_message": last_message,
+                "last_message_at": chat["last_message_at"],
+            })
 
-        return chat_ids
+        return chat_cards
 
     except Exception as e:
-        print("❌ Error fetching chat IDs:", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        print("❌ Error fetching chats:", str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch chats")

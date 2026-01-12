@@ -2,7 +2,7 @@
 
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException
-from app.controllers.conversation_controller import get_or_create_direct_chat_controller, get_user_all_chat_ids_controller
+from app.controllers.conversation_controller import get_or_create_direct_chat_controller, get_user_all_chats_controller
 from app.middlewares.secure_route import verify_jwt_token
 
 router = APIRouter(
@@ -36,13 +36,13 @@ async def init_direct_chat(
         raise HTTPException(status_code=500, detail=str(e))
     
 
-@router.get("/all/ids")
-async def get_user_all_chat_ids(
-    user_id: str = Depends(verify_jwt_token)
+@router.get("/all/user")
+async def get_user_all_chats(
+    user_id: str 
 ):
     
     try:
-        conversation_ids = await get_user_all_chat_ids_controller(user_id=user_id)
+        conversation_ids = await get_user_all_chats_controller(user_id=user_id)
         print(f"✅ Fetched conversation IDs for user {user_id}: {conversation_ids}")
         return {"conversation_ids": conversation_ids}
     

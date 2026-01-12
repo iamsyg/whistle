@@ -6,6 +6,7 @@ import { BackendMessage } from '@/types/backend/message';
 interface ConversationState {
   selectedConversationId: string | null;
   contactProfileId: string | null;
+  userAllConversationIds: string[]; // ✅ Store all conversation IDs
   messages: BackendMessage[];
   loading: boolean;
   typingUsers: string[]; // ✅ Track who's typing
@@ -14,6 +15,7 @@ interface ConversationState {
 const initialState: ConversationState = {
   selectedConversationId: null,
   contactProfileId: null,
+  userAllConversationIds: [], // ✅ Initialize as empty array
   messages: [],
   loading: false,
   typingUsers: [],
@@ -45,6 +47,12 @@ const conversationSlice = createSlice({
     ) => {
       state.selectedConversationId = action.payload;
       state.messages = []; // reset on switch (important)
+    },
+    setUserAllConversationIds: (
+      state,
+      action: PayloadAction<string[]>
+    ) => {
+      state.userAllConversationIds = action.payload;
     },
     setMessages: (state, action: PayloadAction<BackendMessage[]>) => {
       state.messages = action.payload;
@@ -82,6 +90,7 @@ export const {
   setConversation,
   setContactProfileId,
   setSelectedConversationId,
+  setUserAllConversationIds,
   setMessages,
   addMessage,
   setLoading,

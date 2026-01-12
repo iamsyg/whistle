@@ -1,5 +1,5 @@
 // types/backend/chat.ts
-export interface BackendChat {
+export interface BackendConversation {
   id: string;
   type: 'direct' | 'group' | 'classroom';
 
