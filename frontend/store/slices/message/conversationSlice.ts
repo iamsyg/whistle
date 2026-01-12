@@ -2,11 +2,11 @@
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { BackendMessage } from '@/types/backend/message';
-
+import { UserConversation } from "@/types/conversation";
 interface ConversationState {
   selectedConversationId: string | null;
   contactProfileId: string | null;
-  userAllConversationIds: string[]; // ✅ Store all conversation IDs
+  userAllConversations: UserConversation[]; // ✅ Store all conversation IDs
   messages: BackendMessage[];
   loading: boolean;
   typingUsers: string[]; // ✅ Track who's typing
@@ -15,7 +15,7 @@ interface ConversationState {
 const initialState: ConversationState = {
   selectedConversationId: null,
   contactProfileId: null,
-  userAllConversationIds: [], // ✅ Initialize as empty array
+  userAllConversations: [],
   messages: [],
   loading: false,
   typingUsers: [],
@@ -48,11 +48,11 @@ const conversationSlice = createSlice({
       state.selectedConversationId = action.payload;
       state.messages = []; // reset on switch (important)
     },
-    setUserAllConversationIds: (
+    setUserAllConversations: (
       state,
-      action: PayloadAction<string[]>
+      action: PayloadAction<UserConversation[]>
     ) => {
-      state.userAllConversationIds = action.payload;
+      state.userAllConversations = action.payload;
     },
     setMessages: (state, action: PayloadAction<BackendMessage[]>) => {
       state.messages = action.payload;
@@ -90,7 +90,7 @@ export const {
   setConversation,
   setContactProfileId,
   setSelectedConversationId,
-  setUserAllConversationIds,
+  setUserAllConversations,
   setMessages,
   addMessage,
   setLoading,

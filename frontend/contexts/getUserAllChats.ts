@@ -1,13 +1,12 @@
-// // frontend/contexts/getAllChatIds.ts
+// // frontend/contexts/getUserAllChats.ts
 
 import { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
-import { setUserAllConversationIds } from "@/store/slices/message/conversationSlice";
+import { setUserAllConversations } from "@/store/slices/message/conversationSlice";
 import { supabase } from "@/utils/supabase";
 import { Alert } from "react-native";
 import { router } from "expo-router";
-import useGetChatId from "./getChatId";
 
 interface UseGetUserAllChatsState {
   loading: boolean;
@@ -53,11 +52,16 @@ function useGetUserAllChats(): UseGetUserAllChatsState {
       try {
         const token = await getAccessToken();
         if (!token) {
+
+          initializingRef.current = false;
+          setLoading(false);
           console.error('❌ No auth token');
           setError('Authentication required');
+
           Alert.alert('Authentication Error', 'Please log in again.', [
             { text: 'OK', onPress: () => router.replace('/(auth)/login') }
           ]);
+          
           return;
         }
 
@@ -108,7 +112,11 @@ function useGetUserAllChats(): UseGetUserAllChatsState {
         //     conversationId: data.chat_id
         // }))
 
-        dispatch(setUserAllConversationIds(data.conversation_ids));
+        if (!Array.isArray(data.conversation_ids)) {
+          throw new Error("Invalid conversations response");
+        }
+
+        dispatch(setUserAllConversations(data.conversation_ids));
         
         console.log('✅ Conversation ID stored in Redux');
       } catch (err) {
