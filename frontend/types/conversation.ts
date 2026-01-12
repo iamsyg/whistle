@@ -19,6 +19,7 @@ export interface UserConversation {
 
 export interface OtherUser {
   id: string;
+  phone_number_hash: string | null;
   name: string | null;
   username: string | null;
   avatar_url: string | null;
