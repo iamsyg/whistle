@@ -25,6 +25,7 @@ import { setContacts, setContactsLoading } from '@/store/slices/contacts/contact
 import { RootState } from '@/store/store';
 import { Contact, MatchedContact } from '@/types/contact';
 import { setConversation } from '@/store/slices/message/conversationSlice';
+import { syncContact } from '@/contexts/useSyncContact';
 
 export default function ConnectNodesScreen() {
   const [loading, setLoading] = useState(true);
@@ -73,72 +74,6 @@ export default function ConnectNodesScreen() {
       console.error('Error requesting contacts permission:', error);
       Alert.alert('Error', 'Failed to request contacts permission.');
       return false;
-    }
-  };
-
-  // ✅ Send hashes to backend with improved error handling
-  const sendToBackend = async (hashedPhoneNumbers: string[]) => {
-    console.log('Sending hashes to backend:', hashedPhoneNumbers.length);
-
-    if (hashedPhoneNumbers.length === 0) {
-      console.log('No valid contacts to match, skipping backend call');
-      return { success: true, data: { matched_contacts: [], count: 0 } };
-    }
-
-    const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL;
-    if (!backendUrl) {
-      console.error('EXPO_PUBLIC_BACKEND_URL not set!');
-      Alert.alert('Configuration Error', 'Backend URL not configured.');
-      return { success: false };
-    }
-
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-
-      if (!accessToken) {
-        console.error('No access token found');
-        Alert.alert('Authentication Error', 'Please log in again.');
-        router.replace('/(auth)/login');
-        return { success: false };
-      }
-
-      console.log('Fetching from:', `${backendUrl}/contacts/match-contacts`);
-      const response = await fetch(`${backendUrl}/contacts/match-contacts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ phone_hashes: hashedPhoneNumbers }),
-      });
-
-      console.log('Backend response status:', response.status);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Backend response error:', errorText);
-
-        // ✅ Better error messaging
-        if (response.status === 401) {
-          Alert.alert('Session Expired', 'Please log in again.');
-          router.replace('/(auth)/login');
-        } else {
-          Alert.alert('Sync Error', 'Failed to match contacts. Please try again.');
-        }
-        return { success: false };
-      }
-
-      const data = await response.json();
-      console.log('Matched contacts:', data.count);
-      return { success: true, data };
-    } catch (error) {
-      console.error('Backend request error:', error);
-      Alert.alert(
-        'Connection Error',
-        'Cannot connect to server. Please check your internet connection.'
-      );
-      return { success: false };
     }
   };
 
@@ -208,7 +143,7 @@ export default function ConnectNodesScreen() {
         console.log('Total unique contacts:', uniqueContacts.length);
 
         // Send hashes to backend
-        const backendResponse = await sendToBackend(
+        const backendResponse = await syncContact(
           uniqueContacts.map(c => c.hash)
         );
 

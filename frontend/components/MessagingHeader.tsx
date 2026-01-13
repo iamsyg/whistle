@@ -33,7 +33,7 @@ interface MessagingHeaderProps {
 
 const MessagingHeader: React.FC<MessagingHeaderProps> = ({
   title = 'Chat',
-  subtitle = 'last seen today at 9:41 AM',
+  subtitle = 'last seen today at 4:59 PM',
   searchPlaceholder = 'Search messages...',
   onSearch = (query) => console.log('Search:', query),
   showBackButton = true,
