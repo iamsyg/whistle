@@ -9,6 +9,9 @@ import { store } from '../store/store';
 import { useEffect } from 'react';
 import AuthBootstrap from '../components/AuthBootstrap';
 
+import { PersistGate } from 'redux-persist/integration/react';
+import { persistor } from '../store/store';
+
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
@@ -19,6 +22,10 @@ export default function RootLayout() {
 
   return (
     <Provider store={store}>
+      {/* loading={null} means show nothing while loading. 
+        You can pass a <LoadingScreen /> component if you want.
+      */}
+      <PersistGate loading={null} persistor={persistor}>
       <SafeAreaProvider>
         <AuthBootstrap />
         <View style={styles.container}>
@@ -36,6 +43,7 @@ export default function RootLayout() {
           </Stack>
         </View>
       </SafeAreaProvider>
+      </PersistGate>
     </Provider>
   );
 }
