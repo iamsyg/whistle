@@ -1,4 +1,4 @@
-// frontend/contexts/useSyncContact.ts
+// frontend/hooks/useSyncContact.ts
 
 // ✅ Send hashes to backend with improved error handling
 
@@ -16,7 +16,7 @@ import {
 import { router } from 'expo-router';
 import { supabase } from '@/utils/supabase';
 
-export const syncContact = async (hashedPhoneNumbers: string[]) => {
+export const useSyncContact = async (hashedPhoneNumbers: string[]) => {
     console.log('Sending hashes to backend:', hashedPhoneNumbers.length);
 
     if (hashedPhoneNumbers.length === 0) {

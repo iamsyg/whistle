@@ -1,4 +1,4 @@
-// frontend/contexts/sendMessage.ts
+// frontend/hooks/useSendMessage.ts
 
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";

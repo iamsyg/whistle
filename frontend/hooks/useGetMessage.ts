@@ -1,4 +1,4 @@
-// frontend/contexts/getMessage.ts
+// frontend/hooks/useGetMessage.ts
 
 import React, { useEffect, useState } from "react";
 // import useConversation from "../statemanage/useConversation.js";

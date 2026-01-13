@@ -31,10 +31,10 @@ import { supabase } from '@/utils/supabase';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { Contact } from '@/types/contact';
-import useSendMessage from '@/contexts/sendMessage';
+import useSendMessage from '@/hooks/useSendMessage';
 import { useDispatch } from 'react-redux';
 import { clearConversation, setConversation } from '@/store/slices/message/conversationSlice';
-import useGetChatId from '@/contexts/getChatId';
+import useGetConversationId from '@/hooks/useGetConversationId';
 import useWebSocket from '@/contexts/useWebSocket';
 
 export default function ChatScreen() {
@@ -66,7 +66,7 @@ export default function ChatScreen() {
   )
 
   const { sendMessage, loading } = useSendMessage();
-  const { loading: initializingChat, error: chatError } = useGetChatId();
+  const { loading: initializingChat, error: chatError } = useGetConversationId();
   const { isConnected, sendTypingIndicator, reconnect } = useWebSocket(); // ✅ WebSocket
 
   // ✅ Determine header title with fallback chain
@@ -122,7 +122,7 @@ export default function ChatScreen() {
     };
   }, [dispatch]);
 
-  useGetChatId();
+  // useGetConversationId();
 
   // ✅ Debug logging
   useEffect(() => {

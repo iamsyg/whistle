@@ -13,7 +13,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
 import { router } from 'expo-router';
 import FloatingActionButton from '@/components/FloatingActionButton';
-import useGetUserAllChats from '@/contexts/getUserAllChats';
+import useGetUserAllChats from '@/hooks/useGetUserAllChats';
 import { setConversation } from '@/store/slices/message/conversationSlice';
 
 export default function ChatsScreen() {

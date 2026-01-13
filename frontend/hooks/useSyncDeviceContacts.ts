@@ -1,3 +1,5 @@
+// frontend/hooks/useSyncDeviceContacts.ts
+
 import { useState, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import * as Contacts from 'expo-contacts';
@@ -9,7 +11,7 @@ import { getDeviceCountryDialCode } from '@/utils/countryCode';
 import { setContacts, setContactsLoading } from '@/store/slices/contacts/contactsSlice';
 import { RootState } from '@/store/store';
 import { Contact, MatchedContact } from '@/types/contact';
-import { syncContact } from '@/contexts/useSyncContact';
+import { useSyncContact } from '@/hooks/useSyncContact';
 
 export const useSyncDeviceContacts = () => {
   const dispatch = useDispatch();
@@ -76,7 +78,7 @@ export const useSyncDeviceContacts = () => {
         (c, i, self) => i === self.findIndex(x => x.hash === c.hash)
       );
 
-      const backend = await syncContact(uniqueContacts.map(c => c.hash));
+      const backend = await useSyncContact(uniqueContacts.map(c => c.hash));
       if (!backend?.success) {
         dispatch(setContacts(uniqueContacts));
         return;

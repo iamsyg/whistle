@@ -1,4 +1,4 @@
-// // frontend/contexts/getUserAllChats.ts
+// // frontend/hooks/useGetUserAllChats.ts
 
 import { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from 'react-redux';

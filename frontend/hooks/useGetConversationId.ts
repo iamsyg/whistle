@@ -1,4 +1,4 @@
-// // frontend/contexts/getChatId.ts
+// // frontend/hooks/useGetConversationId.ts
 
 import { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from 'react-redux';
@@ -8,12 +8,12 @@ import { supabase } from "@/utils/supabase";
 import { Alert } from "react-native";
 import { router } from "expo-router";
 
-interface UseGetChatIdState {
+interface useGetConversationIdState {
   loading: boolean;
   error: string | null;
 }
 
-function useGetChatId(): UseGetChatIdState {
+function useGetConversationId(): useGetConversationIdState {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initializingRef = useRef(false); // ✅ Prevent duplicate calls
@@ -158,4 +158,4 @@ function useGetChatId(): UseGetChatIdState {
   return { loading, error };
 }
 
-export default useGetChatId;
+export default useGetConversationId;

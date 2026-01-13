@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 // import MessageBubble from './MessageBubble';
 import MessageLayout from './MessageLayout';
-import useGetMessage from '@/contexts/getMessage';
+import useGetMessage from '@/hooks/useGetMessage';
 import { mapBackendMessageToUI } from '@/utils/messageMapper';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
