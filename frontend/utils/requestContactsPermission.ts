@@ -1,4 +1,4 @@
-// frontend/contexts/useContactsPermission.ts
+// frontend/utils/useContactsPermission.ts
 
 // ✅ Request contacts permission
 

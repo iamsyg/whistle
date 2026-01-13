@@ -25,15 +25,22 @@ import { RootState } from '@/store/store';
 import { Contact, MatchedContact } from '@/types/contact';
 import { setConversation } from '@/store/slices/message/conversationSlice';
 import { syncContact } from '@/contexts/useSyncContact';
-import { requestContactsPermission } from '@/contexts/useContactsPermission';
+import { useSyncDeviceContacts } from '@/hooks/syncDeviceContacts';
 
 export default function ConnectNodesScreen() {
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [permissionGranted, setPermissionGranted] = useState(false);
+  // const [loading, setLoading] = useState(true);
+  // const [syncing, setSyncing] = useState(false);
+  // const [permissionGranted, setPermissionGranted] = useState(false);
 
   const dispatch = useDispatch();
-  const contacts = useSelector((state: RootState) => state.contacts.all);
+  // const contacts = useSelector((state: RootState) => state.contacts.all);
+
+  const {
+  syncDeviceContacts,
+  loading,
+  syncing,
+  contacts
+} = useSyncDeviceContacts();
 
   // ✅ Memoized to prevent unnecessary recalculations
   const selectedContacts = useMemo(
@@ -52,111 +59,111 @@ export default function ConnectNodesScreen() {
     '#118AB2', '#EF476F', '#073B4C', '#7209B7'
   ], []);
 
-  // ✅ Fetch and process contacts
-  const fetchContacts = async () => {
-    if (!permissionGranted) {
-      const granted = await requestContactsPermission();
-      if (!granted) return;
-      setPermissionGranted(true);
-    }
+  // // ✅ Fetch and process contacts
+  // const fetchContacts = async () => {
+  //   if (!permissionGranted) {
+  //     const granted = await requestContactsPermission();
+  //     if (!granted) return;
+  //     setPermissionGranted(true);
+  //   }
 
-    setSyncing(true);
-    setLoading(true);
-    dispatch(setContactsLoading(true));
+  //   setSyncing(true);
+  //   setLoading(true);
+  //   dispatch(setContactsLoading(true));
 
-    try {
-      const defaultCountryCode = getDeviceCountryDialCode();
-      console.log('Using default country code:', defaultCountryCode);
+  //   try {
+  //     const defaultCountryCode = getDeviceCountryDialCode();
+  //     console.log('Using default country code:', defaultCountryCode);
 
-      const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.PhoneNumbers],
-      });
+  //     const { data } = await Contacts.getContactsAsync({
+  //       fields: [Contacts.Fields.PhoneNumbers],
+  //     });
 
-      if (data.length > 0) {
-        const processedContacts: Contact[] = [];
+  //     if (data.length > 0) {
+  //       const processedContacts: Contact[] = [];
 
-        for (const contact of data) {
-          if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
-            for (const phone of contact.phoneNumbers) {
-              if (phone.number) {
-                const normalizedPhone = normalizePhoneNumber(phone.number, defaultCountryCode);
+  //       for (const contact of data) {
+  //         if (contact.phoneNumbers && contact.phoneNumbers.length > 0) {
+  //           for (const phone of contact.phoneNumbers) {
+  //             if (phone.number) {
+  //               const normalizedPhone = normalizePhoneNumber(phone.number, defaultCountryCode);
 
-                if (!normalizedPhone) {
-                  console.log('Skipping invalid phone:', phone.number);
-                  continue;
-                }
+  //               if (!normalizedPhone) {
+  //                 console.log('Skipping invalid phone:', phone.number);
+  //                 continue;
+  //               }
 
-                // Debug first contact
-                if (processedContacts.length === 0) {
-                  await debugPhoneNumber(phone.number, 'Connect Nodes - First Contact', defaultCountryCode);
-                }
+  //               // Debug first contact
+  //               if (processedContacts.length === 0) {
+  //                 await debugPhoneNumber(phone.number, 'Connect Nodes - First Contact', defaultCountryCode);
+  //               }
 
-                if (normalizedPhone.length >= 10) {
-                  const hash = await hashPhoneNumber(normalizedPhone);
-                  const colorIndex = Math.floor(Math.random() * avatarColors.length);
+  //               if (normalizedPhone.length >= 10) {
+  //                 const hash = await hashPhoneNumber(normalizedPhone);
+  //                 const colorIndex = Math.floor(Math.random() * avatarColors.length);
 
-                  processedContacts.push({
-                    contactId: `${contact.id}-${hash}`,
-                    name: contact.name || 'Unknown',
-                    phone: normalizedPhone,
-                    hash,
-                    isRegistered: false,
-                    isSelected: false,
-                    avatarColor: avatarColors[colorIndex],
-                  });
-                }
-              }
-            }
-          }
-        }
+  //                 processedContacts.push({
+  //                   contactId: `${contact.id}-${hash}`,
+  //                   name: contact.name || 'Unknown',
+  //                   phone: normalizedPhone,
+  //                   hash,
+  //                   isRegistered: false,
+  //                   isSelected: false,
+  //                   avatarColor: avatarColors[colorIndex],
+  //                 });
+  //               }
+  //             }
+  //           }
+  //         }
+  //       }
 
-        // Remove duplicates based on hash
-        const uniqueContacts = processedContacts.filter(
-          (contact, index, self) =>
-            index === self.findIndex((c) => c.hash === contact.hash)
-        );
+  //       // Remove duplicates based on hash
+  //       const uniqueContacts = processedContacts.filter(
+  //         (contact, index, self) =>
+  //           index === self.findIndex((c) => c.hash === contact.hash)
+  //       );
 
-        console.log('Total unique contacts:', uniqueContacts.length);
+  //       console.log('Total unique contacts:', uniqueContacts.length);
 
-        // Send hashes to backend
-        const backendResponse = await syncContact(
-          uniqueContacts.map(c => c.hash)
-        );
+  //       // Send hashes to backend
+  //       const backendResponse = await syncContact(
+  //         uniqueContacts.map(c => c.hash)
+  //       );
 
-        if (!backendResponse?.success) {
-          console.warn('Backend match failed - showing unmatched contacts');
-          dispatch(setContacts(uniqueContacts));
-          return;
-        }
+  //       if (!backendResponse?.success) {
+  //         console.warn('Backend match failed - showing unmatched contacts');
+  //         dispatch(setContacts(uniqueContacts));
+  //         return;
+  //       }
 
-        const matchedContacts = backendResponse.data.matched_contacts as MatchedContact[];
-        const matchedMap = new Map(
-          matchedContacts.map(u => [u.phone_number_hash, u.id])
-        );
+  //       const matchedContacts = backendResponse.data.matched_contacts as MatchedContact[];
+  //       const matchedMap = new Map(
+  //         matchedContacts.map(u => [u.phone_number_hash, u.id])
+  //       );
 
-        console.log('Matched hashes count:', matchedMap.size);
+  //       console.log('Matched hashes count:', matchedMap.size);
 
-        // Update contacts with registration status
-        const finalContacts: Contact[] = uniqueContacts.map(c => ({
-          ...c,
-          isRegistered: matchedMap.has(c.hash),
-          profileId: matchedMap.get(c.hash),
-        }));
+  //       // Update contacts with registration status
+  //       const finalContacts: Contact[] = uniqueContacts.map(c => ({
+  //         ...c,
+  //         isRegistered: matchedMap.has(c.hash),
+  //         profileId: matchedMap.get(c.hash),
+  //       }));
 
-        dispatch(setContacts(finalContacts));
-        console.log('Registered contacts:', finalContacts.filter(c => c.isRegistered).length);
-      } else {
-        Alert.alert('No Contacts', 'No contacts found with phone numbers.');
-      }
-    } catch (error) {
-      console.error('Error fetching contacts:', error);
-      Alert.alert('Error', 'Failed to fetch contacts.');
-    } finally {
-      setSyncing(false);
-      setLoading(false);
-      dispatch(setContactsLoading(false));
-    }
-  };
+  //       dispatch(setContacts(finalContacts));
+  //       console.log('Registered contacts:', finalContacts.filter(c => c.isRegistered).length);
+  //     } else {
+  //       Alert.alert('No Contacts', 'No contacts found with phone numbers.');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error fetching contacts:', error);
+  //     Alert.alert('Error', 'Failed to fetch contacts.');
+  //   } finally {
+  //     setSyncing(false);
+  //     setLoading(false);
+  //     dispatch(setContactsLoading(false));
+  //   }
+  // };
 
   // ✅ Handle contact selection
   const handleContactSelect = useCallback((contact: Contact) => {
@@ -309,16 +316,17 @@ export default function ConnectNodesScreen() {
 
   // ✅ Check permission on mount
   useEffect(() => {
-    checkPermission();
-  }, []);
+    // checkPermission();
+    syncDeviceContacts();
+  }, [syncDeviceContacts]);
 
-  const checkPermission = async () => {
-    const { status } = await Contacts.getPermissionsAsync();
-    setPermissionGranted(status === 'granted');
-    if (status === 'granted') {
-      await fetchContacts();
-    }
-  };
+  // const checkPermission = async () => {
+  //   const { status } = await Contacts.getPermissionsAsync();
+  //   setPermissionGranted(status === 'granted');
+  //   if (status === 'granted') {
+  //     await syncDeviceContacts();
+  //   }
+  // };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -387,7 +395,7 @@ export default function ConnectNodesScreen() {
                 ) : (
                   <TouchableOpacity
                     style={styles.syncButton}
-                    onPress={fetchContacts}
+                    onPress={syncDeviceContacts}
                   >
                     <Ionicons name="refresh" size={14} color="#1971c2" />
                     <Text style={styles.syncButtonText}>Sync</Text>
@@ -404,7 +412,7 @@ export default function ConnectNodesScreen() {
                 </Text>
                 <TouchableOpacity
                   style={styles.syncContactsButton}
-                  onPress={fetchContacts}
+                  onPress={syncDeviceContacts}
                 >
                   <Ionicons name="sync" size={20} color="white" />
                   <Text style={styles.syncContactsButtonText}>
