@@ -8,7 +8,7 @@ export interface ProfileLink {
 }
 
 export interface ProfileState {
-  userId: string;
+  userId: string | null;
   name: string;
   profilePictureUrl: string;
   userName: string;
@@ -18,7 +18,7 @@ export interface ProfileState {
 }
 
 const initialState: ProfileState = {
-  userId: '',
+  userId: null,
   name: '',
   profilePictureUrl: '',
   userName: '',
@@ -33,6 +33,9 @@ const profileSlice = createSlice({
   reducers: {
     setUserId: (state, action: PayloadAction<string>) => {
       state.userId = action.payload;
+    },
+    clearUser: (state) => {
+      state.userId = null;
     },
     setName: (state, action: PayloadAction<string>) => {
       state.name = action.payload;
@@ -72,6 +75,7 @@ const profileSlice = createSlice({
 
 export const {
   setUserId,
+  clearUser,
   setName,
   setProfilePictureUrl,
   setUserName,

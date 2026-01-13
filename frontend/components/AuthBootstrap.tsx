@@ -1,24 +1,103 @@
-// frontend/components/AuthBootstrap.tsx
-
-import { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+// / components/AuthBootstrap.tsx
+import { useEffect, useRef } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { AppState, AppStateStatus } from 'react-native';
 import { supabase } from '@/utils/supabase';
-import { setUserId } from '@/store/slices/auth/profileSlice';
+import { setUserId, clearUser } from '@/store/slices/auth/profileSlice';
+import type { RootState } from '@/store/store';
 
 export default function AuthBootstrap() {
   const dispatch = useDispatch();
+  const appState = useRef(AppState.currentState);
+  const persistedUserId = useSelector((state: RootState) => state.profile.userId);
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
-    const restoreSession = async () => {
-      const { data } = await supabase.auth.getSession();
+    // Initial session check - wait for persist rehydration
+    const initializeAuth = async () => {
+      if (hasInitialized.current) return;
+      hasInitialized.current = true;
 
-      if (data?.session?.user?.id) {
-        dispatch(setUserId(data.session.user.id));
+      try {
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('Session restore error:', error);
+          if (persistedUserId) {
+            dispatch(clearUser());
+          }
+          return;
+        }
+
+        const sessionUserId = data?.session?.user?.id;
+
+        if (sessionUserId && sessionUserId !== persistedUserId) {
+          dispatch(setUserId(sessionUserId));
+        } else if (!sessionUserId && persistedUserId) {
+          dispatch(clearUser());
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
       }
     };
 
-    restoreSession();
-  }, []);
+    // Small delay to ensure persist completes
+    const initTimer = setTimeout(initializeAuth, 100);
+
+    // Auth state change listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth event:', event);
+
+        switch (event) {
+          case 'SIGNED_IN':
+          case 'TOKEN_REFRESHED':
+          case 'USER_UPDATED':
+            if (session?.user?.id) {
+              dispatch(setUserId(session.user.id));
+            }
+            break;
+          case 'SIGNED_OUT':
+            dispatch(clearUser());
+            break;
+        }
+      }
+    );
+
+    // Validate session when app comes to foreground
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      async (nextAppState: AppStateStatus) => {
+        if (
+          appState.current.match(/inactive|background/) &&
+          nextAppState === 'active'
+        ) {
+          const { data } = await supabase.auth.getSession();
+          if (!data?.session && persistedUserId) {
+            dispatch(clearUser());
+          }
+        }
+        appState.current = nextAppState;
+      }
+    );
+
+    // Periodic session validation (every 5 minutes)
+    const validateSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data?.session && persistedUserId) {
+        dispatch(clearUser());
+      }
+    };
+
+    const validationInterval = setInterval(validateSession, 5 * 60 * 1000);
+
+    return () => {
+      clearTimeout(initTimer);
+      authListener?.subscription?.unsubscribe();
+      appStateSubscription.remove();
+      // clearInterval(validationInterval);
+    };
+  }, [dispatch]);
 
   return null;
 }

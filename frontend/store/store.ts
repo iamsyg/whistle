@@ -1,37 +1,4 @@
-// // ./store/store.ts
-
-// import { configureStore } from '@reduxjs/toolkit';
-// import authReducer from './slices/auth/phoneAuthSlice';
-// import emailAuthReducer from './slices/auth/emailAuthSlice';
-// import profileReducer from './slices/auth/profileSlice';
-// import conversationReducer from './slices/message/conversationSlice';
-// import messageRuducer from './slices/message/messageSlice';
-// import contactsReducer from './slices/contacts/contactsSlice';
-
-// export const store = configureStore({
-//   reducer: {
-//     auth: authReducer,
-//     emailAuth: emailAuthReducer,
-//     profile: profileReducer,
-//     conversation: conversationReducer,
-//     message: messageRuducer,
-//     contacts: contactsReducer,
-//   },
-// });
-
-// export type RootState = ReturnType<typeof store.getState>;
-// export type AppDispatch = typeof store.dispatch;
-
-
-
-
-
-
-
-
-
 // store/store.ts
-
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -43,6 +10,7 @@ import {
   PERSIST,
   PURGE,
   REGISTER,
+  createMigrate,
 } from 'redux-persist';
 
 import authReducer from './slices/auth/phoneAuthSlice';
@@ -61,10 +29,22 @@ const rootReducer = combineReducers({
   contacts: contactsReducer,
 });
 
+// Migration strategy for state shape changes
+const migrations = {
+  0: (state: any) => {
+    // Initial migration
+    return state;
+  },
+};
+
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  whitelist: ['profile', 'conversation', 'contacts'], 
+  version: 0,
+  migrate: createMigrate(migrations, { debug: __DEV__ }),
+  whitelist: ['profile', 'conversation', 'contacts'],
+  blacklist: ['auth', 'emailAuth'], // Don't persist auth tokens
+  timeout: 10000, // 10 second timeout
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -77,6 +57,7 @@ export const store = configureStore({
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
     }),
+  devTools: __DEV__, // Only enable in development
 });
 
 export const persistor = persistStore(store);
