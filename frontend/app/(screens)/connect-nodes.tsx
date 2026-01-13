@@ -18,7 +18,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import Header from '@/components/Header';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import UserCard from '@/components/UserCard';
-import { supabase } from '@/utils/supabase';
 import { normalizePhoneNumber, hashPhoneNumber, debugPhoneNumber } from '@/utils/phoneUtils';
 import { getDeviceCountryDialCode } from '@/utils/countryCode';
 import { setContacts, setContactsLoading } from '@/store/slices/contacts/contactsSlice';
@@ -26,6 +25,7 @@ import { RootState } from '@/store/store';
 import { Contact, MatchedContact } from '@/types/contact';
 import { setConversation } from '@/store/slices/message/conversationSlice';
 import { syncContact } from '@/contexts/useSyncContact';
+import { requestContactsPermission } from '@/contexts/useContactsPermission';
 
 export default function ConnectNodesScreen() {
   const [loading, setLoading] = useState(true);
@@ -52,36 +52,12 @@ export default function ConnectNodesScreen() {
     '#118AB2', '#EF476F', '#073B4C', '#7209B7'
   ], []);
 
-  // ✅ Request contacts permission
-  const requestContactsPermission = async (): Promise<boolean> => {
-    try {
-      const { status } = await Contacts.requestPermissionsAsync();
-      if (status === 'granted') {
-        setPermissionGranted(true);
-        return true;
-      } else {
-        Alert.alert(
-          'Permission Denied',
-          'Contacts permission is required to find friends.',
-          [
-            { text: 'Cancel', style: 'cancel', onPress: () => router.back() },
-            { text: 'Try Again', onPress: requestContactsPermission }
-          ]
-        );
-        return false;
-      }
-    } catch (error) {
-      console.error('Error requesting contacts permission:', error);
-      Alert.alert('Error', 'Failed to request contacts permission.');
-      return false;
-    }
-  };
-
   // ✅ Fetch and process contacts
   const fetchContacts = async () => {
     if (!permissionGranted) {
       const granted = await requestContactsPermission();
       if (!granted) return;
+      setPermissionGranted(true);
     }
 
     setSyncing(true);
