@@ -74,7 +74,7 @@ async def get_user_all_chats_controller(user_id: str):
                 user_res = (
                     supabase
                     .table("profile")
-                    .select("id, phone_number_hash, name, username, avatar_url")
+                    .select("id, phone_number_hash, phone_number, name, username, avatar_url")
                     .eq("id", other_user_id)
                     .single()
                     .execute()

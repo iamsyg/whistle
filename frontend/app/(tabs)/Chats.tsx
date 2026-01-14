@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import useGetUserAllChats from '@/hooks/useGetUserAllChats';
 import { setConversation } from '@/store/slices/message/conversationSlice';
+import { UserConversation } from '@/types/conversation';
 
 export default function ChatsScreen() {
   const dispatch = useDispatch();
@@ -31,17 +32,35 @@ export default function ChatsScreen() {
 
   console.log("contactsByProfileId:", contactsByProfileId); 
 
-  const renderItem = ({ item }: any) => {
+  const renderItem = ({ item }: { item: UserConversation }) => {
+
+    if(!item.other_user) return null; // Safety check
     const otherUser = item.other_user;
 
     // ✅ WhatsApp logic
     const savedContact = contactsByProfileId[otherUser.id];
 
-    const displayName =
-      savedContact?.name ||
-      otherUser.name ||
-      otherUser.username ||
-      'Unknown';
+    // const displayName =
+    //   savedContact?.name ||
+    //   otherUser.name ||
+    //   otherUser.username ||
+    //   'Unknown';
+
+    let displayName = '';
+
+    if (savedContact) {
+        displayName = savedContact.name;
+    } else {
+        const phoneNumber = otherUser.phone_number || "Unknown";
+        const backendName = otherUser.name || otherUser.username;
+
+        if (backendName) {
+            displayName = `${phoneNumber} ~ ${backendName}`;
+        } else {
+            displayName = phoneNumber;
+        }
+
+    }
 
     return (
       <TouchableOpacity
@@ -57,15 +76,18 @@ export default function ChatsScreen() {
         }}
       >
         {/* Avatar */}
-        <View style={styles.avatar}>
+        <View style={[
+            styles.avatar, 
+            { backgroundColor: savedContact?.avatarColor || '#ccc' }
+        ]}>
           <Text style={styles.avatarText}>
-            {displayName.charAt(0).toUpperCase()}
+            {displayName.charAt(0).toUpperCase().replace('+', '')}
           </Text>
         </View>
 
         {/* Chat info */}
         <View style={styles.chatInfo}>
-          <Text style={styles.chatName}>{displayName}</Text>
+          <Text style={styles.chatName} numberOfLines={1}>{displayName}</Text>
 
           {item.last_message && (
             <Text style={styles.lastMessage} numberOfLines={1}>
@@ -124,57 +146,61 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   list: {
-    padding: 12,
-    paddingBottom: 100,
+    paddingVertical: 10,
   },
   chatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#eee',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#1971c2',
-    alignItems: 'center',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#ddd',
     justifyContent: 'center',
-    marginRight: 12,
+    alignItems: 'center',
+    marginRight: 15,
   },
   avatarText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   chatInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   chatName: {
     fontSize: 16,
     fontWeight: '600',
+    color: '#000',
+    marginBottom: 4,
   },
   lastMessage: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#666',
-    marginTop: 2,
   },
   time: {
-    fontSize: 11,
+    fontSize: 12,
     color: '#999',
+    alignSelf: 'flex-start',
+    marginTop: 5,
   },
   emptyState: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    marginBottom: 8,
   },
   emptySubtitle: {
+    fontSize: 14,
     color: '#666',
-    marginTop: 4,
   },
 });
