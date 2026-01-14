@@ -2,6 +2,7 @@
 
 from fastapi import HTTPException
 from app.utils.supabase_client import supabase
+from typing import List
 
 
 # Return/Create chat ID
@@ -108,3 +109,67 @@ async def get_user_all_chats_controller(user_id: str):
     except Exception as e:
         print("❌ Error fetching chats:", str(e))
         raise HTTPException(status_code=500, detail="Failed to fetch chats")
+
+
+
+# Create group chat controller (placeholder)
+
+
+async def create_group_chat_controller(
+    creator_id: str,
+    title: str,
+    member_ids: List[str],
+):
+    try:
+
+        title = title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="Group title cannot be empty")
+
+        # Remove duplicates + creator
+        unique_members = set(member_ids)
+        unique_members.discard(creator_id)
+
+        if len(unique_members) < 2:
+            raise HTTPException(
+                status_code=400,
+                detail="Group chat must have at least 2 other members"
+            )
+
+        chat_res = supabase.table("chat").insert({
+            "type": "group",
+            "title": title,
+            "created_by": creator_id,
+        }).execute()
+
+        if not chat_res.data:
+            raise HTTPException(status_code=500, detail="Failed to create group chat")
+
+        chat = chat_res.data[0]
+        chat_id = chat["id"]
+
+        member_rows = [
+            {
+                "chat_id": chat_id,
+                "user_id": uid,
+                "role": "member"
+            }
+            for uid in unique_members
+        ]
+
+        # Add creator as admin
+        member_rows.append({
+            "chat_id": chat_id,
+            "user_id": creator_id,
+            "role": "admin"
+        })
+
+        supabase.table("chat_members").insert(member_rows).execute()
+
+        return chat_id
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("❌ Error creating group chat:", str(e))
+        raise HTTPException(status_code=500, detail="Failed to create group chat")

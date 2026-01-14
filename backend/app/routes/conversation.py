@@ -2,8 +2,9 @@
 
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException
-from app.controllers.conversation_controller import get_or_create_direct_chat_controller, get_user_all_chats_controller
+from app.controllers.conversation_controller import get_or_create_direct_chat_controller, get_user_all_chats_controller, create_group_chat_controller
 from app.middlewares.secure_route import verify_jwt_token
+from typing import List
 
 router = APIRouter(
     prefix="/conversation",
@@ -50,4 +51,28 @@ async def get_user_all_chats(
     
     except HTTPException as e:
         print(f"❌ HTTP Error fetching conversation IDs for user {user_id}: {str(e)}")
+        raise
+
+
+
+@router.post("/create-group")
+async def create_group_chat(
+    creator_id: str = Depends(verify_jwt_token),
+    title: str = Body(..., embed=True),
+    member_ids: List[str] = Body(..., embed=True),
+):
+    try:
+        chat_id = await create_group_chat_controller(
+            creator_id=creator_id,
+            title=title,
+            member_ids=member_ids
+        )
+        print(f"✅ Created group chat {chat_id} by user {creator_id}")
+        return {
+            "success": True,
+            "chat_id": chat_id
+        }
+    
+    except HTTPException as e:
+        print(f"❌ HTTP Error creating group chat by user {creator_id}: {str(e)}")
         raise
