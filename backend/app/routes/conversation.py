@@ -10,6 +10,8 @@ router = APIRouter(
     tags=["Conversation"]
 )
 
+# Get chat ID
+
 @router.post("/direct/init/{other_user_id}")
 async def init_direct_chat(
     other_user_id: str,

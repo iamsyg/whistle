@@ -1,4 +1,4 @@
-// types/backend/conversation.ts
+// types/conversation.ts
 
 
 export interface UserAllConversationsResponse {
@@ -20,6 +20,7 @@ export interface UserConversation {
 export interface OtherUser {
   id: string;
   phone_number_hash: string | null;
+  phone_number?: string; // 👈 Add this. Backend MUST send this.
   name: string | null;
   username: string | null;
   avatar_url: string | null;

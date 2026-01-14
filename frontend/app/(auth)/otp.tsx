@@ -256,6 +256,7 @@ export default function OTPScreen() {
             },
             body: JSON.stringify({
               phone_hash: phoneHash,
+              phone_number: normalized,
               country_code: countryCode,
               user_id: userId,
               phone_verified: true

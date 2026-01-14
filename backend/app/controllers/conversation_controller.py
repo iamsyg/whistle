@@ -3,6 +3,9 @@
 from fastapi import HTTPException
 from app.utils.supabase_client import supabase
 
+
+# Return/Create chat ID
+
 async def get_or_create_direct_chat_controller(
     sender_id: str,
     other_user_id: str
@@ -24,6 +27,8 @@ async def get_or_create_direct_chat_controller(
     chat = chat_res.data[0] if isinstance(chat_res.data, list) else chat_res.data
     return chat["id"]
 
+
+# Return all chats for a user
 
 async def get_user_all_chats_controller(user_id: str):
     try:

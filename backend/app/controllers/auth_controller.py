@@ -25,12 +25,14 @@ def check_phone_hash(phone_hash: str) -> bool:
 
 def insert_phone_hash_and_user_id(
     phone_hash: str,
+    phone_number: str,
     country_code: str,
     user_id: str,
     phone_verified: bool
 ) -> dict:
     
     phone_hash = phone_hash.strip()
+    phone_number = phone_number.strip()
     country_code = country_code.strip()
     user_id = user_id.strip()
     
@@ -41,6 +43,7 @@ def insert_phone_hash_and_user_id(
             .insert({
                 "id": user_id,
                 "phone_number_hash": phone_hash,
+                "phone_number": phone_number,
                 "country_code": country_code,
                 "phone_verified": phone_verified,
             })
