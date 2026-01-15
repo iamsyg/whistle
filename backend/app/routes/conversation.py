@@ -70,7 +70,8 @@ async def create_group_chat(
         print(f"✅ Created group chat {chat_id} by user {creator_id}")
         return {
             "success": True,
-            "chat_id": chat_id
+            "chat_id": chat_id,
+            "type": "group"
         }
     
     except HTTPException as e:

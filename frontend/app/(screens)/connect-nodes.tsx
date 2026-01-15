@@ -132,6 +132,7 @@ export default function ConnectNodesScreen() {
               dispatch(
                 setContacts(contacts.map(c => ({ ...c, isSelected: false })))
               );
+              router.push('/(screens)/createGroup');
             }
           }
         ]
