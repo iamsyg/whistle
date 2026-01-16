@@ -17,7 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { createGroupChat } from '@/services/conversation/createGroup';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
-import { setConversation } from '@/store/slices/message/conversationSlice';
+import { addConversation, setConversation, setUserAllConversations } from '@/store/slices/message/conversationSlice';
 import { router } from 'expo-router';
 import { setContacts } from '@/store/slices/contacts/contactsSlice';
 
@@ -121,6 +121,14 @@ const CreateGroupScreen: React.FC = () => {
             dispatch(setConversation({
                 conversationId: result.chat_id,
                 type: 'group',
+            }));
+            
+            dispatch(addConversation({
+                chat_id: result.chat_id,
+                type: 'group',
+                title: groupData.title,
+                last_message: null,
+                last_message_at: new Date().toISOString(),
             }));
 
             dispatch(

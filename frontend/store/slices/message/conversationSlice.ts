@@ -66,6 +66,12 @@ const conversationSlice = createSlice({
         state.messages.push(action.payload);
       }
     },
+    addConversation: (
+  state,
+  action: PayloadAction<UserConversation>
+) => {
+  state.userAllConversations.unshift(action.payload);
+},
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
     },
@@ -92,6 +98,7 @@ const conversationSlice = createSlice({
 export const {
   setConversation,
   setUserAllConversations,
+  addConversation,
   setMessages,
   addMessage,
   setLoading,

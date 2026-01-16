@@ -51,30 +51,38 @@ export default function ChatScreen() {
   // Get params and Redux state
   // const { contactProfileId } = useLocalSearchParams<{ contactProfileId: string }>();
 
-  const contactProfileId = useSelector(
-    (state: RootState) => state.conversation.contactProfileId
-  );
-
   const myUserId = useSelector((state: RootState) => state.profile.userId);
+
+  const {selectedConversationId, conversationType, contactProfileId} = useSelector(
+    (state: RootState) => state.conversation
+  );
 
   const contact = useSelector((state: RootState) =>
     contactProfileId ? state.contacts.byProfileId[contactProfileId] : undefined
   );
 
-  const conversationId = useSelector(
-    (state: RootState) => state.conversation.selectedConversationId
-  )
+  const conversationId = selectedConversationId;
 
   const { sendMessage, loading } = useSendMessage();
   const { loading: initializingChat, error: chatError } = useGetConversationId();
   const { isConnected, sendTypingIndicator, reconnect } = useWebSocket(); // ✅ WebSocket
 
+  const groupTitle = useSelector((state: RootState) =>
+  state.conversation.userAllConversations.find(
+    c => c.chat_id === selectedConversationId
+  )?.title
+);
+
   // ✅ Determine header title with fallback chain
   const headerTitle = useMemo(() => {
-    if (contact?.name) return contact.name;
-    if (contact?.phone) return contact.phone;
+    if(conversationType === "direct" && contact) {
+      if (contact?.name) return contact.name;
+      if (contact?.phone) return contact.phone;
+    } else if (conversationType === "group") {
+      return groupTitle || 'Group Chat';
+    }
     return 'Chat';
-  }, [contact]);
+  }, [contact, conversationType]);
 
   // ✅ Get last seen status (you can enhance this with real data later)
   const lastSeenStatus = useMemo(() => {
@@ -107,13 +115,13 @@ export default function ChatScreen() {
   };
 
   useEffect(() => {
-    if (!contactProfileId) {
+    if (conversationType === "direct" && !contactProfileId) {
       console.warn('⚠️  No contact selected, redirecting...');
       Alert.alert('Error', 'No contact selected', [
         { text: 'OK', onPress: () => router.back() }
       ]);
     }
-  }, [contactProfileId]);
+  }, [contactProfileId, conversationType]);
 
   useEffect(() => {
     return () => {
