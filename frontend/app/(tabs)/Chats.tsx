@@ -34,33 +34,39 @@ export default function ChatsScreen() {
 
   const renderItem = ({ item }: { item: UserConversation }) => {
 
-    if(!item.other_user) return null; // Safety check
-    const otherUser = item.other_user;
-
-    // ✅ WhatsApp logic
-    const savedContact = contactsByProfileId[otherUser.id];
-
-    // const displayName =
-    //   savedContact?.name ||
-    //   otherUser.name ||
-    //   otherUser.username ||
-    //   'Unknown';
+    const isDirect = item.type === 'direct';
+    const isGroup = item.type === 'group' || item.type === 'classroom';
 
     let displayName = '';
 
-    if (savedContact) {
-        displayName = savedContact.name;
+    if(item.type === 'direct' && item.other_user) {
+      const savedContact = contactsByProfileId[item.other_user.id];
+
+      displayName = savedContact?.name ||
+        item.other_user.name ||
+        item.other_user.username ||
+        item.other_user.phone_number ||
+        'Unknown';
     } else {
-        const phoneNumber = otherUser.phone_number || "Unknown";
-        const backendName = otherUser.name || otherUser.username;
-
-        if (backendName) {
-            displayName = `${phoneNumber} ~ ${backendName}`;
-        } else {
-            displayName = phoneNumber;
-        }
-
+       displayName =
+    item.type === 'classroom'
+      ? 'Classroom'
+      : 'Group Chat';
     }
+
+    const otherUserId = item.other_user?.id;
+
+    const savedContact =
+  item.type === 'direct' && otherUserId
+    ? contactsByProfileId[otherUserId]
+    : undefined;
+
+    const avatarColor =
+  item.type === 'direct' && otherUserId
+    ? savedContact?.avatarColor || '#ccc'
+    : item.type === 'classroom'
+      ? '#6f42c1'
+      : '#ff9800';
 
     return (
       <TouchableOpacity
@@ -68,8 +74,9 @@ export default function ChatsScreen() {
         onPress={() => {
           dispatch(
             setConversation({
-              contactProfileId: otherUser.id,
+              contactProfileId: item.type === 'direct' ? item.other_user?.id : undefined,
               conversationId: item.chat_id,
+              type: item.type,
             })
           );
           router.push('/(screens)/chatScreen');
@@ -78,7 +85,7 @@ export default function ChatsScreen() {
         {/* Avatar */}
         <View style={[
             styles.avatar, 
-            { backgroundColor: savedContact?.avatarColor || '#ccc' }
+            { backgroundColor: avatarColor }
         ]}>
           <Text style={styles.avatarText}>
             {displayName.charAt(0).toUpperCase().replace('+', '')}

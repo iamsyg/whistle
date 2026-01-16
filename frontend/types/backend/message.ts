@@ -11,7 +11,12 @@ export interface BackendMessage {
   content: string;
   message_type: BackendMessageType;
 
-  metadata: Record<string, any>;
+  metadata?: {
+    file_url?: string;
+    file_name?: string;
+    mime_type?: string;
+    reply_preview?: string;
+  };
 
   reply_to_id: string | null;
 

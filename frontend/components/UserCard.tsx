@@ -4,7 +4,6 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useDispatch, useSelector } from 'react-redux';
-import { setSelectedConversationId } from '@/store/slices/message/conversationSlice';
 import { RootState } from '@/store/store';
 import { Contact } from '@/types/contact';
 

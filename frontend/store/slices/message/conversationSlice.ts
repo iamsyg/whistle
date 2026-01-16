@@ -5,6 +5,7 @@ import { BackendMessage } from '@/types/backend/message';
 import { UserConversation } from "@/types/conversation";
 interface ConversationState {
   selectedConversationId: string | null;
+  conversationType: 'direct' | 'group' | 'classroom' | null;
   contactProfileId: string | null;
   userAllConversations: UserConversation[]; // ✅ Store all conversation IDs
   messages: BackendMessage[];
@@ -14,6 +15,7 @@ interface ConversationState {
 
 const initialState: ConversationState = {
   selectedConversationId: null,
+  conversationType: null,
   contactProfileId: null,
   userAllConversations: [],
   messages: [],
@@ -29,25 +31,25 @@ const conversationSlice = createSlice({
     // Set both contactProfileId and selectedConversationId
     setConversation: (
       state,
-      action: PayloadAction<{ contactProfileId: string; conversationId?: string }>
+      action: PayloadAction<{
+        conversationId?: string; // ✅ optional
+        type: 'direct' | 'group' | 'classroom'; // ✅ NOT nullable
+        contactProfileId?: string;
+      }>
     ) => {
-      state.contactProfileId = action.payload.contactProfileId;
-      state.selectedConversationId = action.payload.conversationId || null;
-      state.messages = []; // Reset messages when switching conversations
+      state.selectedConversationId =
+        action.payload.conversationId ?? null;
+
+      state.conversationType = action.payload.type;
+
+      state.contactProfileId =
+        action.payload.type === 'direct'
+          ? action.payload.contactProfileId ?? null
+          : null;
+
+      state.messages = [];
     },
-    setContactProfileId: (
-      state,
-      action: PayloadAction<string | null>
-    ) => {
-      state.contactProfileId = action.payload;
-    },
-    setSelectedConversationId: (
-      state,
-      action: PayloadAction<string | null>
-    ) => {
-      state.selectedConversationId = action.payload;
-      state.messages = []; // reset on switch (important)
-    },
+
     setUserAllConversations: (
       state,
       action: PayloadAction<UserConversation[]>
@@ -72,12 +74,13 @@ const conversationSlice = createSlice({
         state.typingUsers.push(action.payload);
       }
     },
-    
+
     removeTypingUser: (state, action: PayloadAction<string>) => {
       state.typingUsers = state.typingUsers.filter(id => id !== action.payload);
     },
     clearConversation: (state) => {
       state.selectedConversationId = null;
+      state.conversationType = null;
       state.contactProfileId = null;
       state.messages = [];
       state.loading = false;
@@ -88,8 +91,6 @@ const conversationSlice = createSlice({
 
 export const {
   setConversation,
-  setContactProfileId,
-  setSelectedConversationId,
   setUserAllConversations,
   setMessages,
   addMessage,

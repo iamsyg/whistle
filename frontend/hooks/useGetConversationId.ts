@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
-import { setConversation, setSelectedConversationId } from "@/store/slices/message/conversationSlice";
+import { setConversation } from "@/store/slices/message/conversationSlice";
 import { supabase } from "@/utils/supabase";
 import { Alert } from "react-native";
 import { router } from "expo-router";
@@ -129,9 +129,9 @@ function useGetConversationId(): useGetConversationIdState {
         console.log('   Chat ID:', data.chat_id); // ✅ Backend returns "id"
 
         // ✅ Store the conversation ID in Redux
-        dispatch(setSelectedConversationId(data.chat_id));
         dispatch(setConversation({
             contactProfileId: contactProfileId,
+            type: 'direct',
             conversationId: data.chat_id
         }))
         

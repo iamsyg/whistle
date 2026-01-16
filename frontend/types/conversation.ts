@@ -10,6 +10,9 @@ export interface UserConversation {
   type: 'direct' | 'group' | 'classroom';
 
   other_user?: OtherUser; // only for direct chats
+  
+  title?: string | null; // only for group/classroom chats
+  avatar_url?: string | null;
 
   last_message?: LastMessage | null;
 

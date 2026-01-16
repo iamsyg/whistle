@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import {
   addMessage,
-  setSelectedConversationId,
+  setConversation,
 } from "@/store/slices/message/conversationSlice";
 import { supabase } from "@/utils/supabase";
 
@@ -92,7 +92,11 @@ const useSendMessage = () => {
         console.log("Started chat and sent message data:", data);
 
         // 🔑 IMPORTANT PART
-        dispatch(setSelectedConversationId(data.chat_id));
+        dispatch(setConversation({
+          conversationId: data.chat_id,
+          type: 'direct',
+          contactProfileId: receiverId
+        }))
         message = data.message;
 
         console.log("Newly sent message data:", message);

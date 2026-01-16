@@ -109,6 +109,7 @@ export default function ConnectNodesScreen() {
 
               dispatch(setConversation({
                 contactProfileId: contact.profileId!,
+                type: 'direct',
               }))
 
               // Navigate with contactId
@@ -129,10 +130,9 @@ export default function ConnectNodesScreen() {
             onPress: () => {
               console.log('Creating group with:', selectedContacts.map(c => c.name));
               // TODO: Implement group chat creation
-              dispatch(
-                setContacts(contacts.map(c => ({ ...c, isSelected: false })))
-              );
+
               router.push('/(screens)/createGroup');
+
             }
           }
         ]
@@ -155,8 +155,10 @@ export default function ConnectNodesScreen() {
       console.log('Navigating to chat with contact ID:', selectedContact.profileId);
 
       dispatch(setConversation({
-        contactProfileId: selectedContact.profileId
+        type: 'direct',
+        contactProfileId: selectedContact.profileId!,
       }));
+
 
       router.push('/(screens)/chatScreen');
     } else {

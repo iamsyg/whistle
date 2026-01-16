@@ -32,15 +32,28 @@ const rootReducer = combineReducers({
 // Migration strategy for state shape changes
 const migrations = {
   0: (state: any) => {
-    // Initial migration
+    // Initial migration: do nothing
     return state;
   },
+  1: (state: any) => {
+  if (!state?.conversation) return state;
+
+  return {
+    ...state,
+    conversation: {
+      ...state.conversation,
+      conversationType:
+        state.conversation.conversationType ?? null,
+    },
+  };
+},
 };
+
 
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  version: 0,
+  version: 1,
   migrate: createMigrate(migrations, { debug: __DEV__ }),
   whitelist: ['profile', 'conversation', 'contacts'],
   blacklist: ['auth', 'emailAuth'], // Don't persist auth tokens

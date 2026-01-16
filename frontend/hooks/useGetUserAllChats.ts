@@ -105,13 +105,6 @@ function useGetUserAllChats(): UseGetUserAllChatsState {
         console.log('   Response:', data);
         console.log('   Chat IDs:', data); // ✅ Backend returns "id"
 
-        // ✅ Store the conversation ID in Redux
-        // dispatch(setSelectedConversationId(data.chat_id));
-        // dispatch(setConversation({
-        //     contactProfileId: contactProfileId,
-        //     conversationId: data.chat_id
-        // }))
-
         if (!Array.isArray(data.conversation_ids)) {
           throw new Error("Invalid conversations response");
         }
