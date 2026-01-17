@@ -30,43 +30,74 @@ export default function ChatsScreen() {
     (state: RootState) => state.contacts.byProfileId
   );
 
-  console.log("contactsByProfileId:", contactsByProfileId); 
+  console.log("contactsByProfileId:", contactsByProfileId);
 
-  const renderItem = ({ item }: { item: UserConversation }) => {
-
-    const isDirect = item.type === 'direct';
-    const isGroup = item.type === 'group' || item.type === 'classroom';
-
-    let displayName = '';
-
-    if(item.type === 'direct' && item.other_user) {
+  const getDisplayName = (
+    item: UserConversation,
+    contactsByProfileId: RootState['contacts']['byProfileId']
+  ) => {
+    if (item.type === 'direct' && item.other_user) {
       const savedContact = contactsByProfileId[item.other_user.id];
-
-      displayName = savedContact?.name ||
+      return (
+        savedContact?.name ||
         item.other_user.name ||
         item.other_user.username ||
         item.other_user.phone_number ||
-        'Unknown';
-    } else {
-       displayName =
-    item.type === 'classroom'
-      ? 'Classroom'
-      : 'Group Chat';
+        'Unknown'
+      );
     }
 
-    const otherUserId = item.other_user?.id;
+    if (item.type === 'group') {
+      return item.title || 'Group Chat';
+    }
 
-    const savedContact =
-  item.type === 'direct' && otherUserId
-    ? contactsByProfileId[otherUserId]
-    : undefined;
+    return 'Classroom Chat';
+  };
 
-    const avatarColor =
-  item.type === 'direct' && otherUserId
-    ? savedContact?.avatarColor || '#ccc'
-    : item.type === 'classroom'
-      ? '#6f42c1'
-      : '#ff9800';
+
+  const getSubtitle = (item: UserConversation) => {
+    if (item.last_message) return item.last_message.content;
+
+    if (item.type === 'group') return 'Group created';
+    if (item.type === 'classroom') return 'Classroom created';
+
+    return 'No messages yet';
+  };
+
+
+  const getAvatarProps = (
+    item: UserConversation,
+    contactsByProfileId: RootState['contacts']['byProfileId']
+  ) => {
+    // DIRECT CHAT
+    if (item.type === 'direct' && item.other_user) {
+      const contact = contactsByProfileId[item.other_user.id];
+      return {
+        bgColor: contact?.avatarColor || '#4dabf7',
+        image: null,
+      };
+    }
+
+    // GROUP
+    if (item.type === 'group') {
+      return {
+        bgColor: '#ff9800',
+        image: item.avatar_url || null,
+      };
+    }
+
+    // CLASSROOM
+    return {
+      bgColor: '#6f42c1',
+      image: null,
+    };
+  };
+
+
+  const renderItem = ({ item }: { item: UserConversation }) => {
+    const displayName = getDisplayName(item, contactsByProfileId);
+    const subtitle = getSubtitle(item);
+    const avatar = getAvatarProps(item, contactsByProfileId);
 
     return (
       <TouchableOpacity
@@ -74,33 +105,38 @@ export default function ChatsScreen() {
         onPress={() => {
           dispatch(
             setConversation({
-              contactProfileId: item.type === 'direct' ? item.other_user?.id : undefined,
               conversationId: item.chat_id,
               type: item.type,
+              contactProfileId:
+                item.type === 'direct' ? item.other_user?.id : undefined,
             })
           );
           router.push('/(screens)/chatScreen');
         }}
       >
         {/* Avatar */}
-        <View style={[
-            styles.avatar, 
-            { backgroundColor: avatarColor }
-        ]}>
-          <Text style={styles.avatarText}>
-            {displayName.charAt(0).toUpperCase().replace('+', '')}
-          </Text>
-        </View>
-
-        {/* Chat info */}
-        <View style={styles.chatInfo}>
-          <Text style={styles.chatName} numberOfLines={1}>{displayName}</Text>
-
-          {item.last_message && (
-            <Text style={styles.lastMessage} numberOfLines={1}>
-              {item.last_message.content}
+        <View style={[styles.avatar, { backgroundColor: avatar.bgColor }]}>
+          {avatar.image ? (
+            <Text style={styles.avatarText}>
+              {displayName.charAt(0).toUpperCase()}
+            </Text>
+            // later: replace Text with <Image />
+          ) : (
+            <Text style={styles.avatarText}>
+              {displayName.charAt(0).toUpperCase().replace('+', '')}
             </Text>
           )}
+        </View>
+
+        {/* Chat Info */}
+        <View style={styles.chatInfo}>
+          <Text style={styles.chatName} numberOfLines={1}>
+            {displayName}
+          </Text>
+
+          <Text style={styles.lastMessage} numberOfLines={1}>
+            {subtitle}
+          </Text>
         </View>
 
         {/* Time */}
@@ -115,6 +151,7 @@ export default function ChatsScreen() {
       </TouchableOpacity>
     );
   };
+
 
   return (
     <SafeAreaView style={styles.container}>
