@@ -7,17 +7,10 @@ import {
     TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { FrontendMessage } from '@/types/frontend/message';
 
 interface MessageLayoutProps {
-    message: {
-        id: string;
-        text: string;
-        senderId: string;
-        timestamp: Date;
-        isRead: boolean;
-        type: 'text'  | 'image' | 'document' // | 'task' | 'split';
-        metadata?: any;
-    };
+    message: FrontendMessage;
     isOwnMessage: boolean;
     isDarkMode?: boolean;
 }
@@ -55,9 +48,16 @@ const MessageLayout: React.FC<MessageLayoutProps> = ({
 
     const renderContent = () => {
         return (
-            <Text style={[styles.messageText, { color: isOwnMessage ? colors.ownText : colors.otherText }]}>
-                {message.text}
-            </Text>
+            <>
+                {message.senderName && !isOwnMessage && (
+                    <Text style={styles.senderName}>
+                        {message.senderName}
+                    </Text>
+                )}
+                <Text style={[styles.messageText, { color: isOwnMessage ? colors.ownText : colors.otherText }]}>
+                    {message.text}
+                </Text>
+            </>
         )
     };
 
@@ -135,6 +135,12 @@ const styles = StyleSheet.create({
     readIndicator: {
         marginLeft: 2,
     },
+    senderName: {
+        fontSize: 12,
+        fontWeight: '600',
+        marginBottom: 2,
+        color: '#1FA855', // WhatsApp-ish green
+    }
 });
 
 export default MessageLayout

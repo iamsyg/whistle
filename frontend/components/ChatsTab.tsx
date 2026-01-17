@@ -32,16 +32,23 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
   const myProfileId = useSelector((state: RootState) => state.profile.userId);
 
   const backendMessages = useSelector(
-  (state: RootState) => state.conversation.messages
-);
+    (state: RootState) => state.conversation.messages
+  );
+
+  const contactsByProfileId = useSelector(
+    (state: RootState) => state.contacts.byProfileId
+  );
 
   const uiMessages = useMemo(() => {
     if (!myProfileId) return [];
     return backendMessages.map((m) =>
-      mapBackendMessageToUI(m, myProfileId)
+      mapBackendMessageToUI(
+        m,
+        myProfileId,
+        contactsByProfileId
+      )
     );
-  }, [backendMessages, myProfileId]);
-
+  }, [backendMessages, myProfileId, contactsByProfileId]);
 
   useEffect(() => {
     console.log('🧑 My Profile ID:', myProfileId);

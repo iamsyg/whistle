@@ -16,6 +16,7 @@ import FloatingActionButton from '@/components/FloatingActionButton';
 import useGetUserAllChats from '@/hooks/useGetUserAllChats';
 import { setConversation } from '@/store/slices/message/conversationSlice';
 import { UserConversation } from '@/types/conversation';
+import { getDisplayName } from '@/utils/getDisplayName';
 
 export default function ChatsScreen() {
   const dispatch = useDispatch();
@@ -31,29 +32,6 @@ export default function ChatsScreen() {
   );
 
   console.log("contactsByProfileId:", contactsByProfileId);
-
-  const getDisplayName = (
-    item: UserConversation,
-    contactsByProfileId: RootState['contacts']['byProfileId']
-  ) => {
-    if (item.type === 'direct' && item.other_user) {
-      const savedContact = contactsByProfileId[item.other_user.id];
-      return (
-        savedContact?.name ||
-        item.other_user.name ||
-        item.other_user.username ||
-        item.other_user.phone_number ||
-        'Unknown'
-      );
-    }
-
-    if (item.type === 'group') {
-      return item.title || 'Group Chat';
-    }
-
-    return 'Classroom Chat';
-  };
-
 
   const getSubtitle = (item: UserConversation) => {
     if (item.last_message) return item.last_message.content;

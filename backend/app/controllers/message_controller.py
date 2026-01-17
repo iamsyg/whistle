@@ -47,29 +47,104 @@ async def send_message_to_chat(
 
 
 
-async def get_direct_messages(
-    sender_id: str,
-    chat_id: str
-):
-    """
-    Fetch all messages in a direct chat between sender and chat_user
-    """
+# async def get_direct_messages(
+#     sender_id: str,
+#     chat_id: str
+# ):
+#     """
+#     Fetch all messages in a direct chat between sender and chat_user
+#     """
 
-    member_res = supabase.table("chat_members") \
-        .select("chat_id") \
-        .eq("chat_id", chat_id) \
-        .eq("user_id", sender_id) \
-        .is_("left_at", None) \
-        .execute()
+#     member_res = supabase.table("chat_members") \
+#         .select("chat_id") \
+#         .eq("chat_id", chat_id) \
+#         .eq("user_id", sender_id) \
+#         .is_("left_at", None) \
+#         .execute()
 
-    if not member_res.data:
-        raise HTTPException(status_code=403, detail="Not a member of this chat")
+#     if not member_res.data:
+#         raise HTTPException(status_code=403, detail="Not a member of this chat")
 
-    messages_res = supabase.table("messages") \
-        .select("*") \
-        .eq("chat_id", chat_id) \
-        .is_("deleted_at", None) \
-        .order("created_at", desc=False) \
-        .execute()
+#     messages_res = supabase.table("messages") \
+#         .select("""
+#             id,
+#             chat_id,
+#             sender_id,
+#             content,
+#             message_type,
+#             metadata,
+#             reply_to_id,
+#             created_at,
+#             edited_at,
+#             deleted_at,
+#             sender:profile (
+#             id,
+#             name,
+#             phone_number,
+#             username,
+#             avatar_url
+#             )
+#         """) \
+#         .eq("chat_id", chat_id) \
+#         .is_("deleted_at", None) \
+#         .order("created_at", desc=False) \
+#         .execute()
 
-    return messages_res.data
+#     return messages_res.data
+
+
+async def get_direct_messages(sender_id: str, chat_id: str):
+    try:
+        # ✅ Authorization check - select any column that exists
+        member_res = (
+            supabase
+            .table("chat_members")
+            .select("user_id")  # ✅ Changed from "id" to "user_id"
+            .eq("chat_id", chat_id)
+            .eq("user_id", sender_id)
+            .is_("left_at", None)
+            .execute()
+        )
+
+        # Check if user is a member
+        if not member_res.data or len(member_res.data) == 0:
+            raise HTTPException(status_code=403, detail="Not a member of this chat")
+
+        # ✅ Fetch messages WITH sender profile
+        msg_res = (
+            supabase
+            .table("messages")
+            .select("""
+                id,
+                chat_id,
+                sender_id,
+                content,
+                message_type,
+                metadata,
+                reply_to_id,
+                created_at,
+                edited_at,
+                deleted_at,
+                sender:profile!messages_sender_id_fkey (
+                    id,
+                    name,
+                    phone_number,
+                    username,
+                    avatar_url
+                )
+            """)
+            .eq("chat_id", chat_id)
+            .is_("deleted_at", None)
+            .order("created_at", desc=False)
+            .execute()
+        )
+
+        print("Fetched messages:", msg_res.data)
+
+        return msg_res.data or []
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("❌ get_direct_messages error:", str(e))
+        raise HTTPException(status_code=500, detail="Failed to fetch messages")
