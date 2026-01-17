@@ -44,6 +44,8 @@ async def get_user_all_chats_controller(user_id: str):
                     type,
                     user1,
                     user2,
+                    title,
+                    image_url,
                     last_message_at
                 )
             """)
@@ -99,7 +101,11 @@ async def get_user_all_chats_controller(user_id: str):
             chat_cards.append({
                 "chat_id": chat_id,
                 "type": chat["type"],
-                "other_user": other_user,
+                "other_user": other_user if chat["type"] == "direct" else None,
+
+                "title": chat["title"] if chat["type"] != "direct" else None,
+                "avatar_url": chat["image_url"] if chat["type"] != "direct" else None,
+
                 "last_message": last_message,
                 "last_message_at": chat["last_message_at"],
             })
