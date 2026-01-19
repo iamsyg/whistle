@@ -3,6 +3,7 @@
 from app.utils.supabase_client import supabase
 from postgrest.exceptions import APIError
 from datetime import datetime, timezone
+from fastapi import HTTPException
 
 def check_phone_hash(phone_hash: str) -> bool:
 
@@ -88,6 +89,12 @@ def insert_email_controller(email: str, email_verified: bool, user_id: str) -> d
 
     except APIError as e:
         if "duplicate key" in str(e).lower():
-            raise ValueError("Email already exists")
+            raise HTTPException(
+                status_code=409,
+                detail="Email already exists"
+            )
 
-        raise Exception(f"Supabase error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Service unavailable"
+        )

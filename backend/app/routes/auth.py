@@ -41,6 +41,8 @@ def insert_phone(payload: InsertPhoneRequest):
         raise HTTPException(status_code=500, detail=str(e))
     
 
+# Insert email route
+
 @router.post("/insert-email")
 def insert_email(
     payload: InsertEmailRequest,
@@ -55,10 +57,15 @@ def insert_email(
             user_id
         )
         return {"data": data}
-    except ValueError as e:
-        print(f"Validation error: {str(e)}")
-        raise HTTPException(status_code=409, detail=str(e))
+    
+    except HTTPException as e:
+        # ✅ DO NOT wrap this
+        raise e
+
     except Exception as e:
         print(f"Error in insert_email: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail="Not in service"
+        )
     

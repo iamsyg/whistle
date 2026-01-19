@@ -34,11 +34,11 @@ export default function ClassroomScreen() {
       await saveEmailToBackend(email, email_verified);
 
     } catch (error: any) {
-      console.error('Google Sign In Error:', error);
       Alert.alert(
-        'Sign In Error',
-        error.message || 'Failed to sign in with Google. Please try again.',
-        [{ text: 'OK' }]
+        'Registration',
+        error.message === 'Email already exists'
+          ? 'User already registered with this ID'
+          : 'Not in service'
       );
     } finally {
       setIsLoading(false);

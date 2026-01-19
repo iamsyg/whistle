@@ -26,9 +26,16 @@ export async function saveEmailToBackend(email: string, email_verified: boolean)
         );
 
         if (!response.ok) {
-            throw new Error('Failed to save email to backend');
+            const body = await response.json();
+
+            if (response.status === 409) {
+                throw new Error(body.detail); // "Email already exists"
+            }
+
+            throw new Error('Not in service');
         }
     } catch (error) {
         console.error('Error saving email to backend:', error);
+        throw error; // 🚨 REQUIRED
     }
 }
