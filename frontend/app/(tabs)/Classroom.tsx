@@ -1,42 +1,66 @@
 // frontend/app/(tabs)/Classroom.tsx
 
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  SafeAreaView,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import { signInWithGoogle } from '@/services/auth/signInWithGoogle';
-// import { checkUserGoogleAuth } from '@/services/auth/signInWithGoogle';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
-import { setEmail, setEmailVerified } from '@/store/slices/auth/emailAuthSlice';
 import { saveEmailToBackend } from '@/hooks/saveEmailToBackend';
-
+import { addEmail, setEmails } from '@/store/slices/auth/emailAuthSlice';
+import { useGetUserGoogleEmails } from '@/hooks/useGetUserGoogleId';
 
 export default function ClassroomScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const dispatch = useDispatch();
 
-  // useEffect(() => {
-  //   checkUserGoogleAuth();
-  // }, []);
+  const reduxEmails = useSelector(
+    (state: RootState) => state.emailAuth.emails
+  );
+
+  const { emails, loading, error } = useGetUserGoogleEmails();
+
+  useEffect(() => {
+    if (emails.length > 0) {
+      dispatch(setEmails(emails));
+    }
+  }, [emails, dispatch]);
 
   const handleGoogleSignIn = async () => {
-    if (isLoading) return; // Prevent multiple clicks
-    
+    if (isLoading) return;
+
     setIsLoading(true);
     console.log('🔘 Google Sign In button pressed');
 
     try {
-      const {email, email_verified} = await signInWithGoogle();
+      const { email, email_verified } = await signInWithGoogle();
 
-      dispatch(setEmail(email));
-      dispatch(setEmailVerified(email_verified));
+      console.log('📝 Retrieved email:', reduxEmails);
+
+      // UI-level safety (optional)
+      if (reduxEmails.includes(email)) {
+        Alert.alert('Already linked', 'This email is already attached');
+        setIsLoading(false); // ✅ reset manually
+        return;
+      }
 
       await saveEmailToBackend(email, email_verified);
+
+      dispatch(addEmail(email));
+
+      Alert.alert('Success', 'Email linked successfully');
 
     } catch (error: any) {
       Alert.alert(
         'Registration',
-        error.message === 'Email already exists'
+        error?.message === 'Email already exists'
           ? 'User already registered with this ID'
           : 'Not in service'
       );
@@ -52,24 +76,26 @@ export default function ClassroomScreen() {
         <Text style={styles.subtitle}>
           You've successfully set up your account.
         </Text>
-        
+
         {isLoading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#EA4335" />
-            <Text style={styles.loadingText}>Signing in with Google...</Text>
+            <Text style={styles.loadingText}>
+              Signing in with Google...
+            </Text>
           </View>
         )}
       </View>
-      
+
       <FloatingActionButton
         onPress={handleGoogleSignIn}
         iconName="logo-google"
-        backgroundColor={isLoading ? "#ccc" : "#EA4335"}
-      
+        backgroundColor={isLoading ? '#ccc' : '#EA4335'}
       />
     </SafeAreaView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: {
