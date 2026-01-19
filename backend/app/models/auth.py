@@ -17,3 +17,7 @@ class InsertPhoneRequest(BaseModel):
     country_code: str
     user_id: str
     phone_verified: bool  # ✅ All fields needed for insert
+
+class InsertEmailRequest(BaseModel):
+    email: str
+    email_verified: bool

@@ -2,6 +2,7 @@
 
 from app.utils.supabase_client import supabase
 from postgrest.exceptions import APIError
+from datetime import datetime, timezone
 
 def check_phone_hash(phone_hash: str) -> bool:
 
@@ -69,3 +70,24 @@ def insert_phone_hash_and_user_id(
     except Exception as e:
         print(f"Unexpected error inserting phone number: {str(e)}")
         raise Exception(f"Database error: {str(e)}")
+    
+
+def insert_email_controller(email: str, email_verified: bool, user_id: str) -> dict:
+    email = email.strip().lower()
+
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "verified": email_verified,
+        "verified_at": datetime.now(timezone.utc).isoformat() if email_verified else None,
+    }
+
+    try:
+        response = supabase.table("emails").insert(payload).execute()
+        return response.data
+
+    except APIError as e:
+        if "duplicate key" in str(e).lower():
+            raise ValueError("Email already exists")
+
+        raise Exception(f"Supabase error: {str(e)}")

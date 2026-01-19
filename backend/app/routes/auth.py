@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from app.controllers.auth_controller import check_phone_hash, insert_phone_hash_and_user_id
-from app.models.auth import CheckPhoneRequest, InsertPhoneRequest
+from app.controllers.auth_controller import insert_email_controller
+from app.models.auth import CheckPhoneRequest, InsertPhoneRequest, InsertEmailRequest
+from app.middlewares.secure_route import verify_jwt_token
 
 router = APIRouter(
     prefix="/auth",
@@ -37,3 +39,26 @@ def insert_phone(payload: InsertPhoneRequest):
     except Exception as e:
         print(f"Error in insert_phone: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.post("/insert-email")
+def insert_email(
+    payload: InsertEmailRequest,
+    user_id: str = Depends(verify_jwt_token)
+    ):
+    
+    """Insert new email - needs email, user_id, and email_verified"""
+    try:
+        data = insert_email_controller(
+            payload.email,
+            payload.email_verified,
+            user_id
+        )
+        return {"data": data}
+    except ValueError as e:
+        print(f"Validation error: {str(e)}")
+        raise HTTPException(status_code=409, detail=str(e))
+    except Exception as e:
+        print(f"Error in insert_email: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
