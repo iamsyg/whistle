@@ -9,7 +9,6 @@ import {
   Alert,
   ActivityIndicator,
   TouchableWithoutFeedback,
-  Modal,
 } from 'react-native';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import { signInWithGoogle } from '@/services/auth/signInWithGoogle';
@@ -18,15 +17,19 @@ import { RootState } from '@/store/store';
 import { saveEmailToBackend } from '@/hooks/saveEmailToBackend';
 import { addEmail, setEmails } from '@/store/slices/auth/emailAuthSlice';
 import { useGetUserGoogleEmails } from '@/hooks/useGetUserGoogleId';
+import { useRouter } from 'expo-router';
+import ModalMenu, {MenuItem} from '@/components/ModalMenu';
 
 export default function ClassroomScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAddingEmail, setIsAddingEmail] = useState(false);
   const dispatch = useDispatch();
+  const router = useRouter();
   
   const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const dropdownRef = useRef<View>(null);
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
 
   const reduxEmails = useSelector(
     (state: RootState) => state.emailAuth.emails
@@ -47,17 +50,17 @@ export default function ClassroomScreen() {
   }, [reduxEmails]);
 
   // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => {
-      if (dropdownVisible) {
-        setDropdownVisible(false);
-      }
-    };
+  // useEffect(() => {
+  //   const handleClickOutside = () => {
+  //     if (dropdownVisible) {
+  //       setDropdownVisible(false);
+  //     }
+  //   };
 
-    // This is a simplified approach - in a real app, you might want to use
-    // Pressable or GestureHandler for better touch handling
-    return () => {};
-  }, [dropdownVisible]);
+  //   // This is a simplified approach - in a real app, you might want to use
+  //   // Pressable or GestureHandler for better touch handling
+  //   return () => {};
+  // }, [dropdownVisible]);
 
   const handleGoogleSignIn = async () => {
     if (isLoading || isAddingEmail) return;
@@ -73,11 +76,7 @@ export default function ClassroomScreen() {
       await saveEmailToBackend(email, email_verified);
       
       dispatch(addEmail(email));
-      
-      // Set as selected email if it's the first one
-      if (reduxEmails.length === 0) {
-        setSelectedEmail(email);
-      }
+      setSelectedEmail(email);
 
       Alert.alert('Success', 'Email linked successfully');
 
@@ -103,22 +102,59 @@ export default function ClassroomScreen() {
   };
 
   const handleFloatingButtonPress = () => {
+    // Check if user has at least one email linked
     if (reduxEmails.length === 0) {
-      handleGoogleSignIn();
-    } else {
-      setDropdownVisible(!dropdownVisible);
+      Alert.alert(
+        'Email Required',
+        'Please add an email first to create or join a classroom',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Add Email', onPress: handleGoogleSignIn }
+        ]
+      );
+      return;
     }
+    
+    // Toggle menu visibility
+    setIsMenuVisible(!isMenuVisible);
+  };
+
+  const handleCreateClassroom = () => {
+    router.push("/(screens)/createClassroom");
+  };
+
+  const handleJoinClassroom = () => {
+    router.push("/(screens)/joinClassroom");
+  };
+
+  const menuItems: MenuItem[] = [
+    {
+      id: 1,
+      label: 'Create Organization',
+      icon: 'create-outline',
+      onPress: handleCreateClassroom,
+    },
+    {
+      id: 2,
+      label: 'Join Organization',
+      icon: 'enter-outline',
+      onPress: handleJoinClassroom,
+    },
+  ];
+
+  const closeAllMenus = () => {
+    setDropdownVisible(false);
+    setIsMenuVisible(false);
   };
 
   return (
-    <TouchableWithoutFeedback onPress={() => setDropdownVisible(false)}>
+    <TouchableWithoutFeedback onPress={closeAllMenus}>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           {reduxEmails.length === 0 ? (
             <Text 
               style={[styles.addEmail, isAddingEmail && styles.disabledText]} 
               onPress={() => !isAddingEmail && handleGoogleSignIn()}
-              disabled={isAddingEmail}
             >
               {isAddingEmail ? 'Adding...' : '+ Add email'}
             </Text>
@@ -127,7 +163,6 @@ export default function ClassroomScreen() {
               <Text
                 style={[styles.selectedEmail, isLoading && styles.disabledText]}
                 onPress={() => !isLoading && setDropdownVisible(!dropdownVisible)}
-                disabled={isLoading}
               >
                 {selectedEmail} ⌄
               </Text>
@@ -155,7 +190,6 @@ export default function ClassroomScreen() {
                       setDropdownVisible(false);
                       handleGoogleSignIn();
                     }}
-                    disabled={isAddingEmail}
                   >
                     {isAddingEmail ? 'Adding...' : '+ Add another email'}
                   </Text>
@@ -181,9 +215,17 @@ export default function ClassroomScreen() {
           )}
         </View>
 
+        {/* Modal Menu */}
+        <ModalMenu
+          visible={isMenuVisible}
+          onClose={() => setIsMenuVisible(false)}
+          menuItems={menuItems}
+          menuWidth={220}
+        />
+
         <FloatingActionButton
-          iconName="logo-google"
-          backgroundColor={isLoading || isAddingEmail ? '#ccc' : '#EA4335'}
+          iconName={isMenuVisible ? "close" : "add"}
+          backgroundColor={isLoading || isAddingEmail ? '#ccc' : '#1971c2'}
           onPress={handleFloatingButtonPress}
         />
       </SafeAreaView>
