@@ -61,12 +61,12 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="Classroom"
+        name="Base"
         options={{
           headerShown: true,
           header: () => (
             <Header 
-              title="Classroom"
+              title="Base"
               searchPlaceholder="Search classrooms..."
             />
           ),

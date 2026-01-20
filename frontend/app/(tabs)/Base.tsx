@@ -20,7 +20,7 @@ import { useGetUserGoogleEmails } from '@/hooks/useGetUserGoogleId';
 import { useRouter } from 'expo-router';
 import ModalMenu, {MenuItem} from '@/components/ModalMenu';
 
-export default function ClassroomScreen() {
+export default function OrganizationScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAddingEmail, setIsAddingEmail] = useState(false);
   const dispatch = useDispatch();
@@ -136,13 +136,13 @@ export default function ClassroomScreen() {
   const menuItems: MenuItem[] = [
     {
       id: 1,
-      label: 'Create Organization',
+      label: 'Create Base',
       icon: 'create-outline',
       onPress: handleCreateClassroom,
     },
     {
       id: 2,
-      label: 'Join Organization',
+      label: 'Join Base',
       icon: 'enter-outline',
       onPress: handleJoinClassroom,
     },
