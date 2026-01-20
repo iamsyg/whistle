@@ -35,6 +35,7 @@ const migrations = {
     // Initial migration: do nothing
     return state;
   },
+
   1: (state: any) => {
   if (!state?.conversation) return state;
 
@@ -47,16 +48,31 @@ const migrations = {
     },
   };
 },
+
+2: (state: any) => {
+    if (!state?.emailAuth) return state;
+
+    return {
+      ...state,
+      emailAuth: {
+        ...state.emailAuth,
+        selectedEmail:
+          state.emailAuth.selectedEmail ??
+          state.emailAuth.emails?.[0] ??
+          null,
+      },
+    };
+  },
 };
 
 
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  version: 1,
+  version: 2,
   migrate: createMigrate(migrations, { debug: __DEV__ }),
-  whitelist: ['profile', 'conversation', 'contacts'],
-  blacklist: ['auth', 'emailAuth'], // Don't persist auth tokens
+  whitelist: ['profile', 'conversation', 'contacts', 'emailAuth'],
+  blacklist: ['auth'], // Don't persist auth tokens
   timeout: 10000, // 10 second timeout
 };
 

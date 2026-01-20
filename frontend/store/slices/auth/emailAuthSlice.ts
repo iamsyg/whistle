@@ -3,12 +3,14 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 export interface EmailAuthState {
-  emails: string[];          
+  emails: string[];        
+  selectedEmail: string | null;  
   emailVerified: boolean;
 }
 
 const initialState: EmailAuthState = {
   emails: [],
+  selectedEmail: null,
   emailVerified: false,
 };
 
@@ -24,6 +26,9 @@ const emailAuthSlice = createSlice({
       if (!state.emails.includes(action.payload)) {
         state.emails.push(action.payload);
       }
+    },
+    setSelectedEmail: (state, action: PayloadAction<string | null>) => {
+      state.selectedEmail = action.payload;
     },
 
     removeEmail: (state, action: PayloadAction<string>) => {
@@ -43,6 +48,7 @@ const emailAuthSlice = createSlice({
 export const {
   setEmails,
   addEmail,
+  setSelectedEmail,
   removeEmail,
   setEmailVerified,
   clearEmailAuthState,

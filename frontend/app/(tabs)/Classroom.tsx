@@ -15,7 +15,7 @@ import { signInWithGoogle } from '@/services/auth/signInWithGoogle';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { saveEmailToBackend } from '@/hooks/saveEmailToBackend';
-import { addEmail, setEmails } from '@/store/slices/auth/emailAuthSlice';
+import { addEmail, setEmails, setSelectedEmail } from '@/store/slices/auth/emailAuthSlice';
 import { useGetUserGoogleEmails } from '@/hooks/useGetUserGoogleId';
 import { useRouter } from 'expo-router';
 import ModalMenu, {MenuItem} from '@/components/ModalMenu';
@@ -26,10 +26,14 @@ export default function ClassroomScreen() {
   const dispatch = useDispatch();
   const router = useRouter();
   
-  const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
+  // const [selectedEmail, dispatch(setSelectedEmail] = useState<string | null>(null);
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const dropdownRef = useRef<View>(null);
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+
+  const selectedEmail = useSelector(
+    (state: RootState) => state.emailAuth.selectedEmail
+  );
 
   const reduxEmails = useSelector(
     (state: RootState) => state.emailAuth.emails
@@ -45,7 +49,7 @@ export default function ClassroomScreen() {
 
   useEffect(() => {
     if (reduxEmails.length > 0 && !selectedEmail) {
-      setSelectedEmail(reduxEmails[0]);
+      dispatch(setSelectedEmail(reduxEmails[0]));
     }
   }, [reduxEmails]);
 
@@ -76,7 +80,7 @@ export default function ClassroomScreen() {
       await saveEmailToBackend(email, email_verified);
       
       dispatch(addEmail(email));
-      setSelectedEmail(email);
+      dispatch(setSelectedEmail(email));
 
       Alert.alert('Success', 'Email linked successfully');
 
@@ -127,6 +131,8 @@ export default function ClassroomScreen() {
     router.push("/(screens)/joinClassroom");
   };
 
+  console.log('🔘 Selected Email:', selectedEmail);
+
   const menuItems: MenuItem[] = [
     {
       id: 1,
@@ -174,7 +180,7 @@ export default function ClassroomScreen() {
                       key={email}
                       style={styles.dropdownItem}
                       onPress={() => {
-                        setSelectedEmail(email);
+                        dispatch(setSelectedEmail(email));
                         setDropdownVisible(false);
                       }}
                     >
