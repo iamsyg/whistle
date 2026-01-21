@@ -41,7 +41,7 @@ async def create_classroom(
         raise HTTPException(status_code=500, detail=str(e))
     
 
-@router.get("/")
+@router.get("/all")
 async def get_classrooms(
     user_id: str = Depends(verify_jwt_token)
 ):
