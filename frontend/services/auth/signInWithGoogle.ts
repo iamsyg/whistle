@@ -14,7 +14,7 @@ export async function signOutGoogle() {
         await GoogleSignin.signOut();
         console.log('User signed out from Google and Supabase successfully');
 
-        router.replace('/(tabs)/Classroom');
+        router.replace('/(tabs)/Base');
     } catch (error) {
         console.error('Error signing out from Google:', error);
     }
