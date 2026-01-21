@@ -84,3 +84,45 @@ async def create_classroom_controller(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+# Fetch all classrooms for a user
+async def get_user_all_classrooms_controller(user_id: str):
+    try:
+        classrooms = []
+
+        res = (
+            supabase
+            .from_("chat_members")
+            .select("""
+                chat:chat_id (
+                    id,
+                    title,
+                    description,
+                    created_by,
+                    created_at
+                )
+            """)
+            .eq("user_id", user_id)
+            .is_("left_at", None)
+            .eq("chat.type", "classroom")
+            .execute()
+        )
+
+        for row in res.data or []:
+            chat = row.get("chat")
+            if not chat:
+                continue
+
+            classrooms.append({
+                "chat_id": chat["id"],
+                "title": chat["title"],
+                "description": chat.get("description"),
+                "created_by": chat["created_by"],
+                "created_at": chat["created_at"],
+            })
+
+        return classrooms
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

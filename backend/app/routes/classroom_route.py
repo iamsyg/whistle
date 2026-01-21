@@ -2,7 +2,7 @@
 
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException
-from app.controllers.classroom_controller import create_classroom_controller
+from app.controllers.classroom_controller import create_classroom_controller, get_user_all_classrooms_controller
 from app.middlewares.secure_route import verify_jwt_token
 from typing import List
 
@@ -37,5 +37,23 @@ async def create_classroom(
         raise
     except Exception as e:
         print(f"❌ Error creating classroom: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/")
+async def get_classrooms(
+    user_id: str = Depends(verify_jwt_token)
+):
+    try:
+
+        response = await get_user_all_classrooms_controller(user_id=user_id)
+        print(f"✅ Fetched classrooms for user {user_id}: {response}")
+        return {"classrooms": response}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching classrooms: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
