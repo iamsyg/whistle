@@ -37,7 +37,7 @@ export default function ChatsScreen() {
     if (item.last_message) return item.last_message.content;
 
     if (item.type === 'group') return 'Group created';
-    if (item.type === 'classroom') return 'Classroom created';
+    // if (item.type === 'classroom') return 'Classroom created';
 
     return 'No messages yet';
   };

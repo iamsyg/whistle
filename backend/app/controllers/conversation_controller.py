@@ -51,6 +51,7 @@ async def get_user_all_chats_controller(user_id: str):
             """)
             .eq("user_id", user_id)
             .is_("left_at", None)
+            .neq("chat.type", "classroom")
             .execute()
         )
 
@@ -61,6 +62,10 @@ async def get_user_all_chats_controller(user_id: str):
 
         for row in chats_res.data:
             chat = row["chat"]
+
+            if not chat:
+                continue
+            
             chat_id = chat["id"]
 
             # 2️⃣ Resolve other user (for direct chats)
