@@ -19,6 +19,7 @@ import profileReducer from './slices/auth/profileSlice';
 import conversationReducer from './slices/message/conversationSlice';
 import messageReducer from './slices/message/messageSlice';
 import contactsReducer from './slices/contacts/contactsSlice';
+import classroomReducer from './slices/classroom/classroomSlice';
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -27,6 +28,7 @@ const rootReducer = combineReducers({
   conversation: conversationReducer,
   message: messageReducer,
   contacts: contactsReducer,
+  classroom: classroomReducer
 });
 
 // Migration strategy for state shape changes
