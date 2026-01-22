@@ -21,6 +21,7 @@ export default function CreateClassroom() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
   const [titleError, setTitleError] = useState('');
   
   // Email mode toggle
@@ -33,7 +34,7 @@ export default function CreateClassroom() {
   const handleCreateClassroom = async () => {
     // Validate title
     if (!title.trim()) {
-      setTitleError('Classroom title is required');
+      setTitleError('Base title is required');
       return;
     }
 
@@ -45,9 +46,10 @@ export default function CreateClassroom() {
 
       Alert.alert(
         'Success!',
-        `Classroom "${title}" created successfully!\n\n` +
+        `Base "${title}" created successfully!\n\n` +
+        `${description ? `Description: ${description}\n\n` : ''}` +
         `• ${requireEmail ? 'Email mode: ON (Participants join via email)' : 'Email mode: OFF (Participants can join via username/phone)'}\n` +
-        `• Student chat: ${allowStudentChat ? 'ENABLED' : 'DISABLED'}`,
+        `• Chat: ${allowStudentChat ? 'ENABLED (Everyone can send messages)' : 'DISABLED (Messages are restricted)'}`,
         [
           {
             text: 'OK',
@@ -57,8 +59,8 @@ export default function CreateClassroom() {
       );
       
     } catch (error) {
-      Alert.alert('Error', 'Failed to create classroom. Please try again.');
-      console.error('Create classroom error:', error);
+      Alert.alert('Error', 'Failed to create base. Please try again.');
+      console.error('Create base error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +69,7 @@ export default function CreateClassroom() {
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title="Create Classroom"
+        title="Create Base"
         showSearch={false}
         showBackButton={true}
         onBackPress={() => router.back()}
@@ -82,7 +84,7 @@ export default function CreateClassroom() {
       />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Classroom Title */}
+        {/* Base Title */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Base Title *</Text>
           <TextInput
@@ -98,6 +100,26 @@ export default function CreateClassroom() {
           />
           {titleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
           <Text style={styles.charCount}>{title.length}/100 characters</Text>
+        </View>
+
+        {/* Base Description */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Description (Optional)</Text>
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Describe what this base is about..."
+            value={description}
+            onChangeText={setDescription}
+            editable={!isLoading}
+            maxLength={500}
+            multiline
+            numberOfLines={4}
+            textAlignVertical="top"
+          />
+          <Text style={styles.charCount}>{description.length}/500 characters</Text>
+          <Text style={styles.hintText}>
+            A good description helps participants understand the purpose of this base
+          </Text>
         </View>
 
         {/* Email Mode Toggle */}
@@ -122,7 +144,7 @@ export default function CreateClassroom() {
           </Text>
         </View>
 
-        {/* Student Chat Permission */}
+        {/* Chat Permission */}
         <View style={styles.section}>
           <View style={styles.toggleContainer}>
             <View style={styles.toggleLabelContainer}>
@@ -143,7 +165,7 @@ export default function CreateClassroom() {
               : 'Messages are restricted'}
           </Text>
         </View>
-    
+        
         {/* Create Button */}
         <TouchableOpacity
           style={[styles.createButton, (isLoading || !title.trim()) && styles.createButtonDisabled]}
@@ -155,7 +177,7 @@ export default function CreateClassroom() {
           ) : (
             <View style={styles.createButtonContent}>
               <Ionicons name="add-circle-outline" size={20} color="#fff" />
-              <Text style={styles.createButtonText}>Create Classroom</Text>
+              <Text style={styles.createButtonText}>Create Base</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -193,6 +215,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#f9f9f9',
   },
+  textArea: {
+    minHeight: 100,
+    paddingTop: 12,
+  },
   inputError: {
     borderColor: '#ff6b6b',
   },
@@ -206,6 +232,12 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'right',
     marginTop: 4,
+  },
+  hintText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   toggleContainer: {
     flexDirection: 'row',
@@ -239,9 +271,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   summaryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
@@ -250,20 +279,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     fontWeight: '500',
+    marginBottom: 4,
   },
   summaryValue: {
     fontSize: 14,
     color: '#333',
     fontWeight: '600',
-    flex: 1,
-    textAlign: 'right',
-    marginLeft: 10,
+  },
+  descriptionSummary: {
+    fontWeight: '400',
+    lineHeight: 20,
+    color: '#555',
   },
   statusBadge: {
+    alignSelf: 'flex-start',
     backgroundColor: '#f0f0f0',
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
+    marginTop: 4,
   },
   statusText: {
     fontSize: 12,
