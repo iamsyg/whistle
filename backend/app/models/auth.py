@@ -20,4 +20,5 @@ class InsertPhoneRequest(BaseModel):
 
 class InsertEmailRequest(BaseModel):
     email: str
+    google_name: str
     email_verified: bool

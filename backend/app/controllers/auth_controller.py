@@ -1,4 +1,4 @@
-# backend/app/controllers/auth.py
+# backend/app/controllers/auth_controller.py
 
 from app.utils.supabase_client import supabase
 from postgrest.exceptions import APIError
@@ -73,12 +73,13 @@ def insert_phone_hash_and_user_id(
         raise Exception(f"Database error: {str(e)}")
     
 
-def insert_email_controller(email: str, email_verified: bool, user_id: str) -> dict:
+def insert_email_controller(email: str, google_name: str, email_verified: bool, user_id: str) -> dict:
     email = email.strip().lower()
 
     payload = {
         "user_id": user_id,
         "email": email,
+        "google_name": google_name,
         "verified": email_verified,
         "verified_at": datetime.now(timezone.utc).isoformat() if email_verified else None,
     }

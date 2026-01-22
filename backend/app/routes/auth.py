@@ -1,3 +1,5 @@
+# backend/app/routes/auth.py
+
 from fastapi import APIRouter, Depends, HTTPException
 from app.controllers.auth_controller import check_phone_hash, insert_phone_hash_and_user_id
 from app.controllers.auth_controller import insert_email_controller
@@ -53,6 +55,7 @@ def insert_email(
     try:
         data = insert_email_controller(
             payload.email,
+            payload.google_name,
             payload.email_verified,
             user_id
         )
