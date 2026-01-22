@@ -17,11 +17,20 @@ const classroomSlice = createSlice({
   name: "classroom",
   initialState,
   reducers: {
-    setClassroomProfile: (
+    upsertClassroom: (
       state,
       action: PayloadAction<ClassroomProfile>
     ) => {
       state.classrooms[action.payload.chat_id] = action.payload;
+    },
+
+    setAllClassrooms: (
+        state,
+        action: PayloadAction<ClassroomProfile[]>
+        ) => {
+        action.payload.forEach(c => {
+            state.classrooms[c.chat_id] = c;
+        });
     },
 
     updateClassroomProfile: (
@@ -44,14 +53,20 @@ const classroomSlice = createSlice({
     setClassroomLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
     },
+
+    clearClassrooms: (state) => {
+      state.classrooms = {};
+    },
   },
 });
 
 export const {
-  setClassroomProfile,
+  upsertClassroom,
+  setAllClassrooms,
   updateClassroomProfile,
   removeClassroomProfile,
   setClassroomLoading,
+  clearClassrooms,
 } = classroomSlice.actions;
 
 export default classroomSlice.reducer;

@@ -1,4 +1,4 @@
-// frontend/app/(tabs)/Classroom.tsx
+// frontend/app/(tabs)/Base.tsx
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   TouchableWithoutFeedback,
+  FlatList,
 } from 'react-native';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import { signInWithGoogle } from '@/services/auth/signInWithGoogle';
@@ -18,15 +19,16 @@ import { saveEmailToBackend } from '@/hooks/saveEmailToBackend';
 import { addEmail, setEmails, setSelectedEmail } from '@/store/slices/auth/emailAuthSlice';
 import { useGetUserGoogleEmails } from '@/hooks/useGetUserGoogleId';
 import { useRouter } from 'expo-router';
-import ModalMenu, {MenuItem} from '@/components/ModalMenu';
+import ModalMenu, { MenuItem } from '@/components/ModalMenu';
+import useGetUserAllClassroom from '@/hooks/useGetUserAllClassroom';
+import { Ionicons } from '@expo/vector-icons'; // Added import
 
-export default function OrganizationScreen() {
+export default function BaseScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isAddingEmail, setIsAddingEmail] = useState(false);
   const dispatch = useDispatch();
   const router = useRouter();
-  
-  // const [selectedEmail, dispatch(setSelectedEmail] = useState<string | null>(null);
+
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const dropdownRef = useRef<View>(null);
   const [isMenuVisible, setIsMenuVisible] = useState(false);
@@ -39,7 +41,15 @@ export default function OrganizationScreen() {
     (state: RootState) => state.emailAuth.emails
   );
 
+  const classrooms = useSelector((state: RootState) =>
+    Object.values(state.classroom.classrooms)
+  );
+
+  console.log('🔘 Classrooms:', classrooms);
+  console.log('🔘 Selected Email:', selectedEmail);
+
   const { emails, loading, error } = useGetUserGoogleEmails();
+  const { loading: classroomLoading, error: classroomError } = useGetUserAllClassroom(selectedEmail);
 
   useEffect(() => {
     if (emails.length > 0) {
@@ -51,20 +61,7 @@ export default function OrganizationScreen() {
     if (reduxEmails.length > 0 && !selectedEmail) {
       dispatch(setSelectedEmail(reduxEmails[0]));
     }
-  }, [reduxEmails]);
-
-  // Close dropdown when clicking outside
-  // useEffect(() => {
-  //   const handleClickOutside = () => {
-  //     if (dropdownVisible) {
-  //       setDropdownVisible(false);
-  //     }
-  //   };
-
-  //   // This is a simplified approach - in a real app, you might want to use
-  //   // Pressable or GestureHandler for better touch handling
-  //   return () => {};
-  // }, [dropdownVisible]);
+  }, [reduxEmails, selectedEmail, dispatch]);
 
   const handleGoogleSignIn = async () => {
     if (isLoading || isAddingEmail) return;
@@ -74,11 +71,11 @@ export default function OrganizationScreen() {
     console.log('🔘 Google Sign In button pressed');
 
     try {
-      const { email, email_verified } = await signInWithGoogle();
+      const { email, google_name, email_verified } = await signInWithGoogle();
 
       // Only do backend check, remove UI-level duplicate check
-      await saveEmailToBackend(email, email_verified);
-      
+      await saveEmailToBackend(email, google_name, email_verified);
+
       dispatch(addEmail(email));
       dispatch(setSelectedEmail(email));
 
@@ -86,9 +83,9 @@ export default function OrganizationScreen() {
 
     } catch (error: any) {
       console.error('Google sign-in error:', error);
-      
-      if (error?.message?.includes('already exists') || 
-          error?.response?.status === 409) {
+
+      if (error?.message?.includes('already exists') ||
+        error?.response?.status === 409) {
         Alert.alert(
           'Email Already Linked',
           'This email is already attached to your account'
@@ -118,18 +115,74 @@ export default function OrganizationScreen() {
       );
       return;
     }
-    
+
     // Toggle menu visibility
     setIsMenuVisible(!isMenuVisible);
   };
 
   const handleCreateClassroom = () => {
     router.push("/(screens)/createClassroom");
+    setIsMenuVisible(false);
   };
 
   const handleJoinClassroom = () => {
     router.push("/(screens)/joinClassroom");
+    setIsMenuVisible(false);
   };
+
+  const closeAllMenus = () => {
+    setDropdownVisible(false);
+    setIsMenuVisible(false);
+  };
+
+  // Handle classroom navigation when a classroom is pressed
+  const handleClassroomPress = (chat_id: string) => {
+    router.push(`/(screens)/classroomScreen`);
+  };
+
+  // Render classroom item
+  const renderClassroomItem = ({ item }: { item: any }) => (
+    <TouchableWithoutFeedback onPress={() => handleClassroomPress(item.chat_id)}>
+      <View style={styles.classroomCard}>
+        {/* Avatar */}
+        <View style={styles.classroomAvatar}>
+          <Text style={styles.avatarText}>
+            {item.title.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+
+        {/* Info */}
+        <View style={styles.classroomInfo}>
+          <Text style={styles.classroomTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+
+          <Text style={styles.classroomMeta}>
+            By {item.creator.google_name || 'Unknown'}
+          </Text>
+
+          <Text style={styles.classroomDate}>
+            Created on{' '}
+            {new Date(item.created_at).toLocaleDateString()}
+          </Text>
+        </View>
+
+        {/* Chevron icon */}
+        <Ionicons name="chevron-forward" size={20} color="#6f42c1" />
+      </View>
+    </TouchableWithoutFeedback>
+  );
+
+  // Render empty state
+  const renderEmptyState = () => (
+    <View style={styles.emptyState}>
+      <Ionicons name="school-outline" size={64} color="#ccc" />
+      <Text style={styles.emptyTitle}>No bases yet</Text>
+      <Text style={styles.emptySubtitle}>
+        Create or join a base to get started.
+      </Text>
+    </View>
+  );
 
   console.log('🔘 Selected Email:', selectedEmail);
 
@@ -148,18 +201,13 @@ export default function OrganizationScreen() {
     },
   ];
 
-  const closeAllMenus = () => {
-    setDropdownVisible(false);
-    setIsMenuVisible(false);
-  };
-
   return (
     <TouchableWithoutFeedback onPress={closeAllMenus}>
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           {reduxEmails.length === 0 ? (
-            <Text 
-              style={[styles.addEmail, isAddingEmail && styles.disabledText]} 
+            <Text
+              style={[styles.addEmail, isAddingEmail && styles.disabledText]}
               onPress={() => !isAddingEmail && handleGoogleSignIn()}
             >
               {isAddingEmail ? 'Adding...' : '+ Add email'}
@@ -206,18 +254,17 @@ export default function OrganizationScreen() {
         </View>
 
         <View style={styles.content}>
-          <Text style={styles.title}>Welcome!</Text>
-          <Text style={styles.subtitle}>
-            You've successfully set up your account.
-          </Text>
-
-          {isLoading && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#EA4335" />
-              <Text style={styles.loadingText}>
-                Signing in with Google...
-              </Text>
-            </View>
+          {classroomLoading ? (
+            <ActivityIndicator size="large" color="#6f42c1" />
+          ) : (
+            <FlatList
+              data={classrooms}
+              keyExtractor={(item) => item.chat_id}
+              renderItem={renderClassroomItem}
+              ListEmptyComponent={renderEmptyState}
+              contentContainerStyle={classrooms.length === 0 ? styles.emptyContainer : styles.listContainer}
+              showsVerticalScrollIndicator={false}
+            />
           )}
         </View>
 
@@ -246,30 +293,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1971c2',
-    marginBottom: 16,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  loadingContainer: {
-    marginTop: 32,
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#666',
+    paddingTop: 60, // Make room for the header
   },
   header: {
     position: 'absolute',
@@ -321,5 +345,76 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#eee',
     marginVertical: 6,
+  },
+  listContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 80, // Space for FAB
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  classroomCard: {
+    flexDirection: 'row',
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: '#f8f6ff',
+    marginBottom: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9e5ff',
+  },
+  classroomAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#6f42c1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  classroomInfo: {
+    flex: 1,
+  },
+  classroomTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2d1e5f',
+    marginBottom: 4,
+  },
+  classroomMeta: {
+    fontSize: 13,
+    color: '#555',
+    marginBottom: 2,
+  },
+  classroomDate: {
+    fontSize: 12,
+    color: '#777',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

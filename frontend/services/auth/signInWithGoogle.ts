@@ -6,6 +6,7 @@ import { Alert } from 'react-native';
 
 export type GoogleEmailResult = {
   email: string;
+  google_name: string;
   email_verified: boolean;
 };
 
@@ -47,6 +48,7 @@ export async function signInWithGoogle():Promise<GoogleEmailResult> {
         console.log('Google Sign-In successful, user info:', userInfo);
 
         const email = userInfo.data?.user?.email;
+        const google_name = userInfo.data?.user.name || 'Unknown';
 
         if(!email) {
             throw new Error('No email found in Google user info');
@@ -54,7 +56,7 @@ export async function signInWithGoogle():Promise<GoogleEmailResult> {
 
         const email_verified = userInfo.data?.user.email ? true : false;
 
-        return {email, email_verified};
+        return {email, google_name, email_verified};
 
         
     } catch (error: any) {

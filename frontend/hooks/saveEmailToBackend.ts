@@ -2,7 +2,7 @@
 
 import { supabase } from "@/utils/supabase";
 
-export async function saveEmailToBackend(email: string, email_verified: boolean) {
+export async function saveEmailToBackend(email: string, google_name: string, email_verified: boolean) {
 
     try {
         const { data } = await supabase.auth.getSession();
@@ -20,6 +20,7 @@ export async function saveEmailToBackend(email: string, email_verified: boolean)
             },
             body: JSON.stringify({
                 email,
+                google_name,
                 email_verified,
             }),
             }

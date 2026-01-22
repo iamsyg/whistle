@@ -7,23 +7,22 @@ import { RootState } from '@/store/store';
 import { supabase } from "@/utils/supabase";
 import { Alert } from "react-native";
 import { router } from "expo-router";
-import { setClassroomProfile } from "@/store/slices/classroom/classroomSlice";
+import { clearClassrooms, setAllClassrooms, setClassroomLoading } from "@/store/slices/classroom/classroomSlice";
 
 interface UseGetUserAllClassroomState {
   loading: boolean;
   error: string | null;
 }
 
-function useGetUserAllClassroom(): UseGetUserAllClassroomState {
+function useGetUserAllClassroom(selectedEmail: string | null): UseGetUserAllClassroomState {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const initializingRef = useRef(false); // ✅ Prevent duplicate calls
   
   const dispatch = useDispatch();
 
-  const myUserId = useSelector(
-    (state: RootState) => state.profile.userId
-  );
+  // const myUserId = useSelector(
+  //   (state: RootState) => state.profile.userId
+  // );
 
   const getAccessToken = async () => {
     const { data, error } = await supabase.auth.getSession();
@@ -34,27 +33,22 @@ function useGetUserAllClassroom(): UseGetUserAllClassroomState {
   useEffect(() => {
 
     // ✅ Guard: Skip if no user ID
-    if (!myUserId) {
-      console.log('Error: getAllClassroomIds.ts: No user ID', myUserId);
+    if (!selectedEmail) {
+      console.log('Error: getAllClassroomIds.ts: No user ID', selectedEmail);
       return;
     }
 
-    // ✅ Guard: Prevent duplicate initialization
-    if (initializingRef.current) {
-      console.log('⏸️  Already initializing classroom');
-      return;
-    }
+    dispatch(clearClassrooms());
+    dispatch(setClassroomLoading(true));
+    setLoading(true);
+    setError(null);
 
     const initClassroom = async () => {
-      initializingRef.current = true;
-      setLoading(true);
-      setError(null);
 
       try {
         const token = await getAccessToken();
         if (!token) {
 
-          initializingRef.current = false;
           setLoading(false);
           console.error('❌ No auth token');
           setError('Authentication required');
@@ -67,9 +61,10 @@ function useGetUserAllClassroom(): UseGetUserAllClassroomState {
         }
 
         console.log('🔄 Initializing classroom...');
-        console.log('   My User ID:', myUserId);
+        console.log('   Selected Email:', selectedEmail);
 
-        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/classroom/all`;
+        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/classroom/all?selected_email=${encodeURIComponent(selectedEmail)}`;
+        
         console.log('📡 GET:', url);
 
         const res = await fetch(url, {
@@ -110,10 +105,8 @@ function useGetUserAllClassroom(): UseGetUserAllClassroomState {
           throw new Error("Invalid classrooms response");
         }
 
-        // dispatch(setUserAllConversations(data.conversation_ids));
-        dispatch(setClassroomProfile(data.classrooms));
-        
-        console.log('✅ Classroom ID stored in Redux');
+        dispatch(setAllClassrooms(data.classrooms));
+
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Unknown error';
         console.error('❌ Init classroom error:', errorMsg);
@@ -126,12 +119,11 @@ function useGetUserAllClassroom(): UseGetUserAllClassroomState {
         );
       } finally {
         setLoading(false);
-        initializingRef.current = false;
       }
     };
 
     initClassroom();
-  }, [myUserId, dispatch]); // ✅ Proper dependencies
+  }, [selectedEmail, dispatch]); // ✅ Proper dependencies
 
   return { loading, error };
 }
