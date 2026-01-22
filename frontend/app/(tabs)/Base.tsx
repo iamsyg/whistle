@@ -166,9 +166,6 @@ export default function BaseScreen() {
             {new Date(item.created_at).toLocaleDateString()}
           </Text>
         </View>
-
-        {/* Chevron icon */}
-        <Ionicons name="chevron-forward" size={20} color="#6f42c1" />
       </View>
     </TouchableWithoutFeedback>
   );
@@ -358,14 +355,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   classroomCard: {
+    // flexDirection: 'row',
+    // padding: 14,
+    // borderRadius: 12,
+    // backgroundColor: '#f8f6ff',
+    // marginBottom: 12,
+    // alignItems: 'center',
+    // borderWidth: 1,
+    // borderColor: '#e9e5ff',
     flexDirection: 'row',
-    padding: 14,
-    borderRadius: 12,
-    backgroundColor: '#f8f6ff',
-    marginBottom: 12,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e9e5ff',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   classroomAvatar: {
     width: 48,
