@@ -1,6 +1,6 @@
 // app/(screens)/createClassroom.tsx
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import Header from '@/components/Header';
 import { createClassroom } from '@/services/conversation/createClassroom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
-import { upsertClassroom } from '@/store/slices/classroom/classroomSlice';
+import { setSelectedClassroom, upsertClassroom } from '@/store/slices/classroom/classroomSlice';
 
 export default function CreateClassroom() {
   const router = useRouter();
@@ -65,6 +65,7 @@ export default function CreateClassroom() {
       console.log('Created classroom:', classroom);
 
       dispatch(upsertClassroom(classroom));
+      dispatch(setSelectedClassroom(classroom.chat_id));
 
 
       Alert.alert(
@@ -76,7 +77,11 @@ export default function CreateClassroom() {
         [
           {
             text: 'OK',
-            onPress: () => router.back(),
+            onPress: () => router.push(
+            {
+              pathname: '/(screens)/classroomScreen',
+              params: { chat_id: classroom.chat_id },
+            })
           }
         ]
       );

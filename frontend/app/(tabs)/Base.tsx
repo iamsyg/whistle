@@ -22,6 +22,7 @@ import { useRouter } from 'expo-router';
 import ModalMenu, { MenuItem } from '@/components/ModalMenu';
 import useGetUserAllClassroom from '@/hooks/useGetUserAllClassroom';
 import { Ionicons } from '@expo/vector-icons'; // Added import
+import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
 
 export default function BaseScreen() {
   const [isLoading, setIsLoading] = useState(false);
@@ -137,7 +138,13 @@ export default function BaseScreen() {
 
   // Handle classroom navigation when a classroom is pressed
   const handleClassroomPress = (chat_id: string) => {
-    router.push(`/(screens)/classroomScreen`);
+
+    dispatch(setSelectedClassroom(chat_id));
+
+    router.push({
+      pathname: '/(screens)/classroomScreen',
+      params: { chat_id },
+    });
   };
 
   // Render classroom item
