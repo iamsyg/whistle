@@ -14,9 +14,9 @@ import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
 import AttachmentSheet from '@/components/AttachmentSheet';
 import CallOptionsSheet from '@/components/CallOptionsSheet';
 import MenuSheet from '@/components/MenuSheet';
+import ClassroomTabBar from '@/components/ClassroomTabBar';
 
-
-type ClassroomTab = 'chats' | 'announcements' | 'assignments' | 'tasks';
+type ClassroomTab = 'chats' | 'announcements' | 'assignments';
 
 const ClassroomScreen = () => {
 
@@ -88,6 +88,12 @@ const ClassroomScreen = () => {
           onTabChange={handleTabChange}
           isDarkMode={isDarkMode}
         /> */}
+
+        <ClassroomTabBar
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          isDarkMode={isDarkMode}
+        />
 
         <AttachmentSheet
         visible={isAttachmentSheetVisible}
