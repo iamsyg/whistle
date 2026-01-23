@@ -24,14 +24,14 @@ async def create_classroom_controller(
     creator_id: str,
     creator_email: str,
     description: str | None,
-    required_email: bool,
+    require_email: bool,
     allowed_student_chat: bool,
 ):
-    # 1️⃣ Resolve email → UUID (Python-safe)
+    # 1️⃣ Resolve email → UUID + google_name
     email_res = (
         supabase
         .table("emails")
-        .select("id")
+        .select("id, google_name")
         .eq("email", creator_email)
         .eq("user_id", creator_id)
         .eq("verified", True)
@@ -42,7 +42,9 @@ async def create_classroom_controller(
     if not email_res.data:
         raise HTTPException(400, "Invalid or unverified email")
 
-    email_id = email_res.data[0]["id"]  # ✅ UUID
+    email_row = email_res.data[0]
+    email_id = email_row["id"]
+    google_name = email_row["google_name"]
 
     # 2️⃣ Create classroom chat
     chat_res = (
@@ -65,10 +67,10 @@ async def create_classroom_controller(
     # 3️⃣ Create classroom metadata
     supabase.table("classrooms").insert({
         "chat_id": chat["id"],
-        "email_id": email_id,   # UUID ✅
+        "email_id": email_id,
         "class_code": generate_class_code(),
         "invite_link": generate_invite_link(),
-        "require_email": required_email,
+        "require_email": require_email,
         "allow_student_chat": allowed_student_chat,
     }).execute()
 
@@ -79,21 +81,38 @@ async def create_classroom_controller(
         "role": "admin",
     }).execute()
 
+    # 5️⃣ Return full ClassroomProfile-compatible object
     return {
         "chat_id": chat["id"],
+        "title": chat["title"],
+        "description": chat.get("description"),
+        "created_at": chat["created_at"],
+        "creator": {
+            "id": creator_id,
+            "name": google_name or "Unknown",
+            "avatar_url": None,
+            "email": creator_email,
+            "google_name": google_name,
+        },
+        "allowed_domains": None,
+        "allow_student_chat": allowed_student_chat,
+        "require_email": require_email,
+        "is_admin": True,
     }
+
+
 
 
     
 
 # Fetch all classrooms for a user
 async def get_user_all_classrooms_controller(user_id: str, selected_email: str):
-
+    
     # 1️⃣ Resolve selected email → email_id
     email_res = (
         supabase
         .table("emails")
-        .select("id")
+        .select("id, google_name")
         .eq("user_id", user_id)
         .eq("email", selected_email)
         .eq("verified", True)
@@ -104,9 +123,11 @@ async def get_user_all_classrooms_controller(user_id: str, selected_email: str):
     if not email_res.data:
         return []
 
-    email_id = email_res.data[0]["id"]
+    email_row = email_res.data[0]
+    email_id = email_row["id"]
+    google_name = email_row["google_name"]
 
-    # 2️⃣ Correct join path: classrooms → chat → chat_members
+    # 2️⃣ Fetch classrooms
     res = (
         supabase
         .from_("classrooms")
@@ -114,19 +135,13 @@ async def get_user_all_classrooms_controller(user_id: str, selected_email: str):
             chat:chat_id!inner (
                 id,
                 title,
+                description,
                 created_at,
-                created_by (
-                    id,
-                    name
-                ),
+                created_by,
                 chat_members!inner (
                     user_id,
                     left_at
                 )
-            ),
-            email:email_id (
-                email,
-                google_name
             )
         """)
         .eq("email_id", email_id)
@@ -139,17 +154,22 @@ async def get_user_all_classrooms_controller(user_id: str, selected_email: str):
 
     for row in res.data or []:
         chat = row["chat"]
-
         classrooms.append({
             "chat_id": chat["id"],
             "title": chat["title"],
+            "description": chat.get("description"),
             "created_at": chat["created_at"],
             "creator": {
-                "id": chat["created_by"]["id"],
-                "name": chat["created_by"]["name"],
-                "email": row["email"]["email"],
-                "google_name": row["email"]["google_name"]
-            }
+                "id": user_id,
+                "name": google_name or "Unknown",
+                "avatar_url": None,
+                "email": selected_email,
+                "google_name": google_name,
+            },
+            "allowed_domains": None,
+            "allow_student_chat": True,  # default or fetch if stored
+            "require_email": True,       # default or fetch if stored
+            "is_admin": True,            # assume true for creator
         })
 
     return classrooms

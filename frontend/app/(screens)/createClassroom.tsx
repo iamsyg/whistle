@@ -16,6 +16,10 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Header from '@/components/Header';
+import { createClassroom } from '@/services/conversation/createClassroom';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/store/store';
+import { upsertClassroom } from '@/store/slices/classroom/classroomSlice';
 
 export default function CreateClassroom() {
   const router = useRouter();
@@ -23,12 +27,18 @@ export default function CreateClassroom() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [titleError, setTitleError] = useState('');
-  
+
   // Email mode toggle
   const [requireEmail, setRequireEmail] = useState(true);
-  
+
   // Student chat permission
   const [allowStudentChat, setAllowStudentChat] = useState(true);
+
+  const dispatch = useDispatch();
+
+  const selectedEmail = useSelector(
+    (state: RootState) => state.emailAuth.selectedEmail
+  );
 
   // Validate form and create classroom
   const handleCreateClassroom = async () => {
@@ -39,10 +49,23 @@ export default function CreateClassroom() {
     }
 
     setIsLoading(true);
-    
+
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      if (!selectedEmail) {
+        Alert.alert(
+          'Email required',
+          'Please select an email before creating a base.'
+        );
+        return;
+      }
+
+      const classroom = await createClassroom(title, description || null, requireEmail, allowStudentChat, selectedEmail);
+
+      console.log('Created classroom:', classroom);
+
+      dispatch(upsertClassroom(classroom));
+
 
       Alert.alert(
         'Success!',
@@ -57,7 +80,7 @@ export default function CreateClassroom() {
           }
         ]
       );
-      
+
     } catch (error) {
       Alert.alert('Error', 'Failed to create base. Please try again.');
       console.error('Create base error:', error);
@@ -138,7 +161,7 @@ export default function CreateClassroom() {
             />
           </View>
           <Text style={styles.toggleDescription}>
-            {requireEmail 
+            {requireEmail
               ? 'Participants must join using email addresses'
               : 'Participants can join via username or phone number'}
           </Text>
@@ -160,12 +183,12 @@ export default function CreateClassroom() {
             />
           </View>
           <Text style={styles.toggleDescription}>
-            {allowStudentChat 
+            {allowStudentChat
               ? 'Everyone can send messages in the base'
               : 'Messages are restricted'}
           </Text>
         </View>
-        
+
         {/* Create Button */}
         <TouchableOpacity
           style={[styles.createButton, (isLoading || !title.trim()) && styles.createButtonDisabled]}

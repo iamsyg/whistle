@@ -20,4 +20,7 @@ export interface ClassroomCreator {
   id: string;
   name: string;
   avatar_url?: string | null;
+
+  email?: string;
+  google_name?: string;
 }

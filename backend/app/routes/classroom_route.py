@@ -4,6 +4,7 @@ import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException, Query
 from app.controllers.classroom_controller import create_classroom_controller, get_user_all_classrooms_controller
 from app.middlewares.secure_route import verify_jwt_token
+from app.models.classroom_model import CreateClassroomRequest
 from typing import List
 
 router = APIRouter(
@@ -14,33 +15,24 @@ router = APIRouter(
 # Create a new classroom
 @router.post("/create")
 async def create_classroom(
-    title: str = Body(..., embed=True),
-    description: str = Body(None, embed=True),
-    required_email: bool = Body(True, embed=True),
-    allowed_student_chat: bool = Body(True, embed=True),
+    payload: CreateClassroomRequest,
     creator_id: str = Depends(verify_jwt_token),
-    creator_email: str = Body(..., embed=True)
 ):
     try:
-        classroom_init = await create_classroom_controller(
-            title=title,
+        classroom = await create_classroom_controller(
+            title=payload.title,
+            description=payload.description,
+            require_email=payload.require_email,
+            allowed_student_chat=payload.allowed_student_chat,
+            creator_email=payload.creator_email,
             creator_id=creator_id,
-            creator_email=creator_email,
-            description=description,
-            required_email=required_email,
-            allowed_student_chat=allowed_student_chat
         )
 
-        print(f"✅ Classroom created with ID: {classroom_init}")
+        return classroom
 
-        return classroom_init
-
-    except HTTPException:
-        raise
     except Exception as e:
-        print(f"❌ Error creating classroom: {str(e)}")
-        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
+
     
 
 @router.get("/all")
