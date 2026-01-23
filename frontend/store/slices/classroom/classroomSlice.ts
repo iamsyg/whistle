@@ -5,11 +5,13 @@ import { ClassroomProfile } from "@/types/classroom";
 
 interface ClassroomState {
   classrooms: Record<string, ClassroomProfile>; // key = chat_id
+  selectedClassroomId: string | null;
   loading: boolean;
 }
 
 const initialState: ClassroomState = {
   classrooms: {},
+  selectedClassroomId: null,
   loading: false,
 };
 
@@ -25,12 +27,19 @@ const classroomSlice = createSlice({
     },
 
     setAllClassrooms: (
-        state,
-        action: PayloadAction<ClassroomProfile[]>
-        ) => {
-        action.payload.forEach(c => {
-            state.classrooms[c.chat_id] = c;
-        });
+      state,
+      action: PayloadAction<ClassroomProfile[]>
+    ) => {
+      action.payload.forEach(c => {
+        state.classrooms[c.chat_id] = c;
+      });
+    },
+
+    setSelectedClassroom: (
+      state,
+      action: PayloadAction<string | null>
+    ) => {
+      state.selectedClassroomId = action.payload;
     },
 
     updateClassroomProfile: (
@@ -57,16 +66,22 @@ const classroomSlice = createSlice({
     clearClassrooms: (state) => {
       state.classrooms = {};
     },
+
+    clearSelectedClassroom: (state) => {
+      state.selectedClassroomId = null;
+    },
   },
 });
 
 export const {
   upsertClassroom,
   setAllClassrooms,
+  setSelectedClassroom,
   updateClassroomProfile,
   removeClassroomProfile,
   setClassroomLoading,
   clearClassrooms,
+  clearSelectedClassroom,
 } = classroomSlice.actions;
 
 export default classroomSlice.reducer;
