@@ -21,17 +21,20 @@ interface UseWebSocketReturn {
   reconnect: () => void;
 }
 
-export default function useWebSocket(): UseWebSocketReturn {
+export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conversation'): UseWebSocketReturn {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const reconnectAttemptsRef = useRef<number>(0);
   const isConnectedRef = useRef<boolean>(false);
 
   const dispatch = useDispatch();
-  
-  const chatId = useSelector(
-    (state: RootState) => state.conversation.selectedConversationId
+
+  const chatId = useSelector((state: RootState) =>
+    mode === 'classroom'
+      ? state.classroom.selectedClassroomId
+      : state.conversation.selectedConversationId
   );
+
   const myUserId = useSelector((state: RootState) => state.profile.userId);
 
   const MAX_RECONNECT_ATTEMPTS = 2;
@@ -124,7 +127,7 @@ export default function useWebSocket(): UseWebSocketReturn {
         if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
           reconnectAttemptsRef.current++;
           console.log(`🔄 Reconnecting... (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
-          
+
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, RECONNECT_DELAY);

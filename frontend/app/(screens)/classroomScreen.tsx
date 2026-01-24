@@ -1,41 +1,67 @@
 // frontend/app/(screens)/classroomScreen.tsx
 
-import { View, Text, StyleSheet } from 'react-native'
-import React, { useEffect, useMemo, useState } from 'react'
-import ChatsTab from '@/components/ChatsTab'
-import TasksTab from '@/components/TasksTab'
-import Header from '@/components/MessagingHeader';
-import { selectSelectedClassroom } from '@/store/slices/classroom/selectors';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
+  ActivityIndicator,
+} from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { router, useLocalSearchParams } from 'expo-router';
-import TabBar from '@/components/TabBar';
-import { RootState } from '@/store/store';
-import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
+import Header from '@/components/MessagingHeader';
+import ClassroomTabBar from '@/components/ClassroomTabBar';
+import ChatsTab from '@/components/ChatsTab';
+import AnnouncementsTab from '@/components/AnnouncementsTab';
+import AssignmentsTab from '@/components/AssignmentsTab';
+import ChatInput from '@/components/ChatInput';
 import AttachmentSheet from '@/components/AttachmentSheet';
 import CallOptionsSheet from '@/components/CallOptionsSheet';
 import MenuSheet from '@/components/MenuSheet';
-import ClassroomTabBar from '@/components/ClassroomTabBar';
+import { RootState } from '@/store/store';
+import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
+import useSendClassroomMessage from '@/hooks/useSendClassroomMessage';
+import useWebSocket from '@/contexts/useWebSocket';
 
 type ClassroomTab = 'chats' | 'announcements' | 'assignments';
 
 const ClassroomScreen = () => {
-
-
+  const [activeTab, setActiveTab] = useState<ClassroomTab>('chats');
   const [isAttachmentSheetVisible, setIsAttachmentSheetVisible] = useState(false);
   const [isCallSheetVisible, setIsCallSheetVisible] = useState(false);
   const [isMenuSheetVisible, setIsMenuSheetVisible] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [activeTab, setActiveTab] = useState<ClassroomTab>('chats');
 
-  const classroomId = useLocalSearchParams<{ chat_id: string }>().chat_id;
+  const dispatch = useDispatch();
+  const { chat_id } = useLocalSearchParams<{ chat_id: string }>();
 
-  const classroom = useSelector(
-    (state: RootState) => state.classroom.classrooms[classroomId]
+  const selectedClassroomId = useSelector(
+    (state: RootState) => state.classroom.selectedClassroomId
   );
 
-  // const handleTabChange = (tab: 'Chats' | 'Announcements' | 'Assignments' | 'Tasks') => {
-  //   setActiveTab(tab);
-  // };
+  const classroom = useSelector((state: RootState) =>
+    chat_id ? state.classroom.classrooms[chat_id] : undefined
+  );
+
+  const { sendMessage, loading: sendingMessage } = useSendClassroomMessage(chat_id);
+  const { isConnected, sendTypingIndicator, reconnect } = useWebSocket('classroom');
+
+  // Set selected classroom in Redux
+  useEffect(() => {
+    if (chat_id && chat_id !== selectedClassroomId) {
+      dispatch(setSelectedClassroom(chat_id));
+    }
+  }, [chat_id, selectedClassroomId, dispatch]);
+
+  // Handle tab change
+  const handleTabChange = (tab: ClassroomTab) => {
+    setActiveTab(tab);
+  };
 
   const handleAttachmentSelect = (type: string) => {
     console.log('Selected attachment type:', type);
@@ -52,27 +78,39 @@ const ClassroomScreen = () => {
     setIsMenuSheetVisible(false);
   };
 
-
-
-  if (!classroom) {
-    return (
-      <View>
-        <Text>Classroom not found.</Text>
-      </View>
-    )
-  }
-
+  // Determine header title
   const headerTitle = useMemo(() => {
-
-    return classroom ? classroom.title : 'Base';
+    return classroom?.title || 'Classroom';
   }, [classroom]);
 
+  // Determine subtitle (you can add more logic here for class code, etc.)
+  const headerSubtitle = useMemo(() => {
+    return classroom?.description || '';
+  }, [classroom]);
+
+  // Show loading if classroom not found
+  if (!classroom) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.initializingContainer}>
+          <ActivityIndicator size="large" color="#1971c2" />
+          <Text style={styles.loadingText}>Loading classroom...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <View>
+    <SafeAreaView
+      style={[
+        styles.container,
+        { backgroundColor: isDarkMode ? '#0D1418' : '#FFFFFF' }
+      ]}
+    >
       <View style={styles.headerContainer}>
         <Header
           title={headerTitle}
-          subtitle=''
+          subtitle={headerSubtitle}
           showBackButton={true}
           showSearch={true}
           showCall={true}
@@ -80,22 +118,44 @@ const ClassroomScreen = () => {
           onBackPress={() => router.back()}
           onCallPress={() => setIsCallSheetVisible(true)}
           onMenuPress={() => setIsMenuSheetVisible(true)}
-        // isDarkMode={isDarkMode}
-        />
-
-        {/* <TabBar
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
           isDarkMode={isDarkMode}
-        /> */}
+        />
 
         <ClassroomTabBar
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={handleTabChange}
           isDarkMode={isDarkMode}
         />
+      </View>
 
-        <AttachmentSheet
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.content}>
+            {/* Show appropriate tab content */}
+            {activeTab === 'chats' && <ChatsTab isDarkMode={isDarkMode} />}
+            {activeTab === 'announcements' && <AnnouncementsTab />}
+            {activeTab === 'assignments' && <AssignmentsTab />}
+          </View>
+        </TouchableWithoutFeedback>
+
+        {/* Chat Input (only in chats tab) */}
+        {activeTab === 'chats' && chat_id && (
+          <ChatInput
+            onSend={sendMessage}
+            onAttachmentPress={() => setIsAttachmentSheetVisible(true)}
+            isDarkMode={isDarkMode}
+            onTyping={sendTypingIndicator}
+            // disabled={sendingMessage}
+          />
+        )}
+      </KeyboardAvoidingView>
+
+      {/* Bottom Sheets */}
+      <AttachmentSheet
         visible={isAttachmentSheetVisible}
         onClose={() => setIsAttachmentSheetVisible(false)}
         onSelect={handleAttachmentSelect}
@@ -115,13 +175,9 @@ const ClassroomScreen = () => {
         onSelect={handleMenuItemSelect}
         isDarkMode={isDarkMode}
       />
-
-
-      </View>
-    </View>
-  )
-
-}
+    </SafeAreaView>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -138,7 +194,13 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#666',
   },
 });
 
-export default ClassroomScreen
+export default ClassroomScreen;
