@@ -1,40 +1,10 @@
 // types/backend/message.ts
+import { BaseBackendMessage, CoreMessageType } from './baseMessage';
 
 export type BackendMessageType =
-  | 'text'
-  | 'image'
-  | 'file'
-  | 'system'
+  | CoreMessageType
   | 'task'
   | 'money_split';
 
-export interface BackendMessage {
-  id: string;
-
-  chat_id: string;
-  sender_id: string;
-
-  sender?: {
-    id: string;
-    name: string | null;
-    phone_number?: string | null;
-    username?: string | null;
-    avatar_url?: string | null;
-  };
-
-  content: string;
-  message_type: BackendMessageType;
-
-  metadata?: {
-    file_url?: string;
-    file_name?: string;
-    mime_type?: string;
-    reply_preview?: string;
-  };
-
-  reply_to_id: string | null;
-
-  created_at: string;   // ISO string from DB
-  edited_at: string | null;
-  deleted_at: string | null;
-}
+export type BackendMessage =
+  BaseBackendMessage<BackendMessageType>;
