@@ -25,7 +25,7 @@ async def create_classroom_controller(
     creator_email: str,
     description: str | None,
     require_email: bool,
-    allowed_student_chat: bool,
+    allow_student_chat: bool,
 ):
     # 1️⃣ Resolve email → UUID + google_name
     email_res = (
@@ -71,7 +71,7 @@ async def create_classroom_controller(
         "class_code": generate_class_code(),
         "invite_link": generate_invite_link(),
         "require_email": require_email,
-        "allow_student_chat": allowed_student_chat,
+        "allow_student_chat": allow_student_chat,
     }).execute()
 
     # 4️⃣ Add creator as admin
@@ -95,7 +95,7 @@ async def create_classroom_controller(
             "google_name": google_name,
         },
         "allowed_domains": None,
-        "allow_student_chat": allowed_student_chat,
+        "allow_student_chat": allow_student_chat,
         "require_email": require_email,
         "is_admin": True,
     }

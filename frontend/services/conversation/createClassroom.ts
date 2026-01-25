@@ -15,6 +15,8 @@ export async function createClassroom(
 
     const token = data.session.access_token;
 
+    console.log('allowStudentChat:', allowStudentChat);
+
     const res = await fetch(
         `${process.env.EXPO_PUBLIC_BACKEND_URL}/classroom/create`,
         {

@@ -19,11 +19,15 @@ async def create_classroom(
     creator_id: str = Depends(verify_jwt_token),
 ):
     try:
+
+        print(f"✅ Creating classroom with payload: {payload}")
+        print(f"allow_student_chat: {payload.allow_student_chat}")
+
         classroom = await create_classroom_controller(
             title=payload.title,
             description=payload.description,
             require_email=payload.require_email,
-            allowed_student_chat=payload.allowed_student_chat,
+            allow_student_chat=payload.allow_student_chat,
             creator_email=payload.creator_email,
             creator_id=creator_id,
         )
