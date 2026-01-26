@@ -29,6 +29,7 @@ interface MessagingHeaderProps {
   onCallPress?: () => void;
   onMenuPress?: () => void;
   isDarkMode?: boolean;
+  onPress?: () => void;
 }
 
 const MessagingHeader: React.FC<MessagingHeaderProps> = ({
@@ -44,6 +45,7 @@ const MessagingHeader: React.FC<MessagingHeaderProps> = ({
   onCallPress = () => console.log('Call pressed'),
   onMenuPress = () => console.log('Menu pressed'),
   isDarkMode = false,
+  onPress,
 }) => {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,7 +81,7 @@ const MessagingHeader: React.FC<MessagingHeaderProps> = ({
 
   const toggleSearch = (active: boolean) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    
+
     if (active) {
       setIsSearchActive(true);
       Animated.parallel([
@@ -172,17 +174,38 @@ const MessagingHeader: React.FC<MessagingHeaderProps> = ({
 
           {/* Title (hidden when search is active) */}
           {!isSearchActive && (
+            // <Animated.View style={[styles.titleContainer, { opacity: titleOpacityAnim }]}>
+            //   <View>
+            //     <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+            //       {title}
+            //     </Text>
+            //     {subtitle && (
+            //       <Text style={[styles.subtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+            //         {subtitle}
+            //       </Text>
+            //     )}
+            //   </View>
+            // </Animated.View>
             <Animated.View style={[styles.titleContainer, { opacity: titleOpacityAnim }]}>
-              <View>
-                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
-                  {title}
-                </Text>
-                {subtitle && (
-                  <Text style={[styles.subtitle, { color: theme.textSecondary }]} numberOfLines={1}>
-                    {subtitle}
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={onPress}
+                disabled={!onPress}
+              >
+                <View>
+                  <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+                    {title}
                   </Text>
-                )}
-              </View>
+                  {subtitle && (
+                    <Text
+                      style={[styles.subtitle, { color: theme.textSecondary }]}
+                      numberOfLines={1}
+                    >
+                      {subtitle}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
             </Animated.View>
           )}
 
@@ -230,7 +253,7 @@ const MessagingHeader: React.FC<MessagingHeaderProps> = ({
               <Ionicons name="search" size={22} color={theme.icon} />
             </TouchableOpacity>
           )}
-          
+
           {showSearch && isSearchActive && (
             <TouchableOpacity
               style={styles.iconButton}
