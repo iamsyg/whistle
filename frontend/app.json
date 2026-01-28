@@ -55,6 +55,19 @@
           "contactsPermission": "Allow $(Whistle) to access your contacts."
         }
       ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera for QR code scanning.",
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for video recording."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos for QR code scanning."
+        }
+      ],
       "expo-localization",
       "@react-native-google-signin/google-signin"
     ],
