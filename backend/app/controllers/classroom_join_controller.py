@@ -148,11 +148,40 @@ async def join_classroom_by_code_controller(
         }
 
     # Create join request
-    supabase.table("classroom_join_requests").insert({
-        "chat_id": chat_id,
-        "user_id": user_id,
-        "join_via": join_via
-    }).execute()
+    existing_req = (
+        supabase
+        .table("classroom_join_requests")
+        .select("id, status")
+        .eq("chat_id", chat_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+
+    if existing_req.data:
+        status = existing_req.data[0]["status"]
+
+        if status == "pending":
+            raise HTTPException(400, "Join request already pending")
+
+        if status == "approved":
+            raise HTTPException(400, "User already approved")
+
+        # 🔁 Rejected → resend request
+        supabase.table("classroom_join_requests").update({
+            "status": "pending",
+            "join_via": join_via,
+            "requested_at": datetime.now(timezone.utc).isoformat(),
+            "decided_at": None,
+            "decided_by": None
+        }).eq("chat_id", chat_id).eq("user_id", user_id).execute()
+
+    else:
+        supabase.table("classroom_join_requests").insert({
+            "chat_id": chat_id,
+            "user_id": user_id,
+            "join_via": join_via
+        }).execute()
 
     return {
         "status": "pending",
@@ -202,8 +231,9 @@ async def approve_join_request_controller(
     # Approve
     supabase.table("classroom_join_requests").update({
         "status": "approved",
-        "decided_at": datetime.now(timezone.utc).isoformat()
-    }).eq("id", request_id).execute()
+        "decided_at": datetime.now(timezone.utc).isoformat(),
+        "decided_by": admin_id
+    }).eq("id", request_id).eq("status", "pending").execute()
 
     supabase.table("chat_members").insert({
         "chat_id": chat_id,
@@ -257,7 +287,8 @@ async def reject_join_request_controller(admin_id: str, request_id: str):
     # 3️⃣ Reject safely
     supabase.table("classroom_join_requests").update({
         "status": "rejected",
-        "decided_at": datetime.now(timezone.utc).isoformat()
+        "decided_at": datetime.now(timezone.utc).isoformat(),
+        "decided_by": admin_id
     }).eq("id", request_id).eq("status", "pending").execute()
 
     return {
