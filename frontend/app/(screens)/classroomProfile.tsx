@@ -13,11 +13,12 @@ import {
   FlatList,
   Modal,
   StyleSheet,
-  Platform,
   KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import MessagingHeader from '@/components/MessagingHeader';
 
 // Types
@@ -37,112 +38,32 @@ interface ClassroomProfileProps {
   isDarkMode?: boolean;
 }
 
-// Custom clipboard utility
-const clipboardUtils = {
-  async copy(text: string): Promise<void> {
-    if (Platform.OS === 'web') {
-      try {
-        await navigator.clipboard.writeText(text);
-        Alert.alert('Copied!', 'Text copied to clipboard');
-      } catch (error) {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.select();
-        try {
-          document.execCommand('copy');
-          Alert.alert('Copied!', 'Text copied to clipboard');
-        } catch (err) {
-          Alert.alert('Error', 'Failed to copy to clipboard');
-        }
-        document.body.removeChild(textArea);
-      }
-    } else {
-      // For React Native, we'll show text to copy
-      Alert.alert(
-        'Copy to Clipboard',
-        `Copy this text:\n\n${text}`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Copy',
-            onPress: () => {
-              // In a real app, you might want to use @react-native-clipboard/clipboard here
-              Alert.alert('Copied!', 'Text copied to clipboard');
-            }
-          }
-        ]
-      );
-    }
-  },
-
-  async paste(): Promise<string> {
-    if (Platform.OS === 'web') {
-      try {
-        return await navigator.clipboard.readText();
-      } catch (error) {
-        // Fallback for older browsers or denied permissions
-        Alert.alert('Error', 'Unable to access clipboard. Please paste manually.');
-        return '';
-      }
-    } else {
-      // For React Native, show input prompt
-      Alert.prompt(
-        'Paste Text',
-        'Please paste your text:',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'OK',
-            onPress: (text: any) => {
-              if (text) {
-                Alert.alert('Text Pasted', 'Text has been pasted into the field.');
-                return text;
-              }
-              return '';
-            }
-          }
-        ],
-        'plain-text'
-      );
-      return '';
-    }
-  }
-};
-
-const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
-  classroomId,
-  onBackPress,
-  isDarkMode = false
-}) => {
-  // State for classroom data - simulate data from backend
+const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBackPress, isDarkMode }) => {
+  // State for classroom data
   const [classroom, setClassroom] = useState({
     id: classroomId,
     title: 'Advanced Mathematics 101',
     description: 'This classroom covers advanced topics in calculus, linear algebra, and differential equations. All assignments and resources will be posted here.',
-    profilePicture: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=400&h=400&fit=crop',
+    profilePicture: 'https://via.placeholder.com/150',
     code: 'MATH2024',
     inviteLink: 'https://classroom.example.com/join/MATH2024',
     allowChat: true,
-
-    // This would come from backend
-    requireEmail: true, // true = email only, false = phone/username
-    allowedDomains: ['edu.in', 'university.edu', 'college.edu'], // Optional, only if requireEmail is true
+    requireEmail: false,
+    allowedDomains: ['edu.in', 'university.edu', 'college.edu'],
   });
 
   // State for members
   const [admins, setAdmins] = useState<ClassroomMember[]>([
-    { id: '1', name: 'Dr. Sarah Johnson', email: 'sarah@university.edu', role: 'admin', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=100&h=100&fit=crop' },
-    { id: '2', name: 'Prof. Michael Chen', email: 'michael@college.edu', role: 'admin', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop' },
+    { id: '1', name: 'Dr. Sarah Johnson', email: 'sarah@university.edu', role: 'admin', avatar: 'https://via.placeholder.com/50' },
+    { id: '2', name: 'Prof. Michael Chen', email: 'michael@college.edu', role: 'admin', avatar: 'https://via.placeholder.com/50' },
   ]);
 
   const [members, setMembers] = useState<ClassroomMember[]>([
-    { id: '3', name: 'Alice Smith', email: 'alice@edu.in', role: 'member', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop' },
-    { id: '4', name: 'Bob Wilson', email: 'bob@university.edu', role: 'member', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop' },
-    { id: '5', name: 'Charlie Brown', email: 'charlie@college.edu', role: 'member', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop' },
-    { id: '6', name: 'Diana Prince', email: 'diana@edu.in', role: 'member', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop' },
-    { id: '7', name: 'Ethan Hunt', email: 'ethan@university.edu', role: 'member', avatar: 'https://images.unsplash.com/photo-1507591064344-4c6ce005b128?w=100&h=100&fit=crop' },
+    { id: '3', name: 'Alice Smith', email: 'alice@edu.in', role: 'member', avatar: 'https://via.placeholder.com/50' },
+    { id: '4', name: 'Bob Wilson', email: 'bob@university.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
+    { id: '5', name: 'Charlie Brown', email: 'charlie@college.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
+    { id: '6', name: 'Diana Prince', email: 'diana@edu.in', role: 'member', avatar: 'https://via.placeholder.com/50' },
+    { id: '7', name: 'Ethan Hunt', email: 'ethan@university.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
   ]);
 
   // State for UI
@@ -150,7 +71,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
   const [newDomain, setNewDomain] = useState<string>('');
   const [showInviteModal, setShowInviteModal] = useState<boolean>(false);
   const [showDomainsModal, setShowDomainsModal] = useState<boolean>(false);
-  const [inviteMode, setInviteMode] = useState<'phone' | 'username'>('phone'); // Only for non-email mode
+  const [inviteMode, setInviteMode] = useState<'email' | 'phone' | 'username'>('phone');
 
   // Handle profile picture change
   const handleChangeProfilePicture = async () => {
@@ -174,6 +95,12 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
         profilePicture: pickerResult.assets[0].uri,
       }));
     }
+  };
+
+  // Copy to clipboard
+  const copyToClipboard = async (text: string) => {
+    await Clipboard.setStringAsync(text);
+    Alert.alert('Copied!', 'Text copied to clipboard');
   };
 
   // Toggle allow chat
@@ -206,14 +133,14 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
       return true;
     }
 
+    const emailDomain = email.split('@')[1];
     return classroom.allowedDomains.some(domain => email.endsWith(`@${domain}`));
   };
 
-  // Process invitations based on requireEmail flag
-  // Process invitations based on requireEmail flag
+  // Process invitations
   const processInvitations = () => {
     if (!newInvites.trim()) {
-      Alert.alert('Error', `Please enter ${classroom.requireEmail ? 'email addresses' : `${inviteMode}s`}`);
+      Alert.alert('Error', 'Please enter email addresses or phone numbers');
       return;
     }
 
@@ -302,45 +229,14 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
     }
   };
 
-  // Handle paste from clipboard
-  const handlePaste = async () => {
-    Alert.prompt(
-      'Paste Text',
-      'Paste your text below:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'OK',
-          onPress: (text: any) => {
-            if (text) {
-              setNewInvites(text);
-              Alert.alert('Success', 'Text pasted successfully!');
-            }
-          }
-        }
-      ],
-      'plain-text',
-      newInvites
-    );
-  };
-
   // Render member item
   const renderMemberItem = ({ item }: { item: ClassroomMember }) => (
-    <View style={[
-      styles.memberCard,
-      isDarkMode && styles.darkMemberCard
-    ]}>
+    <View style={styles.memberCard}>
       <Image source={{ uri: item.avatar }} style={styles.memberAvatar} />
       <View style={styles.memberInfo}>
-        <Text style={[
-          styles.memberName,
-          isDarkMode && styles.darkText
-        ]}>{item.name}</Text>
-        <Text style={[
-          styles.memberDetail,
-          isDarkMode && styles.darkSubtext
-        ]}>
-          {item.email || item.phone || item.username || 'No contact info'}
+        <Text style={styles.memberName}>{item.name}</Text>
+        <Text style={styles.memberDetail}>
+          {item.email || item.phone || item.username}
         </Text>
       </View>
       <View style={[
@@ -377,6 +273,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
       styles.container,
       isDarkMode && styles.darkContainer
     ]}>
+
       {/* Header with MessagingHeader component */}
       <MessagingHeader
         title={''}
@@ -414,6 +311,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
           </View>
         </View>
 
+
         {/* Classroom Description */}
         <View style={[
           styles.section,
@@ -430,32 +328,17 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
         </View>
 
         {/* Invite Link & Code */}
-        <View style={[
-          styles.section,
-          isDarkMode && styles.darkSection
-        ]}>
-          <Text style={[
-            styles.sectionTitle,
-            isDarkMode && styles.darkText
-          ]}>Invitation</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Invitation</Text>
 
           <TouchableOpacity
-            style={[
-              styles.inviteCard,
-              isDarkMode && styles.darkInviteCard
-            ]}
-            onPress={() => clipboardUtils.copy(classroom.inviteLink)}
+            style={styles.inviteCard}
+            onPress={() => copyToClipboard(classroom.inviteLink)}
           >
             <MaterialIcons name="link" size={20} color="#4A90E2" />
             <View style={styles.inviteInfo}>
-              <Text style={[
-                styles.inviteLabel,
-                isDarkMode && styles.darkSubtext
-              ]}>Invite Link</Text>
-              <Text style={[
-                styles.inviteValue,
-                isDarkMode && styles.darkText
-              ]} numberOfLines={1}>
+              <Text style={styles.inviteLabel}>Invite Link</Text>
+              <Text style={styles.inviteValue} numberOfLines={1}>
                 {classroom.inviteLink}
               </Text>
             </View>
@@ -463,22 +346,13 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.inviteCard,
-              isDarkMode && styles.darkInviteCard
-            ]}
-            onPress={() => clipboardUtils.copy(classroom.code)}
+            style={styles.inviteCard}
+            onPress={() => copyToClipboard(classroom.code)}
           >
             <MaterialIcons name="code" size={20} color="#4A90E2" />
             <View style={styles.inviteInfo}>
-              <Text style={[
-                styles.inviteLabel,
-                isDarkMode && styles.darkSubtext
-              ]}>Classroom Code</Text>
-              <Text style={[
-                styles.inviteValue,
-                isDarkMode && styles.darkText
-              ]}>{classroom.code}</Text>
+              <Text style={styles.inviteLabel}>Classroom Code</Text>
+              <Text style={styles.inviteValue}>{classroom.code}</Text>
             </View>
             <MaterialIcons name="content-copy" size={20} color="#666" />
           </TouchableOpacity>
@@ -598,14 +472,8 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
         </View>
 
         {/* Members Section */}
-        <View style={[
-          styles.section,
-          isDarkMode && styles.darkSection
-        ]}>
-          <Text style={[
-            styles.sectionTitle,
-            isDarkMode && styles.darkText
-          ]}>Members ({members.length})</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Members ({members.length})</Text>
           <FlatList
             data={members}
             renderItem={renderMemberItem}
@@ -615,118 +483,61 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
         </View>
 
         {/* Modals */}
-        {/* Allowed Domains Modal (only shown if requireEmail is true) */}
+        {/* Allowed Domains Modal */}
         <Modal
           visible={showDomainsModal}
           animationType="slide"
           transparent={true}
           onRequestClose={() => setShowDomainsModal(false)}
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalContainer}
-          >
-            <View style={styles.modalContainer}>
-              <TouchableOpacity
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={() => setShowDomainsModal(false)}
-              />
-              <View style={[
-                styles.modalContent,
-                isDarkMode && styles.darkModalContent
-              ]}>
-                <View style={styles.modalHeader}>
-                  <Text style={[
-                    styles.modalTitle,
-                    isDarkMode && styles.darkText
-                  ]}>Allowed Email Domains</Text>
-                  <TouchableOpacity onPress={() => setShowDomainsModal(false)}>
-                    <MaterialIcons name="close" size={24} color={isDarkMode ? "#fff" : "#333"} />
-                  </TouchableOpacity>
-                </View>
-
-                <ScrollView
-                  style={styles.modalScrollView}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  <Text style={[
-                    styles.modalDescription,
-                    isDarkMode && styles.darkSubtext
-                  ]}>
-                    {classroom.allowedDomains.length === 0
-                      ? 'Currently no domain restrictions. Members can join with any email address.'
-                      : 'Members can only join using email addresses from these domains. Leave empty to allow any email.'
-                    }
-                  </Text>
-
-                  <View style={styles.domainInputContainer}>
-                    <TextInput
-                      style={[
-                        styles.domainInput,
-                        isDarkMode && styles.darkInput
-                      ]}
-                      placeholder="Add domain (e.g., university.edu)"
-                      placeholderTextColor={isDarkMode ? "#888" : "#999"}
-                      value={newDomain}
-                      onChangeText={setNewDomain}
-                      onSubmitEditing={addDomain}
-                      returnKeyType="done"
-                    />
-                    <TouchableOpacity style={styles.addButton} onPress={addDomain}>
-                      <Ionicons name="add" size={24} color="#fff" />
-                    </TouchableOpacity>
-                  </View>
-
-                  {classroom.allowedDomains.length > 0 ? (
-                    <FlatList
-                      data={classroom.allowedDomains}
-                      renderItem={({ item }) => (
-                        <View style={[
-                          styles.domainItem,
-                          isDarkMode && styles.darkDomainItem
-                        ]}>
-                          <Text style={[
-                            styles.domainText,
-                            isDarkMode && styles.darkText
-                          ]}>{item}</Text>
-                          <TouchableOpacity onPress={() => removeDomain(item)}>
-                            <Ionicons name="remove-circle" size={24} color="#ff4444" />
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                      keyExtractor={(item) => item}
-                      scrollEnabled={false}
-                    />
-                  ) : (
-                    <View style={styles.emptyDomainsContainer}>
-                      <MaterialIcons name="domain-disabled" size={48} color="#ccc" />
-                      <Text style={[
-                        styles.emptyDomainsText,
-                        isDarkMode && styles.darkSubtext
-                      ]}>
-                        No domain restrictions
-                      </Text>
-                      <Text style={[
-                        styles.emptyDomainsSubtext,
-                        isDarkMode && styles.darkSubtext
-                      ]}>
-                        Members can join with any email address
-                      </Text>
-                    </View>
-                  )}
-                </ScrollView>
-
-                <TouchableOpacity
-                  style={styles.modalCloseButton}
-                  onPress={() => setShowDomainsModal(false)}
-                >
-                  <Text style={styles.modalCloseButtonText}>Done</Text>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Allowed Email Domains</Text>
+                <TouchableOpacity onPress={() => setShowDomainsModal(false)}>
+                  <MaterialIcons name="close" size={24} color="#333" />
                 </TouchableOpacity>
               </View>
+
+              <Text style={styles.modalDescription}>
+                Members can only join using email addresses from these domains
+              </Text>
+
+              <View style={styles.domainInputContainer}>
+                <TextInput
+                  style={styles.domainInput}
+                  placeholder="Add domain (e.g., university.edu)"
+                  value={newDomain}
+                  onChangeText={setNewDomain}
+                  onSubmitEditing={addDomain}
+                />
+                <TouchableOpacity style={styles.addButton} onPress={addDomain}>
+                  <MaterialIcons name="add" size={24} color="#fff" />
+                </TouchableOpacity>
+              </View>
+
+              <FlatList
+                data={classroom.allowedDomains}
+                renderItem={({ item }) => (
+                  <View style={styles.domainItem}>
+                    <Text style={styles.domainText}>{item}</Text>
+                    <TouchableOpacity onPress={() => removeDomain(item)}>
+                      <MaterialIcons name="remove-circle" size={24} color="#ff4444" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                keyExtractor={(item) => item}
+                style={styles.domainList}
+              />
+
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowDomainsModal(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>Done</Text>
+              </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
+          </View>
         </Modal>
 
         {/* Invite Members Modal */}
@@ -741,24 +552,11 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
             style={styles.modalContainer}
           >
             <View style={styles.modalContainer}>
-              <TouchableOpacity
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={() => setShowInviteModal(false)}
-              />
-              <View style={[
-                styles.modalContent,
-                isDarkMode && styles.darkModalContent
-              ]}>
+              <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
-                  <Text style={[
-                    styles.modalTitle,
-                    isDarkMode && styles.darkText
-                  ]}>
-                    {classroom.requireEmail ? 'Invite by Email' : 'Invite Members'}
-                  </Text>
+                  <Text style={styles.modalTitle}>Invite Members</Text>
                   <TouchableOpacity onPress={() => setShowInviteModal(false)}>
-                    <MaterialIcons name="close" size={24} color={isDarkMode ? "#fff" : "#333"} />
+                    <MaterialIcons name="close" size={24} color="#333" />
                   </TouchableOpacity>
                 </View>
 
@@ -767,7 +565,6 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
                 >
-                  {/* Only show mode selector if requireEmail is false */}
                   {!classroom.requireEmail && (
                     <View style={styles.inviteModeSelector}>
                       <TouchableOpacity
@@ -797,14 +594,10 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
                     </View>
                   )}
 
-                  <Text style={[
-                    styles.modalDescription,
-                    isDarkMode && styles.darkSubtext
-                  ]}>
+                  <Text style={styles.modalDescription}>
                     {getInviteDescription()}
                   </Text>
 
-                  {/* Show domain restrictions note if requireEmail is true and domains are configured */}
                   {classroom.requireEmail && classroom.allowedDomains.length > 0 && (
                     <View style={styles.domainRestrictionsNote}>
                       <MaterialIcons name="info" size={16} color="#4A90E2" />
@@ -815,12 +608,8 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
                   )}
 
                   <TextInput
-                    style={[
-                      styles.inviteInput,
-                      isDarkMode && styles.darkInput
-                    ]}
+                    style={styles.inviteInput}
                     placeholder={getInvitePlaceholder()}
-                    placeholderTextColor={isDarkMode ? "#888" : "#999"}
                     value={newInvites}
                     onChangeText={setNewInvites}
                     multiline
@@ -833,7 +622,13 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.pasteButton]}
-                    onPress={handlePaste}
+                    onPress={async () => {
+                      const text = await Clipboard.getStringAsync();
+                      if (text) {
+                        setNewInvites(text);
+                        Alert.alert('Success', 'Text pasted successfully!');
+                      }
+                    }}
                   >
                     <MaterialIcons name="content-paste" size={20} color="#4A90E2" />
                     <Text style={styles.pasteButtonText}>Paste</Text>
