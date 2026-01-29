@@ -3,9 +3,9 @@
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException, Query
 from app.controllers.classroom_controller import create_classroom_controller, get_user_all_classrooms_controller
+from app.controllers.classroom_join_controller import join_classroom_by_code_controller, approve_join_request_controller, reject_join_request_controller
 from app.middlewares.secure_route import verify_jwt_token
-from app.models.classroom_model import CreateClassroomRequest
-from typing import List
+from app.models.classroom_model import CreateClassroomRequest, JoinClassroomRequest
 
 router = APIRouter(
     prefix="/classroom",
@@ -54,5 +54,85 @@ async def get_classrooms(
         raise
     except Exception as e:
         print(f"❌ Error fetching classrooms: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.post("/code/join")
+async def join_classroom_by_code(
+     payload: JoinClassroomRequest,
+    user_id: str = Depends(verify_jwt_token),
+):
+    try:
+
+        print(f"✅ User {user_id} attempting to join classroom with code: {payload.class_code} via {payload.join_via}")
+        response = await join_classroom_by_code_controller(
+            user_id=user_id,
+            class_code=payload.class_code,
+            join_via=payload.join_via,
+            selected_email=payload.selected_email
+        )
+
+        print(f"✅ Join classroom response: {response}")
+        return response
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error joining classroom: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+@router.post(f"/join-requests/approve")
+async def approve_join_request(
+    admin_id: str = Depends(verify_jwt_token),
+    request_id: str = Query(..., description="Join request ID to approve")
+):
+    try:
+
+        print(f"✅ Admin {admin_id} approving join request {request_id}")
+
+        response = await approve_join_request_controller(
+            admin_id=admin_id,
+            request_id=request_id
+        )
+
+        print(f"✅ Approve join request response: {response}")
+        return response
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error approving join request: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+
+
+@router.post(f"/join-requests/reject")
+async def reject_join_request(
+    admin_id: str = Depends(verify_jwt_token),
+    request_id: str = Query(..., description="Join request ID to reject")
+):
+    try:
+
+        print(f"✅ Admin {admin_id} rejecting join request {request_id}")
+
+        response = await reject_join_request_controller(
+            admin_id=admin_id,
+            request_id=request_id
+        )
+
+        print(f"✅ Reject join request response: {response}")
+        return response
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error rejecting join request: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
