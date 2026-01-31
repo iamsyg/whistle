@@ -1,6 +1,6 @@
 // frontend/app/(screens)/joinClassroom.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  Image,
   ActivityIndicator,
   ScrollView,
   Platform,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import MessagingHeader from '@/components/MessagingHeader';
 
@@ -23,13 +23,15 @@ const JoinClassroom = () => {
   const [classroomCode, setClassroomCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   
+  // State for join method dropdown
+  const [selectedMethod, setSelectedMethod] = useState<'email' | 'username' | 'phone'>('email');
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+  const dropdownRef = useRef<View>(null);
+  
   // State for QR Scanner
   const [showScanner, setShowScanner] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
-  
-  // State for Image Picker (for scanning QR from gallery)
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   
   // Request camera permissions
   const [permission, requestPermission] = useCameraPermissions();
@@ -44,6 +46,20 @@ const JoinClassroom = () => {
     
     getCameraPermission();
   }, [permission]);
+
+  // Get method label
+  const getMethodLabel = () => {
+    switch (selectedMethod) {
+      case 'email':
+        return 'Email';
+      case 'username':
+        return 'Username';
+      case 'phone':
+        return 'Phone';
+      default:
+        return 'Email';
+    }
+  };
 
   // Handle join classroom with code
   const handleJoinWithCode = async () => {
@@ -69,7 +85,6 @@ const JoinClassroom = () => {
           {
             text: 'OK',
             onPress: () => {
-              // In a real app, you might navigate to a pending approval screen
               setClassroomCode('');
             }
           }
@@ -132,8 +147,6 @@ const JoinClassroom = () => {
     });
     
     if (!pickerResult.canceled && pickerResult.assets[0]) {
-      setSelectedImage(pickerResult.assets[0].uri);
-      
       // In a real app, you would use a QR code scanning library here
       // For now, we'll simulate extraction
       Alert.alert(
@@ -142,7 +155,6 @@ const JoinClassroom = () => {
         [
           {
             text: 'OK',
-            onPress: () => setSelectedImage(null)
           }
         ]
       );
@@ -192,6 +204,11 @@ const JoinClassroom = () => {
   const closeQRScanner = () => {
     setShowScanner(false);
     setScanned(false);
+  };
+
+  // Close dropdown when tapping outside
+  const handleOutsideClick = () => {
+    setDropdownVisible(false);
   };
 
   // Render QR Scanner
@@ -247,130 +264,147 @@ const JoinClassroom = () => {
   };
 
   return (
-    <View style={styles.container}>
-      {/* Header - This has SafeAreaView built in */}
-      <MessagingHeader
-        title="Join Classroom"
-        subtitle="Enter code or scan QR"
-        showBackButton={true}
-        showSearch={false}
-        showCall={false}
-        showMenu={false}
-        isDarkMode={false}
-      />
+    <TouchableWithoutFeedback onPress={handleOutsideClick}>
+      <View style={styles.container}>
+        {/* Header - This has SafeAreaView built in */}
+        <MessagingHeader
+          title="Join Classroom"
+          subtitle="Enter code or scan QR"
+          showBackButton={true}
+          showSearch={false}
+          showCall={false}
+          showMenu={false}
+          isDarkMode={false}
+        />
 
-      <ScrollView 
-        style={styles.content} 
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        
+        {/* Method Selector Header */}
+        <View style={styles.methodHeader}>
+          <Text style={styles.methodTitle}>Join using:</Text>
+          <View ref={dropdownRef}>
+            <TouchableOpacity
+              style={[styles.selectedMethod, isLoading && styles.disabledText]}
+              onPress={() => !isLoading && setDropdownVisible(!dropdownVisible)}
+            >
+              <Text style={styles.selectedMethodText}>{getMethodLabel()} ⌄</Text>
+            </TouchableOpacity>
 
-        {/* Classroom Code Input Section */}
-        <View style={styles.inputSection}>
-          <Text style={styles.sectionTitle}>Classroom Code</Text>
-          <View style={styles.inputContainer}>
-            <MaterialIcons name="class" size={24} color="#4A90E2" style={styles.inputIcon} />
-            <TextInput
-              style={styles.textInput}
-              placeholder="Enter classroom code (e.g., MATH2024)"
-              placeholderTextColor="#999"
-              value={classroomCode}
-              onChangeText={setClassroomCode}
-              autoCapitalize="characters"
-              maxLength={20}
-              editable={!isLoading}
-            />
-          </View>
-          
-          <TouchableOpacity
-            style={[styles.joinButton, isLoading && styles.joinButtonDisabled]}
-            onPress={handleJoinWithCode}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <>
-                <Ionicons name="enter-outline" size={22} color="#fff" />
-                <Text style={styles.joinButtonText}>Join Classroom</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Divider */}
-        <View style={styles.divider}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>OR</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* QR Scanner Section */}
-        <View style={styles.qrSection}>
-          <Text style={styles.sectionTitle}>Scan QR Code</Text>
-          <Text style={styles.qrDescription}>
-            Scan the QR code provided by your instructor to join instantly
-          </Text>
-          
-          <TouchableOpacity style={styles.scanButton} onPress={startQRScanner}>
-            <View style={styles.qrCodePreview}>
-              <View style={styles.qrPattern}>
-                <View style={[styles.qrCorner, { top: 0, left: 0 }]} />
-                <View style={[styles.qrCorner, { top: 0, right: 0 }]} />
-                <View style={[styles.qrCorner, { bottom: 0, left: 0 }]} />
-                <View style={[styles.qrCorner, { bottom: 0, right: 0 }]} />
-                <View style={styles.qrCenter} />
+            {dropdownVisible && (
+              <View style={styles.dropdown}>
+                {['email', 'username', 'phone'].map((method) => (
+                  <TouchableOpacity
+                    key={method}
+                    style={[
+                      styles.dropdownItem,
+                      selectedMethod === method && styles.dropdownItemActive
+                    ]}
+                    onPress={() => {
+                      setSelectedMethod(method as 'email' | 'username' | 'phone');
+                      setDropdownVisible(false);
+                    }}
+                  >
+                    <Text style={[
+                      styles.dropdownItemText,
+                      selectedMethod === method && styles.dropdownItemTextActive
+                    ]}>
+                      {method.charAt(0).toUpperCase() + method.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            </View>
-            <View style={styles.scanButtonContent}>
-              <Ionicons name="qr-code-outline" size={28} color="#4A90E2" />
-              <Text style={styles.scanButtonText}>Open QR Scanner</Text>
-              <Text style={styles.scanButtonSubtext}>Tap to scan classroom QR code</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={24} color="#ccc" />
-          </TouchableOpacity>
-
-          {/* Alternative gallery option */}
-          <TouchableOpacity style={styles.galleryOption} onPress={handlePickImage}>
-            <MaterialIcons name="photo-library" size={22} color="#666" />
-            <Text style={styles.galleryOptionText}>Scan QR code from gallery</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Instructions */}
-        <View style={styles.instructionsSection}>
-          <Text style={styles.instructionsTitle}>How to Join:</Text>
-          <View style={styles.instructionItem}>
-            <View style={styles.instructionNumber}>
-              <Text style={styles.instructionNumberText}>1</Text>
-            </View>
-            <Text style={styles.instructionText}>
-              Get the classroom code or QR code from your instructor
-            </Text>
-          </View>
-          <View style={styles.instructionItem}>
-            <View style={styles.instructionNumber}>
-              <Text style={styles.instructionNumberText}>2</Text>
-            </View>
-            <Text style={styles.instructionText}>
-              Enter the code above or scan the QR code
-            </Text>
-          </View>
-          <View style={styles.instructionItem}>
-            <View style={styles.instructionNumber}>
-              <Text style={styles.instructionNumberText}>3</Text>
-            </View>
-            <Text style={styles.instructionText}>
-              Wait for admin approval to access the classroom
-            </Text>
+            )}
           </View>
         </View>
-      </ScrollView>
 
-      {/* QR Scanner Modal */}
-      {renderQRScanner()}
-    </View>
+        <ScrollView 
+          style={styles.content} 
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Classroom Code Input Section */}
+          <View style={styles.inputSection}>
+            <Text style={styles.sectionTitle}>Classroom Code</Text>
+            <View style={styles.inputContainer}>
+              <MaterialIcons name="class" size={24} color="#4A90E2" style={styles.inputIcon} />
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter classroom code (e.g., MATH2024)"
+                placeholderTextColor="#999"
+                value={classroomCode}
+                onChangeText={setClassroomCode}
+                autoCapitalize="characters"
+                maxLength={20}
+                editable={!isLoading}
+              />
+            </View>
+            
+            <TouchableOpacity
+              style={[styles.joinButton, isLoading && styles.joinButtonDisabled]}
+              onPress={handleJoinWithCode}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="enter-outline" size={22} color="#fff" />
+                  <Text style={styles.joinButtonText}>Join Classroom</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          {/* QR Scanner Section */}
+          <View style={styles.qrSection}>
+            <Text style={styles.sectionTitle}>Scan QR Code</Text>
+            <Text style={styles.qrDescription}>
+              Scan the QR code provided by your instructor to join instantly
+            </Text>
+            
+            <TouchableOpacity 
+              style={styles.scanButton} 
+              onPress={startQRScanner}
+              disabled={isLoading}
+            >
+              <View style={styles.qrCodePreview}>
+                <View style={styles.qrPattern}>
+                  <View style={[styles.qrCorner, { top: 0, left: 0 }]} />
+                  <View style={[styles.qrCorner, { top: 0, right: 0 }]} />
+                  <View style={[styles.qrCorner, { bottom: 0, left: 0 }]} />
+                  <View style={[styles.qrCorner, { bottom: 0, right: 0 }]} />
+                  <View style={styles.qrCenter} />
+                </View>
+              </View>
+              <View style={styles.scanButtonContent}>
+                <Ionicons name="qr-code-outline" size={28} color="#4A90E2" />
+                <Text style={styles.scanButtonText}>Open QR Scanner</Text>
+                <Text style={styles.scanButtonSubtext}>Tap to scan classroom QR code</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={24} color="#ccc" />
+            </TouchableOpacity>
+
+            {/* Alternative gallery option */}
+            <TouchableOpacity 
+              style={[styles.galleryOption, isLoading && styles.disabledButton]}
+              onPress={handlePickImage}
+              disabled={isLoading}
+            >
+              <MaterialIcons name="photo-library" size={22} color="#666" />
+              <Text style={styles.galleryOptionText}>Scan QR code from gallery</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        {/* QR Scanner Modal */}
+        {renderQRScanner()}
+      </View>
+    </TouchableWithoutFeedback>
   );
 };
 
@@ -379,40 +413,77 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  // Method Selector Header - Updated to match your example
+  methodHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  methodTitle: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  selectedMethod: {
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+  },
+  selectedMethodText: {
+    fontSize: 14,
+    color: '#1971c2',
+    fontWeight: '600',
+  },
+  disabledText: {
+    opacity: 0.5,
+  },
+  dropdown: {
+    position: 'absolute',
+    top: 35, // Position below the selected method text
+    right: 0,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    paddingVertical: 8,
+    width: 180, // Increased width
+    minWidth: 180, // Ensure minimum width
+    zIndex: 1000,
+  },
+  dropdownItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 20, // Increased padding
+  },
+  dropdownItemActive: {
+    backgroundColor: '#f0f7ff',
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  dropdownItemTextActive: {
+    color: '#1971c2',
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  // Main Content
   content: {
     flex: 1,
   },
   contentContainer: {
-    paddingTop: 10, // This creates space below the header
+    paddingTop: 10,
     paddingBottom: 30,
   },
-  welcomeSection: {
-    alignItems: 'center',
-    padding: 25,
-    height: 140,
-    backgroundColor: '#fff',
-    marginBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  welcomeImage: {
-    width: 120,
-    height: 1,
-    borderRadius: 60,
-    marginBottom: 15,
-  },
-  welcomeTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  welcomeSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  // Input Section
   inputSection: {
     backgroundColor: '#fff',
     padding: 20,
@@ -461,12 +532,14 @@ const styles = StyleSheet.create({
   },
   joinButtonDisabled: {
     backgroundColor: '#A0C8FF',
+    opacity: 0.7,
   },
   joinButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
+  // Divider
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -483,6 +556,7 @@ const styles = StyleSheet.create({
     color: '#999',
     fontWeight: '600',
   },
+  // QR Section
   qrSection: {
     backgroundColor: '#fff',
     padding: 20,
@@ -569,49 +643,7 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '500',
   },
-  instructionsSection: {
-    backgroundColor: '#fff',
-    padding: 20,
-    marginHorizontal: 15,
-    borderRadius: 12,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  instructionsTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 15,
-  },
-  instructionItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 15,
-  },
-  instructionNumber: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#4A90E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  instructionNumberText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  instructionText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-  },
+  // QR Scanner Modal
   scannerContainer: {
     position: 'absolute',
     top: 0,
