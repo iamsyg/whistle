@@ -17,25 +17,40 @@ import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import MessagingHeader from '@/components/MessagingHeader';
+import { useJoinClassroom } from '@/hooks/useJoinClassroom';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '@/store/store';
 
 const JoinClassroom = () => {
   // State for classroom code
   const [classroomCode, setClassroomCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  
+
   // State for join method dropdown
   const [selectedMethod, setSelectedMethod] = useState<'email' | 'username' | 'phone'>('email');
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const dropdownRef = useRef<View>(null);
-  
+
   // State for QR Scanner
   const [showScanner, setShowScanner] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
-  
+
   // Request camera permissions
   const [permission, requestPermission] = useCameraPermissions();
-  
+
+  const selectedEmail = useSelector(
+    (state: RootState) => state.emailAuth.selectedEmail
+  )
+
+  const joinPayload = {
+    class_code: classroomCode,
+    join_via: selectedMethod,
+    selected_email:
+      selectedMethod === "email" ? selectedEmail || undefined : undefined,
+  };
+
+  const { joinClassroom, loading: isLoading } = useJoinClassroom(joinPayload);
+
   // Check camera permissions on mount
   useEffect(() => {
     const getCameraPermission = async () => {
@@ -43,7 +58,7 @@ const JoinClassroom = () => {
         setHasPermission(permission.granted);
       }
     };
-    
+
     getCameraPermission();
   }, [permission]);
 
@@ -64,42 +79,76 @@ const JoinClassroom = () => {
   // Handle join classroom with code
   const handleJoinWithCode = async () => {
     if (!classroomCode.trim()) {
-      Alert.alert('Error', 'Please enter a classroom code');
+      Alert.alert("Error", "Please enter a classroom code");
       return;
     }
-    
-    if (classroomCode.trim().length < 3) {
-      Alert.alert('Error', 'Classroom code must be at least 3 characters');
+
+    const res = await joinClassroom();
+
+    if (!res) {
+      Alert.alert("Error", "Something went wrong");
       return;
     }
-    
-    setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      Alert.alert(
-        'Join Request Sent',
-        `Request to join classroom with code "${classroomCode}" has been sent to the admin.`,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setClassroomCode('');
-            }
-          }
-        ]
-      );
-    }, 1500);
+
+    if ("error" in res) {
+      const msg = res.error;
+
+      if (msg.includes("requires email")) {
+        Alert.alert(
+          "Email Required",
+          "This classroom only allows joining via verified email."
+        );
+      } else if (msg.includes("Email join is disabled")) {
+        Alert.alert(
+          "Email Not Allowed",
+          "This classroom does not allow joining via email."
+        );
+      } else if (msg.includes("Invalid or unverified email")) {
+        Alert.alert(
+          "Invalid Email",
+          "Please select a verified email to join."
+        );
+      } else if (msg.includes("domain not allowed")) {
+        Alert.alert(
+          "Domain Restricted",
+          "Your email domain is not allowed for this classroom."
+        );
+      } else if (msg.includes("Phone number not verified")) {
+        Alert.alert(
+          "Phone Not Verified",
+          "Please verify your phone number before joining."
+        );
+      } else if (msg.includes("Username not set")) {
+        Alert.alert(
+          "Username Required",
+          "Please set a username in your profile to join."
+        );
+      } else {
+        Alert.alert("Join Failed", msg);
+      }
+
+      return;
+    }
+
+    // ✅ SUCCESS STATES
+    if (res.status === "joined") {
+      Alert.alert("Success", "You have successfully joined the classroom!");
+      setClassroomCode("");
+    } else if (res.status === "pending") {
+      Alert.alert("Pending Approval", "Your join request is pending admin approval.");
+    } else if (res.status === "already_joined") {
+      Alert.alert("Already Joined", "You are already a member of this classroom.");
+    }
   };
+
 
   // Handle QR code scan
   const handleQRScan = ({ data }: { data: string }) => {
     setScanned(true);
-    
+
     // Parse QR code data (could be a URL or direct code)
     let code = data;
-    
+
     // If it's a URL, try to extract the code from it
     if (data.includes('classroom.example.com/join/')) {
       const match = data.match(/join\/([A-Za-z0-9]+)/);
@@ -107,11 +156,11 @@ const JoinClassroom = () => {
         code = match[1];
       }
     }
-    
+
     // Close scanner and set the code
     setShowScanner(false);
     setClassroomCode(code);
-    
+
     Alert.alert(
       'QR Code Scanned',
       `Classroom code "${code}" has been detected.`,
@@ -134,18 +183,18 @@ const JoinClassroom = () => {
   // Open image picker to scan QR from gallery
   const handlePickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (!permissionResult.granted) {
       Alert.alert('Permission Required', 'Permission to access photo library is required!');
       return;
     }
-    
+
     const pickerResult = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
       quality: 1,
     });
-    
+
     if (!pickerResult.canceled && pickerResult.assets[0]) {
       // In a real app, you would use a QR code scanning library here
       // For now, we'll simulate extraction
@@ -165,7 +214,7 @@ const JoinClassroom = () => {
   const requestCameraPermission = async () => {
     const { granted } = await requestPermission();
     setHasPermission(granted);
-    
+
     if (!granted) {
       Alert.alert('Camera Permission Denied', 'You need to grant camera permission to use the QR scanner.');
     } else {
@@ -233,24 +282,24 @@ const JoinClassroom = () => {
               <Text style={styles.scannerTitle}>Scan QR Code</Text>
               <View style={{ width: 30 }} /> {/* Spacer for alignment */}
             </View>
-            
+
             <View style={styles.scannerFrame}>
               <View style={styles.cornerTopLeft} />
               <View style={styles.cornerTopRight} />
               <View style={styles.cornerBottomLeft} />
               <View style={styles.cornerBottomRight} />
             </View>
-            
+
             <Text style={styles.scannerInstruction}>
               Align the QR code within the frame
             </Text>
-            
+
             <View style={styles.scannerButtons}>
               <TouchableOpacity style={styles.galleryButton} onPress={handlePickImage}>
                 <MaterialIcons name="photo-library" size={24} color="#fff" />
                 <Text style={styles.galleryButtonText}>Gallery</Text>
               </TouchableOpacity>
-              
+
               {scanned && (
                 <TouchableOpacity style={styles.scanAgainButton} onPress={() => setScanned(false)}>
                   <Text style={styles.scanAgainButtonText}>Tap to Scan Again</Text>
@@ -315,8 +364,8 @@ const JoinClassroom = () => {
           </View>
         </View>
 
-        <ScrollView 
-          style={styles.content} 
+        <ScrollView
+          style={styles.content}
           contentContainerStyle={styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
@@ -336,7 +385,7 @@ const JoinClassroom = () => {
                 editable={!isLoading}
               />
             </View>
-            
+
             <TouchableOpacity
               style={[styles.joinButton, isLoading && styles.joinButtonDisabled]}
               onPress={handleJoinWithCode}
@@ -366,9 +415,9 @@ const JoinClassroom = () => {
             <Text style={styles.qrDescription}>
               Scan the QR code provided by your instructor to join instantly
             </Text>
-            
-            <TouchableOpacity 
-              style={styles.scanButton} 
+
+            <TouchableOpacity
+              style={styles.scanButton}
               onPress={startQRScanner}
               disabled={isLoading}
             >
@@ -390,7 +439,7 @@ const JoinClassroom = () => {
             </TouchableOpacity>
 
             {/* Alternative gallery option */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.galleryOption, isLoading && styles.disabledButton]}
               onPress={handlePickImage}
               disabled={isLoading}
