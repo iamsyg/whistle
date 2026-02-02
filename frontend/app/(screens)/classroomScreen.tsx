@@ -16,7 +16,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { router, useLocalSearchParams } from 'expo-router';
 import Header from '@/components/MessagingHeader';
 import ClassroomTabBar from '@/components/ClassroomTabBar';
-import ChatsTab from '@/components/ChatsTab';
+import ClassroomChatsTab from '@/components/ClassroomChatsTab';
 import AnnouncementsTab from '@/components/AnnouncementsTab';
 import AssignmentsTab from '@/components/AssignmentsTab';
 import ChatInput from '@/components/ChatInput';
@@ -27,6 +27,8 @@ import { RootState } from '@/store/store';
 import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
 import useSendClassroomMessage from '@/hooks/useSendClassroomMessage';
 import useWebSocket from '@/contexts/useWebSocket';
+import { useFetchJoinRequests } from '@/hooks/useFetchJoinRequests';
+import AdminJoinRequestToast from '@/components/AdminJoinRequestToast';
 
 type ClassroomTab = 'chats' | 'announcements' | 'assignments';
 
@@ -36,6 +38,9 @@ const ClassroomScreen = () => {
   const [isCallSheetVisible, setIsCallSheetVisible] = useState(false);
   const [isMenuSheetVisible, setIsMenuSheetVisible] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [joinRequestCount, setJoinRequestCount] = useState(0);
+  const [displayIdentity, setDisplayIdentity] = useState<string | null>(null);
+  const [showJoinToast, setShowJoinToast] = useState(true);
 
   const dispatch = useDispatch();
   const { chat_id } = useLocalSearchParams<{ chat_id: string }>();
@@ -50,6 +55,7 @@ const ClassroomScreen = () => {
 
   const { sendMessage, loading: sendingMessage } = useSendClassroomMessage(chat_id);
   const { isConnected, sendTypingIndicator, reconnect } = useWebSocket('classroom');
+  const { fetchRequests, loading: loadingRequests, error: requestsError } = useFetchJoinRequests(chat_id || '');
 
   // Set selected classroom in Redux
   useEffect(() => {
@@ -100,6 +106,18 @@ const ClassroomScreen = () => {
     );
   }
 
+  useEffect(() => {
+    if (!classroom?.is_admin) return;
+
+    fetchRequests().then((res) => {
+      if (res?.count) {
+        setJoinRequestCount(res.count);
+        setDisplayIdentity(res.requests[0]?.display_identity || "User");
+        setShowJoinToast(true);
+      }
+    });
+  }, [classroom?.is_admin]);
+
   return (
     <SafeAreaView
       style={[
@@ -119,6 +137,9 @@ const ClassroomScreen = () => {
           onCallPress={() => setIsCallSheetVisible(true)}
           onMenuPress={() => setIsMenuSheetVisible(true)}
           isDarkMode={isDarkMode}
+          onPress={() => {
+            router.push('/(screens)/classroomProfile')
+          }}
         />
 
         <ClassroomTabBar
@@ -126,6 +147,24 @@ const ClassroomScreen = () => {
           onTabChange={handleTabChange}
           isDarkMode={isDarkMode}
         />
+
+        {classroom?.is_admin && showJoinToast && joinRequestCount > 0 && (
+          <AdminJoinRequestToast
+            count={joinRequestCount}
+            isDarkMode={isDarkMode}
+            displayIdentity={displayIdentity}
+            onAccept={() => {
+              // router.push(`/(screens)/joinRequests?chat_id=${chat_id}`);
+              setShowJoinToast(false);
+            }}
+            onReject={() => {
+              // router.push(`/(screens)/joinRequests?chat_id=${chat_id}`);
+              setShowJoinToast(false);
+            }}
+            onDismiss={() => setShowJoinToast(false)}
+          />
+        )}
+
       </View>
 
       <KeyboardAvoidingView
@@ -136,7 +175,7 @@ const ClassroomScreen = () => {
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.content}>
             {/* Show appropriate tab content */}
-            {activeTab === 'chats' && <ChatsTab isDarkMode={isDarkMode} />}
+            {activeTab === 'chats' && <ClassroomChatsTab isDarkMode={isDarkMode} />}
             {activeTab === 'announcements' && <AnnouncementsTab />}
             {activeTab === 'assignments' && <AssignmentsTab />}
           </View>
@@ -149,7 +188,7 @@ const ClassroomScreen = () => {
             onAttachmentPress={() => setIsAttachmentSheetVisible(true)}
             isDarkMode={isDarkMode}
             onTyping={sendTypingIndicator}
-            // disabled={sendingMessage}
+          // disabled={sendingMessage}
           />
         )}
       </KeyboardAvoidingView>
