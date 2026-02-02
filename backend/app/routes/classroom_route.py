@@ -2,8 +2,9 @@
 
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException, Query
-from app.controllers.classroom_controller import create_classroom_controller, get_user_all_classrooms_controller
-from app.controllers.classroom_join_controller import join_classroom_by_code_controller, approve_join_request_controller, reject_join_request_controller
+
+from app.controllers.classroom_controller import create_classroom_controller, get_user_all_classrooms_controller, join_classroom_by_code_controller, approve_join_request_controller, reject_join_request_controller, fetch_join_requests_controller
+
 from app.middlewares.secure_route import verify_jwt_token
 from app.models.classroom_model import CreateClassroomRequest, JoinClassroomRequest
 
@@ -110,9 +111,6 @@ async def approve_join_request(
         raise HTTPException(status_code=500, detail=str(e))
     
 
-
-
-
 @router.post(f"/join-requests/reject")
 async def reject_join_request(
     admin_id: str = Depends(verify_jwt_token),
@@ -134,5 +132,31 @@ async def reject_join_request(
         raise
     except Exception as e:
         print(f"❌ Error rejecting join request: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+   
+@router.get("/join-requests/pending")
+async def fetch_join_requests(
+    admin_id: str = Depends(verify_jwt_token),
+    chat_id: str = Query(..., description="Classroom chat ID to fetch join requests for")
+):
+    try:
+
+        print(f"✅ Admin {admin_id} fetching pending join requests for classroom {chat_id}")
+
+        response = await fetch_join_requests_controller(
+            admin_id=admin_id,
+            chat_id=chat_id
+        )
+
+        print(f"✅ Pending join requests response: {response}")
+        return response
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching pending join requests: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
