@@ -29,6 +29,7 @@ import useSendClassroomMessage from '@/hooks/useSendClassroomMessage';
 import useWebSocket from '@/contexts/useWebSocket';
 import { useFetchJoinRequests } from '@/hooks/useFetchJoinRequests';
 import AdminJoinRequestToast from '@/components/AdminJoinRequestToast';
+import { useAcceptClassroomRequest } from '@/hooks/classroom/useAcceptClassroomRequest';
 
 type ClassroomTab = 'chats' | 'announcements' | 'assignments';
 
@@ -40,6 +41,7 @@ const ClassroomScreen = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [joinRequestCount, setJoinRequestCount] = useState(0);
   const [displayIdentity, setDisplayIdentity] = useState<string | null>(null);
+  const [classroomRequestId, setClassroomRequestId] = useState<string | null>(null);
   const [showJoinToast, setShowJoinToast] = useState(true);
 
   const dispatch = useDispatch();
@@ -113,10 +115,13 @@ const ClassroomScreen = () => {
       if (res?.count) {
         setJoinRequestCount(res.count);
         setDisplayIdentity(res.requests[0]?.display_identity || "User");
+        setClassroomRequestId(res.requests[0]?.id || null);
         setShowJoinToast(true);
       }
     });
   }, [classroom?.is_admin]);
+
+  const { acceptClassroomRequest, loading: acceptingRequest, error: acceptRequestError } = useAcceptClassroomRequest(classroomRequestId || '');
 
   return (
     <SafeAreaView
@@ -155,6 +160,7 @@ const ClassroomScreen = () => {
             displayIdentity={displayIdentity}
             onAccept={() => {
               // router.push(`/(screens)/joinRequests?chat_id=${chat_id}`);
+              acceptClassroomRequest();
               setShowJoinToast(false);
             }}
             onReject={() => {

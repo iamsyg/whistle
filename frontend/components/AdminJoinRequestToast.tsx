@@ -31,7 +31,7 @@ const AdminJoinRequestToast = ({
       ]}
     >
       <Text style={styles.text}>
-        {count} join request{count > 1 ? "s" : ""} pending from {displayIdentity}
+        {count} join request{count > 1 ? "s" : ""}: {displayIdentity}
       </Text>
 
       <View style={styles.actions}>
