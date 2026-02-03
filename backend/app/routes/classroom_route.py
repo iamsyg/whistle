@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, Body, HTTPException, Query
 
 from app.controllers.classroom_controller import create_classroom_controller, get_user_all_classrooms_controller, join_classroom_by_code_controller, approve_join_request_controller, reject_join_request_controller, fetch_join_requests_controller
 
+from app.controllers.classroom.fetch_classrooms.fetch_non_email_classrooms import fetch_non_email_classrooms_controller
+
 from app.middlewares.secure_route import verify_jwt_token
 from app.models.classroom_model import CreateClassroomRequest, JoinClassroomRequest
 
@@ -55,6 +57,24 @@ async def get_classrooms(
         raise
     except Exception as e:
         print(f"❌ Error fetching classrooms: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/all/non-email")
+async def fetch_non_email_classrooms(
+    user_id: str = Depends(verify_jwt_token),
+):
+    try:
+
+        response = await fetch_non_email_classrooms_controller(user_id=user_id)
+        print(f"✅ Fetched non-email classrooms for user {user_id}: {response}")
+        return {"classrooms": response}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching non-email classrooms: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
     
