@@ -30,6 +30,7 @@ import useWebSocket from '@/contexts/useWebSocket';
 import { useFetchJoinRequests } from '@/hooks/useFetchJoinRequests';
 import AdminJoinRequestToast from '@/components/AdminJoinRequestToast';
 import { useAcceptClassroomRequest } from '@/hooks/classroom/useAcceptClassroomRequest';
+import { useRejectClassroomRequest } from '@/hooks/classroom/useRejectClassroomRequest';
 
 type ClassroomTab = 'chats' | 'announcements' | 'assignments';
 
@@ -123,6 +124,8 @@ const ClassroomScreen = () => {
 
   const { acceptClassroomRequest, loading: acceptingRequest, error: acceptRequestError } = useAcceptClassroomRequest(classroomRequestId || '');
 
+  const { rejectClassroomRequest, loading: rejectingRequest, error: rejectRequestError } = useRejectClassroomRequest(classroomRequestId || '');
+
   return (
     <SafeAreaView
       style={[
@@ -165,6 +168,7 @@ const ClassroomScreen = () => {
             }}
             onReject={() => {
               // router.push(`/(screens)/joinRequests?chat_id=${chat_id}`);
+              rejectClassroomRequest();
               setShowJoinToast(false);
             }}
             onDismiss={() => setShowJoinToast(false)}
