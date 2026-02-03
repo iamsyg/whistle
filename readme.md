@@ -142,3 +142,19 @@ backend/
 ├── requirements.txt
 ├── Dockerfile
 └── .env
+
+
+
+
+
+
+
+
+
+
+ngrok http 8000
+npx expo start -c --tunnel
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+npx expo prebuild
+npx expo run:android
+npx expo start -c
