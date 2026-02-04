@@ -9,6 +9,8 @@ from app.controllers.classroom.fetch_classrooms.fetch_email_classrooms import fe
 
 from app.controllers.classroom.fetch_classrooms.fetch_non_email_classrooms import fetch_non_email_classrooms_controller
 
+from app.controllers.classroom.fetch_members.fetch_email_classroom_members import fetch_email_classroom_members_controller
+
 from app.middlewares.secure_route import verify_jwt_token
 from app.models.classroom_model import CreateClassroomRequest, JoinClassroomRequest
 
@@ -180,5 +182,28 @@ async def fetch_join_requests(
         raise
     except Exception as e:
         print(f"❌ Error fetching pending join requests: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/members/email")
+async def fetch_email_classroom_members(
+    classroom_chat_id: str = Query(..., description="Classroom chat ID to fetch email members for"),
+    user_id: str = Depends(verify_jwt_token),
+):
+    try:
+
+        print(f"✅ User {user_id} fetching email classroom members for classroom {classroom_chat_id}")
+        response = fetch_email_classroom_members_controller(
+            classroom_chat_id=classroom_chat_id
+        )
+
+        print(f"✅ Email classroom members response: {response}")
+        return {"members": response}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching email classroom members: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
