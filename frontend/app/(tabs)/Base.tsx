@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   TouchableWithoutFeedback,
   FlatList,
+  TouchableOpacity,
 } from 'react-native';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import { signInWithGoogle } from '@/services/auth/signInWithGoogle';
@@ -20,9 +21,11 @@ import { addEmail, setEmails, setSelectedEmail } from '@/store/slices/auth/email
 import { useGetUserGoogleEmails } from '@/hooks/useGetUserGoogleId';
 import { useRouter } from 'expo-router';
 import ModalMenu, { MenuItem } from '@/components/ModalMenu';
-import useGetUserAllClassroom from '@/hooks/useGetUserAllClassroom';
-import { Ionicons } from '@expo/vector-icons'; // Added import
+import { useFetchEmailClassrooms } from '@/hooks/classroom/fetchClassrooms/useFetchEmailClassrooms';
+import { Ionicons } from '@expo/vector-icons';
 import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
+import { useFetchNonEmailClassrooms } from '@/hooks/classroom/fetchClassrooms/useFetchNonEmailClassrooms';
+import { clearClassrooms, setAllClassrooms, setClassroomLoading } from "@/store/slices/classroom/classroomSlice";
 
 export default function BaseScreen() {
   const [isLoading, setIsLoading] = useState(false);
@@ -33,6 +36,11 @@ export default function BaseScreen() {
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const dropdownRef = useRef<View>(null);
   const [isMenuVisible, setIsMenuVisible] = useState(false);
+
+  // State for selected join method
+  const [selectedMethod, setSelectedMethod] = useState<'email' | 'Non-Email'>('email');
+
+  const classroomLoading = useSelector((state: RootState) => state.classroom.loading);
 
   const selectedEmail = useSelector(
     (state: RootState) => state.emailAuth.selectedEmail
@@ -46,11 +54,12 @@ export default function BaseScreen() {
     Object.values(state.classroom.classrooms)
   );
 
-  console.log('🔘 Classrooms:', classrooms);
-  console.log('🔘 Selected Email:', selectedEmail);
-
   const { emails, loading, error } = useGetUserGoogleEmails();
-  const { loading: classroomLoading, error: classroomError } = useGetUserAllClassroom(selectedEmail);
+
+  const { fetchClassrooms: fetchEmailClassrooms, loading: emailLoading, error: emailError } = useFetchEmailClassrooms(selectedEmail);
+
+  const { fetchClassrooms: fetchNonEmailClassrooms, loading: nonEmailLoading, error: nonEmailError } = useFetchNonEmailClassrooms();
+
 
   useEffect(() => {
     if (emails.length > 0) {
@@ -138,14 +147,48 @@ export default function BaseScreen() {
 
   // Handle classroom navigation when a classroom is pressed
   const handleClassroomPress = (chat_id: string) => {
-
     dispatch(setSelectedClassroom(chat_id));
-
     router.push({
       pathname: '/(screens)/classroomScreen',
       params: { chat_id },
     });
   };
+
+  // Handle method selection
+  const handleMethodSelect = async (method: 'email' | 'Non-Email') => {
+    setSelectedMethod(method);
+    setDropdownVisible(false);
+
+    dispatch(clearClassrooms());
+    dispatch(setClassroomLoading(true));
+
+    let classrooms = [];
+
+    if (method === 'email' && selectedEmail) {
+      classrooms = await fetchEmailClassrooms();
+    }
+
+    if (method === 'Non-Email') {
+      classrooms = await fetchNonEmailClassrooms();
+    }
+
+    // dispatch(setClassrooms(classrooms));
+    dispatch(setAllClassrooms(classrooms));
+    dispatch(setClassroomLoading(false));
+  };
+
+  // Get display label for header
+  const getDisplayLabel = () => {
+    switch (selectedMethod) {
+      case 'email':
+        return selectedEmail || 'Email';
+      case 'Non-Email':
+        return 'Non-Email';
+      default:
+        return selectedEmail || 'Email';
+    }
+  };
+
 
   // Render classroom item
   const renderClassroomItem = ({ item }: { item: any }) => (
@@ -165,7 +208,7 @@ export default function BaseScreen() {
           </Text>
 
           <Text style={styles.classroomMeta}>
-            By {item.creator.google_name || 'Unknown'}
+            By {item.creator.google_name || item.creator.name || 'Unknown'}
           </Text>
 
           <Text style={styles.classroomDate}>
@@ -187,8 +230,6 @@ export default function BaseScreen() {
       </Text>
     </View>
   );
-
-  console.log('🔘 Selected Email:', selectedEmail);
 
   const menuItems: MenuItem[] = [
     {
@@ -222,18 +263,35 @@ export default function BaseScreen() {
                 style={[styles.selectedEmail, isLoading && styles.disabledText]}
                 onPress={() => !isLoading && setDropdownVisible(!dropdownVisible)}
               >
-                {selectedEmail} ⌄
+                {getDisplayLabel()} ⌄
               </Text>
 
               {dropdownVisible && (
                 <View style={styles.dropdown}>
+                  {/* Non-Email Option - Added at the top */}
+                  <Text
+                    style={[
+                      styles.dropdownItem,
+                      selectedMethod === 'Non-Email' && styles.selectedItem
+                    ]}
+                    onPress={() => handleMethodSelect('Non-Email')}
+                  >
+                    Non-Email
+                  </Text>
+
+                  <View style={styles.divider} />
+
+                  {/* Email Options */}
                   {reduxEmails.map((email) => (
                     <Text
                       key={email}
-                      style={styles.dropdownItem}
+                      style={[
+                        styles.dropdownItem,
+                        selectedMethod === 'email' && selectedEmail === email && styles.selectedItem
+                      ]}
                       onPress={() => {
+                        handleMethodSelect('email');
                         dispatch(setSelectedEmail(email));
-                        setDropdownVisible(false);
                       }}
                     >
                       {email}
@@ -341,6 +399,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
   },
+  selectedItem: {
+    color: '#1971c2',
+    fontWeight: '600',
+    backgroundColor: '#f0f7ff',
+  },
   addMore: {
     color: '#EA4335',
     fontWeight: '600',
@@ -362,14 +425,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   classroomCard: {
-    // flexDirection: 'row',
-    // padding: 14,
-    // borderRadius: 12,
-    // backgroundColor: '#f8f6ff',
-    // marginBottom: 12,
-    // alignItems: 'center',
-    // borderWidth: 1,
-    // borderColor: '#e9e5ff',
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
