@@ -13,6 +13,8 @@ export interface ClassroomProfile {
   allow_student_chat: boolean;
   require_email: boolean;
 
+  join_method: "email" | "non-email";
+
   is_admin: boolean;
 }
 
@@ -21,6 +23,6 @@ export interface ClassroomCreator {
   name: string;
   avatar_url?: string | null;
 
-  email?: string;
-  google_name?: string;
+  email?: string | null;
+  google_name?: string | null;
 }

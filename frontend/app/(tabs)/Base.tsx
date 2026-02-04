@@ -26,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
 import { useFetchNonEmailClassrooms } from '@/hooks/classroom/fetchClassrooms/useFetchNonEmailClassrooms';
 import { clearClassrooms, setAllClassrooms, setClassroomLoading } from "@/store/slices/classroom/classroomSlice";
+import { ClassroomProfile } from '@/types/classroom';
 
 export default function BaseScreen() {
   const [isLoading, setIsLoading] = useState(false);
@@ -50,9 +51,19 @@ export default function BaseScreen() {
     (state: RootState) => state.emailAuth.emails
   );
 
-  const classrooms = useSelector((state: RootState) =>
-    Object.values(state.classroom.classrooms)
-  );
+  const classrooms = useSelector((state: RootState) => {
+    const all = Object.values(state.classroom.classrooms);
+
+    if (selectedMethod === 'email') {
+      return all.filter(
+        c =>
+          c.join_method === 'email' &&
+          c.creator.email === selectedEmail
+      );
+    }
+
+    return all.filter(c => c.join_method === 'non-email');
+  });
 
   const { emails, loading, error } = useGetUserGoogleEmails();
 
@@ -72,6 +83,12 @@ export default function BaseScreen() {
       dispatch(setSelectedEmail(reduxEmails[0]));
     }
   }, [reduxEmails, selectedEmail, dispatch]);
+
+  useEffect(() => {
+    if (selectedEmail) {
+      handleMethodSelect('email');
+    }
+  }, [selectedEmail]);
 
   const handleGoogleSignIn = async () => {
     if (isLoading || isAddingEmail) return;
@@ -159,7 +176,6 @@ export default function BaseScreen() {
     setSelectedMethod(method);
     setDropdownVisible(false);
 
-    dispatch(clearClassrooms());
     dispatch(setClassroomLoading(true));
 
     let classrooms = [];
@@ -172,7 +188,6 @@ export default function BaseScreen() {
       classrooms = await fetchNonEmailClassrooms();
     }
 
-    // dispatch(setClassrooms(classrooms));
     dispatch(setAllClassrooms(classrooms));
     dispatch(setClassroomLoading(false));
   };
