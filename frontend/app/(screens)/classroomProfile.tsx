@@ -1,6 +1,6 @@
 // frontend/app/(screens)/classroomProfile.tsx
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,10 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import MessagingHeader from '@/components/MessagingHeader';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/store/store';
+import { updateClassroomProfile } from '@/store/slices/classroom/classroomSlice';
 
 // Types
 interface ClassroomMember {
@@ -40,17 +44,18 @@ interface ClassroomProfileProps {
 
 const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBackPress, isDarkMode }) => {
   // State for classroom data
-  const [classroom, setClassroom] = useState({
-    id: classroomId,
-    title: 'Advanced Mathematics 101',
-    description: 'This classroom covers advanced topics in calculus, linear algebra, and differential equations. All assignments and resources will be posted here.',
-    profilePicture: 'https://via.placeholder.com/150',
-    code: 'MATH2024',
-    inviteLink: 'https://classroom.example.com/join/MATH2024',
-    allowChat: true,
-    requireEmail: false,
-    allowedDomains: ['edu.in', 'university.edu', 'college.edu'],
-  });
+
+  const dispatch = useDispatch();
+
+  const { chat_id } = useLocalSearchParams<{ chat_id: string }>();
+
+  const classroom = useSelector(
+    (state: RootState) => chat_id ? state.classroom.classrooms[chat_id] : undefined
+  )
+
+  useEffect(() => {
+    console.log('Classroom data:', classroom);
+  }, [classroom]);
 
   // State for members
   const [admins, setAdmins] = useState<ClassroomMember[]>([
@@ -74,28 +79,35 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
   const [inviteMode, setInviteMode] = useState<'email' | 'phone' | 'username'>('phone');
 
   // Handle profile picture change
-  const handleChangeProfilePicture = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  // const handleChangeProfilePicture = async () => {
+  //   const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!permissionResult.granted) {
-      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
-      return;
-    }
+  //   if (!permissionResult.granted) {
+  //     Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+  //     return;
+  //   }
 
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+  //   const pickerResult = await ImagePicker.launchImageLibraryAsync({
+  //     mediaTypes: ImagePicker.MediaTypeOptions.Images,
+  //     allowsEditing: true,
+  //     aspect: [1, 1],
+  //     quality: 1,
+  //   });
 
-    if (!pickerResult.canceled && pickerResult.assets[0]) {
-      setClassroom(prev => ({
-        ...prev,
-        profilePicture: pickerResult.assets[0].uri,
-      }));
-    }
-  };
+  //   if (!pickerResult.canceled && pickerResult.assets[0]) {
+  //     // setClassroom(prev => ({
+  //     //   ...prev,
+  //     //   profilePicture: pickerResult.assets[0].uri,
+  //     // }));
+
+  //     dispatch(updateClassroomProfile({
+  //       chat_id,
+  //       changes: {
+  //         allow_student_chat: !classroom?.allow_student_chat
+  //       }
+  //     }));
+  //   }
+  // };
 
   // Copy to clipboard
   const copyToClipboard = async (text: string) => {
@@ -105,36 +117,49 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
   // Toggle allow chat
   const toggleAllowChat = () => {
-    setClassroom(prev => ({ ...prev, allowChat: !prev.allowChat }));
+    
+    dispatch(updateClassroomProfile({
+      chat_id,
+      changes: {
+        allow_student_chat: !classroom?.allow_student_chat
+      }
+    }));
   };
 
   // Add new domain
   const addDomain = () => {
-    if (newDomain.trim() && !classroom.allowedDomains.includes(newDomain.trim())) {
-      setClassroom(prev => ({
-        ...prev,
-        allowedDomains: [...prev.allowedDomains, newDomain.trim()],
+    if (newDomain.trim() && !classroom?.allowed_domains?.includes(newDomain.trim())) {
+
+      dispatch(updateClassroomProfile({
+        chat_id,
+        changes: {
+          allowed_domains: [...(classroom?.allowed_domains || []), newDomain.trim()],
+        }
       }));
+
       setNewDomain('');
     }
   };
 
   // Remove domain
   const removeDomain = (domain: string) => {
-    setClassroom(prev => ({
-      ...prev,
-      allowedDomains: prev.allowedDomains.filter(d => d !== domain),
+
+    dispatch(updateClassroomProfile({
+      chat_id,
+      changes: {
+        
+        allowed_domains: classroom?.allowed_domains?.filter(d => d !== domain) || [],
+      }
     }));
   };
 
   // Validate email domain
   const isValidEmailDomain = (email: string): boolean => {
-    if (!classroom.requireEmail || classroom.allowedDomains.length === 0) {
+    if (!classroom?.join_method || !classroom?.allowed_domains || classroom.allowed_domains.length === 0) {
       return true;
     }
 
-    const emailDomain = email.split('@')[1];
-    return classroom.allowedDomains.some(domain => email.endsWith(`@${domain}`));
+    return classroom?.allowed_domains.some(domain => email.endsWith(`@${domain}`));
   };
 
   // Process invitations
@@ -152,7 +177,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
     const validInvites: string[] = [];
     const invalidInvites: string[] = [];
 
-    if (classroom.requireEmail) {
+    if (classroom?.join_method === 'email') {
       // Email validation
       invites.forEach(invite => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -201,7 +226,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
           avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(invite.split('@')[0] || invite)}&background=4A90E2&color=fff`,
         };
 
-        if (classroom.requireEmail) {
+        if (classroom?.join_method === 'email') {
           return {
             ...baseMember,
             email: invite
@@ -250,7 +275,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
   // Get invite placeholder based on mode
   const getInvitePlaceholder = () => {
-    if (classroom.requireEmail) {
+    if (classroom?.join_method === 'email') {
       return 'john@university.edu, jane@college.edu\nOr paste from Excel/CSV file';
     } else {
       return inviteMode === 'phone'
@@ -261,7 +286,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
   // Get invite description
   const getInviteDescription = () => {
-    if (classroom.requireEmail) {
+    if (classroom?.join_method === 'email') {
       return 'Enter email addresses (separated by commas, semicolons, or newlines). You can also paste from Excel/CSV files.';
     } else {
       return `Enter ${inviteMode}s (separated by commas, semicolons, or newlines)`;
@@ -294,18 +319,18 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
           styles.header,
           isDarkMode && styles.darkHeader
         ]}>
-          <TouchableOpacity onPress={handleChangeProfilePicture}>
-            <Image source={{ uri: classroom.profilePicture }} style={styles.profileImage} />
+          {/* <TouchableOpacity onPress={handleChangeProfilePicture}>
+            <Image source={{ uri: classroom?.profile_picture }} style={styles.profileImage} />
             <View style={styles.editImageOverlay}>
               <MaterialIcons name="edit" size={20} color="#fff" />
             </View>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <View style={styles.headerInfo}>
             <Text style={[
               styles.title,
               isDarkMode && styles.darkText
-            ]}>{classroom.title}</Text>
+            ]}>{classroom?.title}</Text>
             <View style={styles.classroomCodeContainer}>
             </View>
           </View>
@@ -324,7 +349,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
           <Text style={[
             styles.description,
             isDarkMode && styles.darkSubtext
-          ]}>{classroom.description}</Text>
+          ]}>{classroom?.description || '4o4'}</Text>
         </View>
 
         {/* Invite Link & Code */}
@@ -333,13 +358,13 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
           <TouchableOpacity
             style={styles.inviteCard}
-            onPress={() => copyToClipboard(classroom.inviteLink)}
+            onPress={() => copyToClipboard(classroom?.invite_link || '')}
           >
             <MaterialIcons name="link" size={20} color="#4A90E2" />
             <View style={styles.inviteInfo}>
               <Text style={styles.inviteLabel}>Invite Link</Text>
               <Text style={styles.inviteValue} numberOfLines={1}>
-                {classroom.inviteLink}
+                {classroom?.invite_link}
               </Text>
             </View>
             <MaterialIcons name="content-copy" size={20} color="#666" />
@@ -347,12 +372,12 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
           <TouchableOpacity
             style={styles.inviteCard}
-            onPress={() => copyToClipboard(classroom.code)}
+            onPress={() => copyToClipboard(classroom?.class_code || '')}
           >
             <MaterialIcons name="code" size={20} color="#4A90E2" />
             <View style={styles.inviteInfo}>
               <Text style={styles.inviteLabel}>Classroom Code</Text>
-              <Text style={styles.inviteValue}>{classroom.code}</Text>
+              <Text style={styles.inviteValue}>{classroom?.class_code}</Text>
             </View>
             <MaterialIcons name="content-copy" size={20} color="#666" />
           </TouchableOpacity>
@@ -382,15 +407,15 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
               </Text>
             </View>
             <Switch
-              value={classroom.allowChat}
+              value={classroom?.allow_student_chat}
               onValueChange={toggleAllowChat}
               trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={classroom.allowChat ? '#4A90E2' : '#f4f3f4'}
+              thumbColor={classroom?.allow_student_chat ? '#4A90E2' : '#f4f3f4'}
             />
           </View>
 
-          {/* Show allowed domains only if requireEmail is true */}
-          {classroom.requireEmail && (
+          {/* Show allowed domains only if joinMethod is 'email' */}
+          {classroom?.join_method === 'email' && (
             <TouchableOpacity
               style={[
                 styles.domainButton,
@@ -406,7 +431,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
                 ]}>
                   Allowed Email Domains
                 </Text>
-                <Text style={[
+                {/* <Text style={[
                   styles.domainButtonSubtext,
                   isDarkMode && styles.darkSubtext
                 ]}>
@@ -414,7 +439,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
                     ? `${classroom.allowedDomains.length} domains configured`
                     : 'No restrictions (any email allowed)'
                   }
-                </Text>
+                </Text> */}
               </View>
               <MaterialIcons name="chevron-right" size={20} color="#666" />
             </TouchableOpacity>
@@ -431,14 +456,14 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
                 styles.settingDescription,
                 isDarkMode && styles.darkSubtext
               ]}>
-                {classroom.requireEmail
+                {classroom?.join_method === 'email'
                   ? 'Members must join with email address'
                   : 'Members can join with phone number or username'
                 }
               </Text>
             </View>
             <MaterialIcons
-              name={classroom.requireEmail ? "email" : "smartphone"}
+              name={classroom?.join_method === 'email' ? "email" : "smartphone"}
               size={24}
               color="#4A90E2"
             />
@@ -517,7 +542,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
               </View>
 
               <FlatList
-                data={classroom.allowedDomains}
+                data={classroom?.allowed_domains}
                 renderItem={({ item }) => (
                   <View style={styles.domainItem}>
                     <Text style={styles.domainText}>{item}</Text>
@@ -565,7 +590,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
                 >
-                  {!classroom.requireEmail && (
+                  {!classroom?.require_email && (
                     <View style={styles.inviteModeSelector}>
                       <TouchableOpacity
                         style={[
@@ -598,11 +623,11 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
                     {getInviteDescription()}
                   </Text>
 
-                  {classroom.requireEmail && classroom.allowedDomains.length > 0 && (
+                  {classroom?.require_email && (classroom?.allowed_domains?.length ?? 0) > 0 && (
                     <View style={styles.domainRestrictionsNote}>
                       <MaterialIcons name="info" size={16} color="#4A90E2" />
                       <Text style={styles.allowedDomainsNote}>
-                        Allowed domains: {classroom.allowedDomains.join(', ')}
+                        Allowed domains: {classroom?.allowed_domains?.join(', ')}
                       </Text>
                     </View>
                   )}
@@ -646,7 +671,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
                     onPress={processInvitations}
                   >
                     <Text style={styles.sendButtonText}>
-                      {classroom.requireEmail ? 'Send Email Invites' : 'Send Invites'}
+                      {classroom?.require_email ? 'Send Email Invites' : 'Send Invites'}
                     </Text>
                   </TouchableOpacity>
                 </View>

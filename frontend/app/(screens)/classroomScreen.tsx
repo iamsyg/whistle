@@ -146,7 +146,10 @@ const ClassroomScreen = () => {
           onMenuPress={() => setIsMenuSheetVisible(true)}
           isDarkMode={isDarkMode}
           onPress={() => {
-            router.push('/(screens)/classroomProfile')
+            router.push({
+              pathname: '/(screens)/classroomProfile',
+              params: { chat_id }
+            })
           }}
         />
 
