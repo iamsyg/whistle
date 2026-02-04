@@ -32,6 +32,8 @@ async def fetch_email_classrooms_controller(user_id: str, selected_email: str):
                 require_email,
                 allow_student_chat,
                 allowed_domains,
+                invite_link,
+                class_code,
                 chat:chat_id!inner (
                     id,
                     title,
@@ -53,7 +55,7 @@ async def fetch_email_classrooms_controller(user_id: str, selected_email: str):
             """)
             .eq("require_email", True)
             .eq("chat.chat_members.user_id", user_id)
-            .eq("chat.chat_members.email_id", email_id)  # 🔥 SELECTED EMAIL
+            .eq("chat.chat_members.email_id", email_id)  
             .is_("chat.chat_members.left_at", None)
             .execute()
         )
@@ -86,6 +88,9 @@ async def fetch_email_classrooms_controller(user_id: str, selected_email: str):
                     "email": selected_email,
                     "google_name": email_row.get("google_name"),
                 },
+
+                "invite_link": row.get("invite_link"),
+                "class_code": row.get("class_code"),
 
                 "allowed_domains": row.get("allowed_domains"),
                 "allow_student_chat": row.get("allow_student_chat", True),

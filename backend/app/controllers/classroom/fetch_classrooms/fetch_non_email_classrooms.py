@@ -15,6 +15,8 @@ async def fetch_non_email_classrooms_controller(user_id: str):
                 require_email,
                 allow_student_chat,
                 allowed_domains,
+                invite_link,
+                class_code,
                 chat:chat_id!inner (
                     id,
                     title,
@@ -63,6 +65,9 @@ async def fetch_non_email_classrooms_controller(user_id: str):
                     "email": None,
                     "google_name": None,
                 },
+
+                "invite_link": row.get("invite_link"),
+                "class_code": row.get("class_code"),
 
                 "allowed_domains": row.get("allowed_domains") or [],
                 "allow_student_chat": row.get("allow_student_chat", True),
