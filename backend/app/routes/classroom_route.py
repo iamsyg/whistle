@@ -3,7 +3,9 @@
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException, Query
 
-from app.controllers.classroom_controller import create_classroom_controller, get_user_all_classrooms_controller, join_classroom_by_code_controller, approve_join_request_controller, reject_join_request_controller, fetch_join_requests_controller
+from app.controllers.classroom_controller import create_classroom_controller, join_classroom_by_code_controller, approve_join_request_controller, reject_join_request_controller, fetch_join_requests_controller
+
+from app.controllers.classroom.fetch_classrooms.fetch_email_classrooms import fetch_email_classrooms_controller
 
 from app.controllers.classroom.fetch_classrooms.fetch_non_email_classrooms import fetch_non_email_classrooms_controller
 
@@ -49,7 +51,7 @@ async def get_classrooms(
 ):
     try:
 
-        response = await get_user_all_classrooms_controller(user_id=user_id, selected_email=selected_email)
+        response = await fetch_email_classrooms_controller(user_id=user_id, selected_email=selected_email)
         print(f"✅ Fetched classrooms for user {user_id}: {response}")
         return {"classrooms": response}
     
