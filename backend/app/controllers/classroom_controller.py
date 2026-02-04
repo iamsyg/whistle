@@ -80,6 +80,7 @@ async def create_classroom_controller(
         "chat_id": chat["id"],
         "user_id": creator_id,
         "role": "admin",
+        "email_id": email_id,
     }).execute()
 
     # 5️⃣ Return full ClassroomProfile-compatible object
@@ -187,7 +188,8 @@ async def join_classroom_by_code_controller(
         supabase.table("chat_members").insert({
             "chat_id": chat_id,
             "user_id": user_id,
-            "role": "member"
+            "role": "member",
+            "email_id": email_res.data[0]["id"],
         }).execute()
 
         return {

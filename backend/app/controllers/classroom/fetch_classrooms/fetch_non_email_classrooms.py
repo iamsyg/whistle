@@ -1,4 +1,4 @@
-# backend/app/controllers/classroom/fetchNonEmailClassroom.py
+# backend/app/controllers/classroom/fetch_non_email_classrooms.py
 
 from fastapi import HTTPException
 from app.utils.supabase_client import supabase

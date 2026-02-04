@@ -46,16 +46,18 @@ async def fetch_email_classrooms_controller(user_id: str, selected_email: str):
                     chat_members!inner (
                         user_id,
                         role,
-                        left_at
+                        left_at,
+                        email_id
                     )
                 )
             """)
             .eq("require_email", True)
-            .eq("email_id", email_id)
             .eq("chat.chat_members.user_id", user_id)
+            .eq("chat.chat_members.email_id", email_id)  # 🔥 SELECTED EMAIL
             .is_("chat.chat_members.left_at", None)
             .execute()
         )
+
 
         classrooms = []
 
@@ -64,7 +66,10 @@ async def fetch_email_classrooms_controller(user_id: str, selected_email: str):
 
             # find current user's member row
             member = next(
-                (m for m in chat["chat_members"] if m["user_id"] == user_id),
+                (
+                    m for m in chat.get("chat_members", [])
+                    if m["user_id"] == user_id and m["left_at"] is None
+                ),
                 None
             )
 
@@ -79,7 +84,7 @@ async def fetch_email_classrooms_controller(user_id: str, selected_email: str):
                     "name": chat["creator"]["name"] or "Unknown",
                     "avatar_url": chat["creator"].get("avatar_url"),
                     "email": selected_email,
-                    "google_name": email_res.data[0].get("google_name"),
+                    "google_name": email_row.get("google_name"),
                 },
 
                 "allowed_domains": row.get("allowed_domains"),
