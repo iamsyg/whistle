@@ -1,4 +1,5 @@
-// store/store.ts
+// frontend/store/store.ts
+
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -20,6 +21,7 @@ import conversationReducer from './slices/message/conversationSlice';
 import messageReducer from './slices/message/messageSlice';
 import contactsReducer from './slices/contacts/contactsSlice';
 import classroomReducer from './slices/classroom/classroomSlice';
+import classroomMembersCardReducer from './slices/classroom/classroomMembersCard';
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -28,7 +30,8 @@ const rootReducer = combineReducers({
   conversation: conversationReducer,
   message: messageReducer,
   contacts: contactsReducer,
-  classroom: classroomReducer
+  classroom: classroomReducer,
+  classroomMembersCard: classroomMembersCardReducer,
 });
 
 // Migration strategy for state shape changes
