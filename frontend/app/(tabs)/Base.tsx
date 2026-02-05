@@ -98,10 +98,15 @@ export default function BaseScreen() {
     console.log('🔘 Google Sign In button pressed');
 
     try {
-      const { email, google_name, email_verified } = await signInWithGoogle();
+      const { email, google_name, email_verified, google_avatar } = await signInWithGoogle();
 
       // Only do backend check, remove UI-level duplicate check
-      await saveEmailToBackend(email, google_name, email_verified);
+      const res =await saveEmailToBackend(email, google_name, email_verified, google_avatar);
+
+      if (!res) {
+        Alert.alert('Error', 'Failed to save email to backend');
+        throw new Error('Failed to save email to backend');
+      }
 
       dispatch(addEmail(email));
       dispatch(setSelectedEmail(email));
@@ -305,8 +310,8 @@ export default function BaseScreen() {
                         selectedMethod === 'email' && selectedEmail === email && styles.selectedItem
                       ]}
                       onPress={() => {
-                        handleMethodSelect('email');
                         dispatch(setSelectedEmail(email));
+                        handleMethodSelect('email');
                       }}
                     >
                       {email}

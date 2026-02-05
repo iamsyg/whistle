@@ -54,10 +54,11 @@ def insert_email(
     """Insert new email - needs email, user_id, and email_verified"""
     try:
         data = insert_email_controller(
-            payload.email,
-            payload.google_name,
-            payload.email_verified,
-            user_id
+            email=payload.email,
+            google_name=payload.google_name,
+            email_verified=payload.email_verified,
+            google_avatar=payload.google_avatar,
+            user_id=user_id,
         )
         return {"data": data}
     

@@ -8,6 +8,7 @@ export type GoogleEmailResult = {
   email: string;
   google_name: string;
   email_verified: boolean;
+  google_avatar: string | null;
 };
 
 export async function signOutGoogle() {
@@ -49,6 +50,7 @@ export async function signInWithGoogle():Promise<GoogleEmailResult> {
 
         const email = userInfo.data?.user?.email;
         const google_name = userInfo.data?.user.name || 'Unknown';
+        const google_avatar = userInfo.data?.user.photo || null;
 
         if(!email) {
             throw new Error('No email found in Google user info');
@@ -56,7 +58,7 @@ export async function signInWithGoogle():Promise<GoogleEmailResult> {
 
         const email_verified = userInfo.data?.user.email ? true : false;
 
-        return {email, google_name, email_verified};
+        return {email, google_name, email_verified, google_avatar};
 
         
     } catch (error: any) {

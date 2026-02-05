@@ -22,3 +22,4 @@ class InsertEmailRequest(BaseModel):
     email: str
     google_name: str
     email_verified: bool
+    google_avatar: str 

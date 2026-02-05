@@ -73,7 +73,7 @@ def insert_phone_hash_and_user_id(
         raise Exception(f"Database error: {str(e)}")
     
 
-def insert_email_controller(email: str, google_name: str, email_verified: bool, user_id: str) -> dict:
+def insert_email_controller(email: str, google_name: str, email_verified: bool, user_id: str, google_avatar: str | None) -> dict:
     email = email.strip().lower()
 
     payload = {
@@ -82,6 +82,7 @@ def insert_email_controller(email: str, google_name: str, email_verified: bool, 
         "google_name": google_name,
         "verified": email_verified,
         "verified_at": datetime.now(timezone.utc).isoformat() if email_verified else None,
+        "google_avatar": google_avatar,
     }
 
     try:
