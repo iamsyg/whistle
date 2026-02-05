@@ -24,17 +24,20 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
 import { updateClassroomProfile } from '@/store/slices/classroom/classroomSlice';
+import { useFetchEmailClassroomMembers } from '@/hooks/classroom/fetchMembers/useFetchEmailClassroomMembers';
+import { clearMembers, setAllMembers } from '@/store/slices/classroom/classroomMembersCard';
+import { classroomMembersCardTypes } from '@/types/classroom/classroomMembersCardTypes';
 
 // Types
-interface ClassroomMember {
-  id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  username?: string;
-  role: 'admin' | 'member';
-  avatar?: string;
-}
+// interface ClassroomMember {
+//   id: string;
+//   name: string;
+//   email?: string;
+//   phone?: string;
+//   username?: string;
+//   role: 'admin' | 'member';
+//   avatar?: string;
+// }
 
 interface ClassroomProfileProps {
   classroomId: string;
@@ -44,6 +47,7 @@ interface ClassroomProfileProps {
 
 const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBackPress, isDarkMode }) => {
   // State for classroom data
+  const [loading, setLoading] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -53,23 +57,63 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
     (state: RootState) => chat_id ? state.classroom.classrooms[chat_id] : undefined
   )
 
+  const admins = useSelector(
+    (state: RootState) => state.classroomMembersCard.members ? Object.values(state.classroomMembersCard.members).filter(m => m.role === 'admin') : []
+  )
+
+  const members = useSelector(
+    (state: RootState) => state.classroomMembersCard.members ? Object.values(state.classroomMembersCard.members).filter(m => m.role === 'member') : []
+  )
+
+  const { fetchClassroomMembers: fetchEmailClassroomMembers, loading: loadingEmailClassroomMembers, error: errorEmailClassroomMembers } = useFetchEmailClassroomMembers(chat_id);
+
+  const fetchMembers = async () => {
+
+    setLoading(true);
+    let members = [];
+
+    if (classroom?.join_method === 'email') {
+
+      try {
+        members = await fetchEmailClassroomMembers();
+      }
+      catch (err) {
+        Alert.alert('Error', 'Failed to fetch classroom members. Please try again later.');
+        console.error('Error fetching email classroom members:', err);
+      }
+    }
+
+    console.log('Fetched members:', members);
+    dispatch(clearMembers());
+    dispatch(setAllMembers(members));
+    setLoading(false);
+  }
+
   useEffect(() => {
     console.log('Classroom data:', classroom);
+
+    if (classroom) {
+      fetchMembers();
+    }
+
+    console.log('Admins:', admins); 
+    console.log('Members:', members);
+
   }, [classroom]);
 
   // State for members
-  const [admins, setAdmins] = useState<ClassroomMember[]>([
-    { id: '1', name: 'Dr. Sarah Johnson', email: 'sarah@university.edu', role: 'admin', avatar: 'https://via.placeholder.com/50' },
-    { id: '2', name: 'Prof. Michael Chen', email: 'michael@college.edu', role: 'admin', avatar: 'https://via.placeholder.com/50' },
-  ]);
+  // const [admins, setAdmins] = useState<ClassroomMember[]>([
+  //   { id: '1', name: 'Dr. Sarah Johnson', email: 'sarah@university.edu', role: 'admin', avatar: 'https://via.placeholder.com/50' },
+  //   { id: '2', name: 'Prof. Michael Chen', email: 'michael@college.edu', role: 'admin', avatar: 'https://via.placeholder.com/50' },
+  // ]);
 
-  const [members, setMembers] = useState<ClassroomMember[]>([
-    { id: '3', name: 'Alice Smith', email: 'alice@edu.in', role: 'member', avatar: 'https://via.placeholder.com/50' },
-    { id: '4', name: 'Bob Wilson', email: 'bob@university.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
-    { id: '5', name: 'Charlie Brown', email: 'charlie@college.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
-    { id: '6', name: 'Diana Prince', email: 'diana@edu.in', role: 'member', avatar: 'https://via.placeholder.com/50' },
-    { id: '7', name: 'Ethan Hunt', email: 'ethan@university.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
-  ]);
+  // const [members, setMembers] = useState<ClassroomMember[]>([
+  //   { id: '3', name: 'Alice Smith', email: 'alice@edu.in', role: 'member', avatar: 'https://via.placeholder.com/50' },
+  //   { id: '4', name: 'Bob Wilson', email: 'bob@university.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
+  //   { id: '5', name: 'Charlie Brown', email: 'charlie@college.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
+  //   { id: '6', name: 'Diana Prince', email: 'diana@edu.in', role: 'member', avatar: 'https://via.placeholder.com/50' },
+  //   { id: '7', name: 'Ethan Hunt', email: 'ethan@university.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
+  // ]);
 
   // State for UI
   const [newInvites, setNewInvites] = useState<string>('');
@@ -117,7 +161,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
   // Toggle allow chat
   const toggleAllowChat = () => {
-    
+
     dispatch(updateClassroomProfile({
       chat_id,
       changes: {
@@ -147,7 +191,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
     dispatch(updateClassroomProfile({
       chat_id,
       changes: {
-        
+
         allowed_domains: classroom?.allowed_domains?.filter(d => d !== domain) || [],
       }
     }));
@@ -218,35 +262,35 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
     if (validInvites.length > 0) {
       // Add new members (in a real app, this would be an API call)
-      const newMembers: ClassroomMember[] = validInvites.map((invite, index) => {
+      const newMembers: classroomMembersCardTypes[] = validInvites.map((invite, index) => {
         const baseMember = {
-          id: `new-${Date.now()}-${index}`,
+          user_id: `new-${Date.now()}-${index}`,
           name: invite.split('@')[0] || invite,
           role: 'member' as const, // Explicitly type as 'member'
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(invite.split('@')[0] || invite)}&background=4A90E2&color=fff`,
+          avatar_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(invite.split('@')[0] || invite)}&background=4A90E2&color=fff`,
         };
 
         if (classroom?.join_method === 'email') {
           return {
             ...baseMember,
             email: invite
-          } as ClassroomMember;
+          } as classroomMembersCardTypes;
         } else {
           if (inviteMode === 'phone') {
             return {
               ...baseMember,
               phone: invite
-            } as ClassroomMember;
+            } as classroomMembersCardTypes;
           } else {
             return {
               ...baseMember,
               username: invite
-            } as ClassroomMember;
+            } as classroomMembersCardTypes;
           }
         }
       });
 
-      setMembers(prev => [...prev, ...newMembers]);
+      dispatch(setAllMembers([...members, ...newMembers]));
       setNewInvites('');
       setShowInviteModal(false);
 
@@ -255,23 +299,64 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
   };
 
   // Render member item
-  const renderMemberItem = ({ item }: { item: ClassroomMember }) => (
-    <View style={styles.memberCard}>
-      <Image source={{ uri: item.avatar }} style={styles.memberAvatar} />
-      <View style={styles.memberInfo}>
-        <Text style={styles.memberName}>{item.name}</Text>
-        <Text style={styles.memberDetail}>
-          {item.email || item.phone || item.username}
-        </Text>
-      </View>
-      <View style={[
-        styles.roleBadge,
-        item.role === 'admin' ? styles.adminBadge : styles.memberBadge
-      ]}>
-        <Text style={styles.roleText}>{item.role.toUpperCase()}</Text>
-      </View>
+  // const renderMemberItem = ({ item }: { item: classroomMembersCardTypes }) => (
+  //   <View style={styles.memberCard}>
+  //     <Image source={{ uri: item.avatar_url }} style={styles.memberAvatar} />
+  //     <View style={styles.memberInfo}>
+  //       <Text style={styles.memberName}>{item.name}</Text>
+  //       <Text style={styles.memberDetail}>
+  //         {item.email || item.phone || item.username}
+  //       </Text>
+  //     </View>
+  //     <View style={[
+  //       styles.roleBadge,
+  //       item.role === 'admin' ? styles.adminBadge : styles.memberBadge
+  //     ]}>
+  //       <Text style={styles.roleText}>{item.role.toUpperCase()}</Text>
+  //     </View>
+  //   </View>
+  // );
+
+  const renderMemberItem = ({ item }: { item: classroomMembersCardTypes }) => (
+  <View style={styles.memberCard}>
+    <Image
+      source={{
+        uri:
+          item.google_avatar ||
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(
+            item.google_name || item.email || 'User'
+          )}`,
+      }}
+      style={styles.memberAvatar}
+    />
+
+    <View style={styles.memberInfo}>
+      <Text style={styles.memberName}>
+        {item.google_name || item.email || 'Unknown'}
+      </Text>
+
+      {item.email && (
+        <Text style={styles.memberDetail}>{item.email}</Text>
+      )}
+      {item.phone && (
+        <Text style={styles.memberDetail}>{item.phone}</Text>
+      )}
+      {item.username && (
+        <Text style={styles.memberDetail}>{item.username}</Text>
+      )}
     </View>
-  );
+
+    {/* <View
+      style={[
+        styles.roleBadge,
+        item.role === 'admin' ? styles.adminBadge : styles.memberBadge,
+      ]}
+    >
+      <Text style={styles.roleText}>{item.role.toUpperCase()}</Text>
+    </View> */}
+  </View>
+);
+
 
   // Get invite placeholder based on mode
   const getInvitePlaceholder = () => {
@@ -491,7 +576,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
           <FlatList
             data={admins}
             renderItem={renderMemberItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.user_id}
             scrollEnabled={false}
           />
         </View>
@@ -502,7 +587,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
           <FlatList
             data={members}
             renderItem={renderMemberItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item) => item.user_id}
             scrollEnabled={false}
           />
         </View>

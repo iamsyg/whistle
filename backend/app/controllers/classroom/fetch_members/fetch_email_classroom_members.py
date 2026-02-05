@@ -28,7 +28,8 @@ def fetch_email_classroom_members_controller(classroom_chat_id: str):
             joined_at,
             emails:email_id (
                 email,
-                google_name
+                google_name,
+                google_avatar
             )
         """)
         .eq("chat_id", classroom_chat_id)
@@ -45,6 +46,7 @@ def fetch_email_classroom_members_controller(classroom_chat_id: str):
             "joined_at": row["joined_at"],
             "email": row["emails"]["email"],
             "google_name": row["emails"]["google_name"],
+            "google_avatar": row["emails"]["google_avatar"],
         }
         for row in members.data
     ]
