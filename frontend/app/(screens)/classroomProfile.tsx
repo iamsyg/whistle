@@ -25,19 +25,9 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
 import { updateClassroomProfile } from '@/store/slices/classroom/classroomSlice';
 import { useFetchEmailClassroomMembers } from '@/hooks/classroom/fetchMembers/useFetchEmailClassroomMembers';
+import { useFetchNonEmailClassroomMembers } from '@/hooks/classroom/fetchMembers/userFetchNonEmailClassroomMembers';
 import { clearMembers, setAllMembers } from '@/store/slices/classroom/classroomMembersCard';
 import { classroomMembersCardTypes } from '@/types/classroom/classroomMembersCardTypes';
-
-// Types
-// interface ClassroomMember {
-//   id: string;
-//   name: string;
-//   email?: string;
-//   phone?: string;
-//   username?: string;
-//   role: 'admin' | 'member';
-//   avatar?: string;
-// }
 
 interface ClassroomProfileProps {
   classroomId: string;
@@ -67,6 +57,23 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
   const { fetchClassroomMembers: fetchEmailClassroomMembers, loading: loadingEmailClassroomMembers, error: errorEmailClassroomMembers } = useFetchEmailClassroomMembers(chat_id);
 
+  const { fetchClassroomMembers: fetchNonEmailClassroomMembers, loading: loadingNonEmailClassroomMembers, error: errorNonEmailClassroomMembers } = useFetchNonEmailClassroomMembers(chat_id);
+
+  // const membersTitle = () => {
+  //   if (classroom?.join_method === 'email') {
+  //     setEmail(members.map(m => m.email).filter(e => e).join(', '));
+  //     setGoogleName(members.map(m => m.google_name).filter(n => n).join(', '));
+  //   }
+  //   else if (classroom?.join_method === 'non-email') {
+  //     if (members.phone && members.phone.length > 0) {
+  //       setNumber(members.map(m => m.phone).filter(p => p).join(', '));
+  //     }
+  //     else if (members.username && members.username.length > 0) {
+  //       setName(members.map(m => m.username).filter(u => u).join(', '));
+  //     }
+  //   }
+  // }
+
   const fetchMembers = async () => {
 
     setLoading(true);
@@ -82,10 +89,20 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
         console.error('Error fetching email classroom members:', err);
       }
     }
+    else if (classroom?.join_method === 'non-email') {
+      try {
+        members = await fetchNonEmailClassroomMembers();
+      }
+      catch (err) {
+        Alert.alert('Error', 'Failed to fetch classroom members. Please try again later.');
+        console.error('Error fetching non-email classroom members:', err);
+      }
+    }
 
     console.log('Fetched members:', members);
     dispatch(clearMembers());
     dispatch(setAllMembers(members));
+    // membersTitle();
     setLoading(false);
   }
 
@@ -100,20 +117,6 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
     console.log('Members:', members);
 
   }, [classroom]);
-
-  // State for members
-  // const [admins, setAdmins] = useState<ClassroomMember[]>([
-  //   { id: '1', name: 'Dr. Sarah Johnson', email: 'sarah@university.edu', role: 'admin', avatar: 'https://via.placeholder.com/50' },
-  //   { id: '2', name: 'Prof. Michael Chen', email: 'michael@college.edu', role: 'admin', avatar: 'https://via.placeholder.com/50' },
-  // ]);
-
-  // const [members, setMembers] = useState<ClassroomMember[]>([
-  //   { id: '3', name: 'Alice Smith', email: 'alice@edu.in', role: 'member', avatar: 'https://via.placeholder.com/50' },
-  //   { id: '4', name: 'Bob Wilson', email: 'bob@university.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
-  //   { id: '5', name: 'Charlie Brown', email: 'charlie@college.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
-  //   { id: '6', name: 'Diana Prince', email: 'diana@edu.in', role: 'member', avatar: 'https://via.placeholder.com/50' },
-  //   { id: '7', name: 'Ethan Hunt', email: 'ethan@university.edu', role: 'member', avatar: 'https://via.placeholder.com/50' },
-  // ]);
 
   // State for UI
   const [newInvites, setNewInvites] = useState<string>('');
@@ -298,65 +301,37 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
     }
   };
 
-  // Render member item
-  // const renderMemberItem = ({ item }: { item: classroomMembersCardTypes }) => (
-  //   <View style={styles.memberCard}>
-  //     <Image source={{ uri: item.avatar_url }} style={styles.memberAvatar} />
-  //     <View style={styles.memberInfo}>
-  //       <Text style={styles.memberName}>{item.name}</Text>
-  //       <Text style={styles.memberDetail}>
-  //         {item.email || item.phone || item.username}
-  //       </Text>
-  //     </View>
-  //     <View style={[
-  //       styles.roleBadge,
-  //       item.role === 'admin' ? styles.adminBadge : styles.memberBadge
-  //     ]}>
-  //       <Text style={styles.roleText}>{item.role.toUpperCase()}</Text>
-  //     </View>
-  //   </View>
-  // );
+  const renderMemberItem = ({ item }: { item: classroomMembersCardTypes }) => {
+  const avatarUri =
+    item.google_avatar ||
+    (item.google_name || item.email
+      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(
+          item.google_name || item.email || 'U'
+        )}`
+      : null);
 
-  const renderMemberItem = ({ item }: { item: classroomMembersCardTypes }) => (
-  <View style={styles.memberCard}>
-    <Image
-      source={{
-        uri:
-          item.google_avatar ||
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(
-            item.google_name || item.email || 'User'
-          )}`,
-      }}
-      style={styles.memberAvatar}
-    />
+  return (
+    <View style={styles.memberCard}>
+      {avatarUri ? (
+        <Image source={{ uri: avatarUri }} style={styles.memberAvatar} />
+      ) : (
+        <View style={styles.classroomAvatar}>
+          <Text style={styles.avatarText}>
+            {(item.name || 'U').charAt(0).toUpperCase()}
+          </Text>
+        </View>
+      )}
 
-    <View style={styles.memberInfo}>
-      <Text style={styles.memberName}>
-        {item.google_name || item.email || 'Unknown'}
-      </Text>
-
-      {item.email && (
-        <Text style={styles.memberDetail}>{item.email}</Text>
-      )}
-      {item.phone && (
-        <Text style={styles.memberDetail}>{item.phone}</Text>
-      )}
-      {item.username && (
-        <Text style={styles.memberDetail}>{item.username}</Text>
-      )}
+      <View style={styles.memberInfo}>
+        <Text style={styles.memberName}>
+          {classroom?.join_method === 'email'
+            ? item.google_name || item.email || 'Unknown'
+            : item.name || 'Unknown'}
+        </Text>
+      </View>
     </View>
-
-    {/* <View
-      style={[
-        styles.roleBadge,
-        item.role === 'admin' ? styles.adminBadge : styles.memberBadge,
-      ]}
-    >
-      <Text style={styles.roleText}>{item.role.toUpperCase()}</Text>
-    </View> */}
-  </View>
-);
-
+  );
+};
 
   // Get invite placeholder based on mode
   const getInvitePlaceholder = () => {
@@ -1230,6 +1205,20 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
+  },
+  classroomAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#6f42c1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });
 

@@ -29,6 +29,7 @@ export function useFetchEmailClassroomMembers(classroom_chat_id: string) {
       const res = await fetch(
         `${process.env.EXPO_PUBLIC_BACKEND_URL}/classroom/members/email?classroom_chat_id=${classroom_chat_id}`,
         {
+          method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
           },
