@@ -81,6 +81,7 @@ async def create_classroom_controller(
         "user_id": creator_id,
         "role": "admin",
         "email_id": email_id,
+        "join_via": "email" if require_email else "phone",
     }).execute()
 
     # 5️⃣ Return full ClassroomProfile-compatible object
@@ -299,7 +300,7 @@ async def approve_join_request_controller(
     req = (
         supabase
         .table("classroom_join_requests")
-        .select("chat_id, user_id, status")
+        .select("chat_id, user_id, status, join_via")
         .eq("id", request_id)
         .single()
         .execute()
@@ -337,7 +338,8 @@ async def approve_join_request_controller(
     supabase.table("chat_members").insert({
         "chat_id": chat_id,
         "user_id": user_id,
-        "role": "member"
+        "role": "member",
+        "join_via": req.data["join_via"],
     }).execute()
 
     return {
