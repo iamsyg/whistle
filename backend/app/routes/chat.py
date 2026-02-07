@@ -2,7 +2,10 @@
 
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException
-from app.controllers.message_controller import send_message_to_chat, get_direct_messages
+
+from app.controllers.messages.send_chat_messages import send_chat_messages
+from app.controllers.messages.get_chat_messages import get_chat_messages
+
 from app.controllers.conversation_controller import get_or_create_direct_chat_controller
 from app.middlewares.secure_route import verify_jwt_token
 from app.services.websocket_manager import ws_manager
@@ -24,7 +27,7 @@ async def send_message_endpoint(
 
         print(f"📤 Sending message to chat {chat_id} from user {sender_id}")
 
-        message = await send_message_to_chat(
+        message = await send_chat_messages(
             sender_id=sender_id,
             chat_id=chat_id,
             content=content
@@ -60,7 +63,7 @@ async def send_direct_message_endpoint(
         other_user_id=receiver_id
     )
 
-    message = await send_message_to_chat(
+    message = await send_chat_messages(
         sender_id=sender_id,
         chat_id=chat_id,
         content=content
@@ -88,7 +91,7 @@ async def get_messages_endpoint(
 
     try:
 
-        messages = await get_direct_messages(
+        messages = await get_chat_messages(
             sender_id=sender_id,
             chat_id=chat_id
         )
@@ -101,5 +104,3 @@ async def get_messages_endpoint(
         print(f"❌ Error fetching messages: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-    
-
