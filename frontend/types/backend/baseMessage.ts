@@ -4,16 +4,6 @@ export interface BaseBackendMessage<TMessageType extends string = string> {
   chat_id: string;
   sender_id: string;
 
-  sender?: {
-    id: string;
-    name: string | null;
-    phone_number?: string | null;
-    username?: string | null;
-    avatar_url?: string | null;
-    google_name?: string | null;
-    email?: string | null;
-  };
-
   content: string;
   message_type: TMessageType;
 
@@ -29,6 +19,19 @@ export interface BaseBackendMessage<TMessageType extends string = string> {
   created_at: string;
   edited_at: string | null;
   deleted_at: string | null;
+
+
+  sender?: {
+    id: string;
+    name: string | null;
+    phone_number?: string | null;
+    username?: string | null;
+    avatar_url?: string | null;
+    google_name?: string | null;
+    google_avatar?: string | null;
+    email?: string | null;
+    role?: 'admin' | 'member' | null;
+  };
 }
 
 export type CoreMessageType =
