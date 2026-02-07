@@ -1,4 +1,4 @@
-// types/backend/baseMessage.ts
+// frontend/types/backend/baseMessage.ts
 export interface BaseBackendMessage<TMessageType extends string = string> {
   id: string;
   chat_id: string;
