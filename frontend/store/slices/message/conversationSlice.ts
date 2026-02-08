@@ -1,4 +1,4 @@
-// store/slices/chat/conversationSlice.ts
+// frontend/store/slices/message/conversationSlice.ts
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { BackendMessage } from '@/types/backend/message';

@@ -1,18 +1,18 @@
 // frontend/types/classroom.ts
 
-export interface ClassroomProfile {
+export interface ClassroomMeta {
   chat_id: string;
 
   title: string;
-  description: string | null;
+  description?: string | null;
 
   created_at: string; // ISO string
   creator: ClassroomCreator;
 
-  invite_link: string | null;
-  class_code: string | null;
+  invite_link?: string | null;
+  class_code?: string | null;
 
-  allowed_domains: string[] | null;
+  allowed_domains?: string[] | null;
   allow_student_chat: boolean;
   require_email: boolean;
 

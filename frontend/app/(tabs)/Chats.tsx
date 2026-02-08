@@ -1,4 +1,4 @@
-// app/(tabs)/Chats.tsx
+// frontend/app/(tabs)/Chats.tsx
 
 import React from 'react';
 import {
@@ -21,10 +21,10 @@ import { getDisplayName } from '@/utils/getDisplayName';
 export default function ChatsScreen() {
   const dispatch = useDispatch();
 
-  const { loading } = useGetUserAllChats();
+  const { loading } = useGetUserAllChats("chat");
 
   const conversations = useSelector(
-    (state: RootState) => state.conversation.userAllConversations
+    (state: RootState) => state.conversation.userAllConversations ?? []
   );
 
   const contactsByProfileId = useSelector(
@@ -133,7 +133,7 @@ export default function ChatsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {conversations.length === 0 ? (
+      {Array.isArray(conversations) && conversations.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No chats yet</Text>
           <Text style={styles.emptySubtitle}>

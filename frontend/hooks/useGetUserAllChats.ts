@@ -13,7 +13,7 @@ interface UseGetUserAllChatsState {
   error: string | null;
 }
 
-function useGetUserAllChats(): UseGetUserAllChatsState {
+function useGetUserAllChats(conversation_type: "chat" | "classroom" | "all" = "chat"): UseGetUserAllChatsState {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initializingRef = useRef(false); // ✅ Prevent duplicate calls
@@ -68,7 +68,8 @@ function useGetUserAllChats(): UseGetUserAllChatsState {
         console.log('🔄 Initializing chat...');
         console.log('   My User ID:', myUserId);
 
-        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all/user`;
+        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all` + `?conversation_type=${conversation_type}`; // or classroom / all
+
         console.log('📡 GET:', url);
 
         const res = await fetch(url, {
@@ -76,7 +77,7 @@ function useGetUserAllChats(): UseGetUserAllChatsState {
           headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
-          },
+          }
         });
 
         console.log('📥 Response status:', res.status);
@@ -105,11 +106,11 @@ function useGetUserAllChats(): UseGetUserAllChatsState {
         console.log('   Response:', data);
         console.log('   Chat IDs:', data); // ✅ Backend returns "id"
 
-        if (!Array.isArray(data.conversation_ids)) {
+        if (!Array.isArray(data)) {
           throw new Error("Invalid conversations response");
         }
 
-        dispatch(setUserAllConversations(data.conversation_ids));
+        dispatch(setUserAllConversations(data));
         
         console.log('✅ Conversation ID stored in Redux');
       } catch (err) {
@@ -129,7 +130,7 @@ function useGetUserAllChats(): UseGetUserAllChatsState {
     };
 
     initChat();
-  }, [myUserId, dispatch]); // ✅ Proper dependencies
+  }, [myUserId, dispatch, conversation_type]); // ✅ Proper dependencies
 
   return { loading, error };
 }

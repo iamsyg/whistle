@@ -1,5 +1,6 @@
-// types/conversation.ts
+// frontend/types/conversation.ts
 
+import { ClassroomMeta } from "./classroom";
 
 export interface UserAllConversationsResponse {
   conversation_ids: UserConversation[];
@@ -17,6 +18,9 @@ export interface UserConversation {
   last_message?: LastMessage | null;
 
   last_message_at: string | null;
+
+  meta?: ClassroomMeta;
+
 }
 
 

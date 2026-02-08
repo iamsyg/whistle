@@ -1,4 +1,4 @@
-// screens/ChatScreen.tsx
+// frontend/app/(screens)/chatScreen.tsx
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
@@ -68,7 +68,7 @@ export default function ChatScreen() {
   const { isConnected, sendTypingIndicator, reconnect } = useWebSocket(); // ✅ WebSocket
 
   const groupTitle = useSelector((state: RootState) =>
-  state.conversation.userAllConversations.find(
+  (state.conversation.userAllConversations ?? []).find(
     c => c.chat_id === selectedConversationId
   )?.title
 );
@@ -82,7 +82,7 @@ export default function ChatScreen() {
       return groupTitle || 'Group Chat';
     }
     return 'Chat';
-  }, [contact, conversationType]);
+  }, [contact, conversationType, groupTitle]);
 
   // ✅ Get last seen status (you can enhance this with real data later)
   const lastSeenStatus = useMemo(() => {

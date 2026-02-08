@@ -3,8 +3,13 @@
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException
 from app.controllers.conversation_controller import get_or_create_direct_chat_controller, get_user_all_chats_controller, create_group_chat_controller
+
+from app.controllers.classroom.fetch_classrooms.fetch_email_classrooms import fetch_email_classrooms_controller
+
+from app.controllers.classroom.fetch_classrooms.fetch_non_email_classrooms import fetch_non_email_classrooms_controller
+
 from app.middlewares.secure_route import verify_jwt_token
-from typing import List
+from typing import List, Literal, Optional
 
 router = APIRouter(
     prefix="/conversation",
@@ -37,22 +42,57 @@ async def init_direct_chat(
         print(f"❌ Error initializing chat: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-    
 
-@router.get("/all/user")
-async def get_user_all_chats(
-    user_id: str = Depends(verify_jwt_token)
+
+@router.get("/all")
+async def get_all_conversations(
+    user_id: str = Depends(verify_jwt_token),
+    selected_email: Optional[str] = None,
+    conversation_type: Literal["chat", "classroom", "all"] = "all"
 ):
-    
     try:
-        conversation_ids = await get_user_all_chats_controller(user_id=user_id)
-        print(f"✅ Fetched conversation IDs for user {user_id}: {conversation_ids}")
-        return {"conversation_ids": conversation_ids}
-    
-    except HTTPException as e:
-        print(f"❌ HTTP Error fetching conversation IDs for user {user_id}: {str(e)}")
-        raise
+        chats = []
+        email_classrooms = []
+        non_email_classrooms = []
 
+        # 1️⃣ Fetch chats
+        if conversation_type in ("chat", "all"):
+            chats = await get_user_all_chats_controller(user_id)
+
+        # 2️⃣ Fetch classrooms
+        if conversation_type in ("classroom", "all"):
+            if selected_email:
+                email_classrooms = await fetch_email_classrooms_controller(
+                    user_id=user_id,
+                    selected_email=selected_email
+                )
+            else:
+                non_email_classrooms = await fetch_non_email_classrooms_controller(
+                    user_id=user_id
+                )
+
+        # 3️⃣ Normalize classrooms → conversation cards
+        classroom_conversations = [
+            {
+                "chat_id": c["chat_id"],
+                "type": "classroom",
+                "title": c["title"],
+                "avatar_url": None,
+                "last_message": None,
+                "last_message_at": None,
+                "meta": c  # 👈 unchanged classroom payload
+            }
+            for c in (email_classrooms + non_email_classrooms)
+        ]
+
+        return chats + classroom_conversations
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print("❌ Error fetching conversations:", str(e))
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to fetch conversations")
 
 
 @router.post("/create-group")
