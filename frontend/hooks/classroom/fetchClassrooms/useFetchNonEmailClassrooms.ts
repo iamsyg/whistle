@@ -5,7 +5,7 @@ import { supabase } from "@/utils/supabase";
 import { Alert } from "react-native";
 import { router } from "expo-router";
 
-export function useFetchNonEmailClassrooms() {
+export function useFetchNonEmailClassrooms(conversationType: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,10 +22,12 @@ export function useFetchNonEmailClassrooms() {
         Alert.alert('Authentication Error', 'Please log in again.', [
           { text: 'OK', onPress: () => router.replace('/(auth)/login') }
         ]);
+
+        return [];
       }
 
       const res = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/classroom/all/non-email`,
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all?conversation_type=${encodeURIComponent(conversationType)}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -40,7 +42,7 @@ export function useFetchNonEmailClassrooms() {
 
       const result = await res.json();
       console.log('Non-email classroom Response:', result);
-      return result.classrooms;
+      return result;
 
     } catch (err: any) {
       setError(err.message || "UNKNOWN_ERROR");
@@ -49,7 +51,7 @@ export function useFetchNonEmailClassrooms() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [conversationType]);
 
   return { fetchClassrooms, loading, error };
 }

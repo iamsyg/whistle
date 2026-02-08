@@ -1,10 +1,10 @@
 // frontend/store/slices/classroom/classroomSlice.ts
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { ClassroomProfile } from "@/types/classroom";
+import { ClassroomMeta } from "@/types/classroom";
 
 interface ClassroomState {
-  classrooms: Record<string, ClassroomProfile>; // key = chat_id
+  classrooms: Record<string, ClassroomMeta>; // key = chat_id
   selectedClassroomId: string | null;
   loading: boolean;
 }
@@ -21,15 +21,18 @@ const classroomSlice = createSlice({
   reducers: {
     upsertClassroom: (
       state,
-      action: PayloadAction<ClassroomProfile>
+      action: PayloadAction<ClassroomMeta>
     ) => {
       state.classrooms[action.payload.chat_id] = action.payload;
     },
 
     setAllClassrooms: (
       state,
-      action: PayloadAction<ClassroomProfile[]>
+      action: PayloadAction<ClassroomMeta[] | undefined | null>
     ) => {
+
+      if (!Array.isArray(action.payload)) return;
+
       action.payload.forEach(c => {
         state.classrooms[c.chat_id] = c;
       });
@@ -46,7 +49,7 @@ const classroomSlice = createSlice({
       state,
       action: PayloadAction<{
         chat_id: string;
-        changes: Partial<ClassroomProfile>;
+        changes: Partial<ClassroomMeta>;
       }>
     ) => {
       const classroom = state.classrooms[action.payload.chat_id];

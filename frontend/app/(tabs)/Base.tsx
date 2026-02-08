@@ -26,7 +26,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
 import { useFetchNonEmailClassrooms } from '@/hooks/classroom/fetchClassrooms/useFetchNonEmailClassrooms';
 import { clearClassrooms, setAllClassrooms, setClassroomLoading } from "@/store/slices/classroom/classroomSlice";
-import { ClassroomProfile } from '@/types/classroom';
+import { UserConversation } from '@/types/conversation';
+import { ClassroomMeta } from '@/types/classroom';
 
 export default function BaseScreen() {
   const [isLoading, setIsLoading] = useState(false);
@@ -67,9 +68,9 @@ export default function BaseScreen() {
 
   const { emails, loading, error } = useGetUserGoogleEmails();
 
-  const { fetchClassrooms: fetchEmailClassrooms, loading: emailLoading, error: emailError } = useFetchEmailClassrooms(selectedEmail);
+  const { fetchClassrooms: fetchEmailClassrooms, loading: emailLoading, error: emailError } = useFetchEmailClassrooms(selectedEmail, "classroom");
 
-  const { fetchClassrooms: fetchNonEmailClassrooms, loading: nonEmailLoading, error: nonEmailError } = useFetchNonEmailClassrooms();
+  const { fetchClassrooms: fetchNonEmailClassrooms, loading: nonEmailLoading, error: nonEmailError } = useFetchNonEmailClassrooms("classroom");
 
 
   useEffect(() => {
@@ -182,18 +183,26 @@ export default function BaseScreen() {
     setDropdownVisible(false);
 
     dispatch(setClassroomLoading(true));
+    dispatch(clearClassrooms());
 
-    let classrooms = [];
+    let response = [];
 
     if (method === 'email' && selectedEmail) {
-      classrooms = await fetchEmailClassrooms();
+      response = await fetchEmailClassrooms();
     }
 
     if (method === 'Non-Email') {
-      classrooms = await fetchNonEmailClassrooms();
+      response = await fetchNonEmailClassrooms();
     }
 
-    dispatch(setAllClassrooms(classrooms));
+    const classrooms = response
+      .filter((c: UserConversation) => c.type === "classroom" && c.meta)
+      .map((c: UserConversation) => c.meta);
+
+    if (classrooms.length > 0) {
+      dispatch(setAllClassrooms(classrooms));
+    }
+
     dispatch(setClassroomLoading(false));
   };
 

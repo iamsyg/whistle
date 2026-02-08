@@ -5,7 +5,7 @@ import { supabase } from "@/utils/supabase";
 import { Alert } from "react-native";
 import { router } from "expo-router";
 
-export function useFetchEmailClassrooms(selectedEmail: string | null) {
+export function useFetchEmailClassrooms(selectedEmail: string | null, conversationType: string) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,16 +23,18 @@ export function useFetchEmailClassrooms(selectedEmail: string | null) {
         Alert.alert('Authentication Error', 'Please log in again.', [
             { text: 'OK', onPress: () => router.replace('/(auth)/login') }
           ]);
+
+        return [];
       }
 
       if (!selectedEmail) {
-      console.log('Error: getAllClassroomIds.ts: No user ID', selectedEmail);
-      return;
+      console.log('No selected email provided');
+      return [];
     }
 
     console.log('   Selected Email:', selectedEmail);
 
-        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/classroom/all?selected_email=${encodeURIComponent(selectedEmail)}`;
+        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all?selected_email=${encodeURIComponent(selectedEmail)}&conversation_type=${encodeURIComponent(conversationType)}`;
         
         console.log('📡 GET:', url);
 
@@ -52,7 +54,7 @@ export function useFetchEmailClassrooms(selectedEmail: string | null) {
         const result = await res.json();
         console.log('   Response:', result);
 
-        return result.classrooms;
+        return result;
 
       } catch (err: any) {
       setError(err.message || "UNKNOWN_ERROR");
@@ -60,7 +62,7 @@ export function useFetchEmailClassrooms(selectedEmail: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [selectedEmail]);
+  }, [selectedEmail, conversationType]);
 
   return { fetchClassrooms, loading, error };
 }
