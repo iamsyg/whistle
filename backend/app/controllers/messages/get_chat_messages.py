@@ -38,7 +38,8 @@ def resolve_sender(msg, classroom_meta, member):
             "google_name": email.get("google_name"),
             "google_avatar": email.get("google_avatar"),
             "email": email.get("email"),
-            "role": member.get("role")
+            "role": member.get("role"),
+            "join_via": member.get("join_via")
         }
 
     # ---- require_email = false ----
@@ -46,7 +47,8 @@ def resolve_sender(msg, classroom_meta, member):
         "id": sender["id"],
         "name": sender.get("name"),
         "avatar_url": sender.get("avatar_url"),
-        "role": member.get("role")
+        "role": member.get("role"),
+        "join_via": member.get("join_via")
     }
 
     if member.get("join_via") == "phone":
@@ -147,8 +149,6 @@ async def get_chat_messages(sender_id: str, chat_id: str):
             m["user_id"]: m
             for m in (members_res.data or [])
         }
-
-
 
 
         # ---------- normalize output ----------

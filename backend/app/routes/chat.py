@@ -33,8 +33,6 @@ async def send_message_endpoint(
             content=content
         )
 
-        print(f"✅ Message saved to database: {message['id']}")
-
         await ws_manager.broadcast(chat_id, {
             "type": "new_message",
             "data": message
