@@ -32,94 +32,93 @@ async def get_or_create_direct_chat_controller(
 # Return all chats for a user
 
 async def get_user_all_chats_controller(user_id: str):
-    try:
-        # 1️⃣ Fetch chats user is part of
-        chats_res = (
-            supabase
-            .table("chat_members")
-            .select("""
-                chat_id,
-                chat:chat (
-                    id,
-                    type,
-                    user1,
-                    user2,
-                    title,
-                    image_url,
-                    last_message_at
-                )
-            """)
-            .eq("user_id", user_id)
-            .is_("left_at", None)
-            .neq("chat.type", "classroom")
-            .execute()
-        )
 
-        if not chats_res.data:
-            return []
+    # 1️⃣ Fetch chats user belongs to
+    chats_res = (
+        supabase
+        .table("chat_members")
+        .select("chat_id, chat(id, type, user1, user2, title, image_url, last_message_at)")
+        .eq("user_id", user_id)
+        .is_("left_at", None)
+        .neq("chat.type", "classroom")
+        .execute()
+    )
 
-        chat_cards = []
+    chat_ids = [row["chat_id"] for row in chats_res.data]
 
-        for row in chats_res.data:
-            chat = row["chat"]
+    if not chat_ids:
+        return []
 
-            if not chat:
-                continue
-            
-            chat_id = chat["id"]
+    # 2️⃣ Fetch other members for direct chats
+    members_res = (
+        supabase
+        .table("chat_members")
+        .select("chat_id, user_id")
+        .in_("chat_id", chat_ids)
+        .is_("left_at", None)
+        .neq("user_id", user_id)
+        .execute()
+    )
 
-            # 2️⃣ Resolve other user (for direct chats)
-            other_user_id = None
-            if chat["type"] == "direct":
-                other_user_id = (
-                    chat["user2"]
-                    if chat["user1"] == user_id
-                    else chat["user1"]
-                )
+    chat_to_other_user = {row["chat_id"]: row["user_id"] for row in members_res.data}
+    other_user_ids = list(set(chat_to_other_user.values()))
 
-            other_user = None
-            if other_user_id:
-                user_res = (
-                    supabase
-                    .table("profile")
-                    .select("id, phone_number_hash, phone_number, name, username, avatar_url")
-                    .eq("id", other_user_id)
-                    .single()
-                    .execute()
-                )
-                other_user = user_res.data
+    # 3️⃣ Batch fetch profiles
+    profiles_res = (
+        supabase
+        .table("profile")
+        .select("id, name, username, avatar_url")
+        .in_("id", other_user_ids)
+        .execute()
+    )
 
-            # 3️⃣ Fetch last message
-            msg_res = (
-                supabase
-                .table("messages")
-                .select("content, created_at, sender_id")
-                .eq("chat_id", chat_id)
-                .is_("deleted_at", None)
-                .order("created_at", desc=True)
-                .limit(1)
-                .execute()
-            )
+    profile_map = {p["id"]: p for p in profiles_res.data}
 
-            last_message = msg_res.data[0] if msg_res.data else None
+    # 4️⃣ Fetch last messages via RPC
+    last_messages_res = supabase.rpc(
+        "get_last_messages_per_chat",
+        {"p_chat_ids": chat_ids}
+    ).execute()
 
-            chat_cards.append({
-                "chat_id": chat_id,
-                "type": chat["type"],
-                "other_user": other_user if chat["type"] == "direct" else None,
+    last_message_map = {msg["chat_id"]: msg for msg in last_messages_res.data}
 
-                "title": chat["title"] if chat["type"] != "direct" else None,
-                "avatar_url": chat["image_url"] if chat["type"] != "direct" else None,
+    # 5️⃣ Build chat_cards exactly like original
+    chat_cards = []
 
-                "last_message": last_message,
-                "last_message_at": chat["last_message_at"],
-            })
+    for row in chats_res.data:
+        chat = row["chat"]
+        chat_id = row["chat_id"]
 
-        return chat_cards
+        if not chat:
+            continue
 
-    except Exception as e:
-        print("❌ Error fetching chats:", str(e))
-        raise HTTPException(status_code=500, detail="Failed to fetch chats")
+        other_user = None
+        if chat["type"] == "direct":
+            other_user_id = chat_to_other_user.get(chat_id)
+            other_user = profile_map.get(other_user_id)
+
+        last_message = last_message_map.get(chat_id)
+
+        chat_cards.append({
+            "chat_id": chat_id,
+            "type": chat["type"],
+            "other_user": other_user if chat["type"] == "direct" else None,
+
+            "title": chat["title"] if chat["type"] != "direct" else None,
+            "avatar_url": chat["image_url"] if chat["type"] != "direct" else None,
+
+            # ⬇️ SAME SHAPE AS PREVIOUS
+            "last_message": {
+                "content": last_message["content"],
+                "created_at": last_message["created_at"],
+                "sender_id": last_message["sender_id"],
+            } if last_message else None,
+
+            "last_message_at": last_message["created_at"] if last_message else chat.get("last_message_at"),
+        })
+
+
+    return chat_cards
 
 
 
