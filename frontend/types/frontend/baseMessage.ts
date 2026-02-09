@@ -1,4 +1,4 @@
-// types/frontend/baseMessage.ts
+// frontend/types/frontend/baseMessage.ts
 
 export type FrontendCoreMessageType =
   | 'text'
@@ -15,10 +15,6 @@ export interface BaseFrontendMessage<
   senderId: string;
 
   senderName: string;
-
-  senderGoogleName?: string | null;
-  senderEmail?: string | null;
-
   senderAvatar?: string | null;
 
   timestamp: Date; // UI-friendly
@@ -28,9 +24,3 @@ export interface BaseFrontendMessage<
 
   isRead: boolean;
 }
-
-// export interface MessageDraft {
-//   text: string;
-//   type: 'text' | 'image' | 'document';
-//   metadata?: Record<string, any>;
-// }
