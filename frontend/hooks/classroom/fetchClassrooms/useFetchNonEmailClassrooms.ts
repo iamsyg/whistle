@@ -27,7 +27,8 @@ export function useFetchNonEmailClassrooms(conversationType: string) {
       }
 
       const res = await fetch(
-        `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all?conversation_type=${encodeURIComponent(conversationType)}`,
+        // `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all?conversation_type=${encodeURIComponent(conversationType)}`,
+        `${process.env.EXPO_PUBLIC_BACKEND_URL}/classroom/all/non-email`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

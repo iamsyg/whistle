@@ -44,6 +44,9 @@ async def init_direct_chat(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
+# Note: This endpoint is currently only used for fetching chats. Classroom conversations are fetched via the /classroom/all endpoint which combines both email and non-email classrooms.
+
 @router.get("/all")
 async def get_all_conversations(
     user_id: str = Depends(verify_jwt_token),

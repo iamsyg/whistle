@@ -34,7 +34,9 @@ export function useFetchEmailClassrooms(selectedEmail: string | null, conversati
 
     console.log('   Selected Email:', selectedEmail);
 
-        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all?selected_email=${encodeURIComponent(selectedEmail)}&conversation_type=${encodeURIComponent(conversationType)}`;
+        // const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all?selected_email=${encodeURIComponent(selectedEmail)}&conversation_type=${encodeURIComponent(conversationType)}`;
+
+        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/classroom/all/email?selected_email=${encodeURIComponent(selectedEmail)}`;
         
         console.log('📡 GET:', url);
 
