@@ -20,7 +20,7 @@ const useSendClassroomMessage = (classroomId: string) => {
     }
   }, [classroomId, selectedClassroomId]);
 
-  console.log("useSendMessage - selectedConversationId:", selectedClassroomId);
+  console.log("useSendClassroomMessage - selectedClassroomId:", selectedClassroomId);
 
   const sendMessage = async (content: string) => {
     if (!content.trim()) return;
@@ -54,12 +54,10 @@ const useSendClassroomMessage = (classroomId: string) => {
         }
       );
 
-      console.log("Response from sending message:", response);
-
       if (!response.ok) throw new Error("Failed to send message");
       message = await response.json();
 
-      console.log("Newly sent message data:", message);
+      console.log("useSendClassroomMessage: message: ", message);
 
       dispatch(addMessage({
         chat_id: selectedClassroomId, // or classroomId
@@ -67,7 +65,7 @@ const useSendClassroomMessage = (classroomId: string) => {
       }));
 
     } catch (error) {
-      console.error("Error sending message:", error);
+      console.error("useSendClassroomMessage: Error sending message:", error);
     } finally {
       setLoading(false);
     }
