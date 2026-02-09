@@ -25,7 +25,7 @@ import CallOptionsSheet from '@/components/CallOptionsSheet';
 import MenuSheet from '@/components/MenuSheet';
 import { RootState } from '@/store/store';
 import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
-import useSendClassroomMessage from '@/hooks/useSendClassroomMessage';
+import useSendClassroomMessage from '@/hooks/classroom/messages/useSendClassroomMessage';
 import useWebSocket from '@/contexts/useWebSocket';
 import { useFetchJoinRequests } from '@/hooks/useFetchJoinRequests';
 import AdminJoinRequestToast from '@/components/AdminJoinRequestToast';
