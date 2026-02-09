@@ -90,7 +90,7 @@ async def get_chat_messages(sender_id: str, chat_id: str):
 
         classroom_meta = {
             "is_classroom": bool(classroom_data),
-            "require_email": classroom_data["require_email"]
+            "require_email": classroom_data.get("require_email", False)
             if classroom_data
             else False
         }
