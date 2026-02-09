@@ -6,6 +6,8 @@ import { RootState } from '@/store/store';
 import { addMessage } from '@/store/slices/message/conversationSlice';
 import { supabase } from '@/utils/supabase';
 import { BackendMessage } from '@/types/backend/message';
+import { addMessage as addClassroomMessage } from '@/store/slices/classroom/classroomSlice';
+import { ClassroomBackendMessage } from '@/types/backend/classroomMessage';
 
 interface WebSocketMessage {
   type: 'new_message' | 'user_joined' | 'user_left' | 'typing' | 'error';
@@ -35,7 +37,11 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
       : state.conversation.selectedConversationId
   );
 
+  console.log(`useWebSocket - mode: ${mode}, chatId: ${chatId}`);
+
   const myUserId = useSelector((state: RootState) => state.profile.userId);
+
+  console.log("useWebSocket - myUserId:", myUserId);
 
   const MAX_RECONNECT_ATTEMPTS = 2;
   const RECONNECT_DELAY = 3000; // 3 seconds
@@ -82,7 +88,15 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
                 console.log('💬 New message from:', message.data.sender_id);
                 // Only add if it's not from us (we already have it from send API)
                 if (message.data.sender_id !== myUserId) {
-                  dispatch(addMessage(message.data));
+                  if (mode === 'classroom') {
+                    
+                    dispatch(addClassroomMessage({
+                      chat_id: chatId,
+                      message: message.data as ClassroomBackendMessage,
+                    }));
+                  } else {
+                    dispatch(addMessage(message.data));
+                  }
                 }
               }
               break;
