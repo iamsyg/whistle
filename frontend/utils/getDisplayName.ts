@@ -1,8 +1,9 @@
-// utils/getDisplayName.ts
+// frontend/utils/getDisplayName.ts
 
 import { BackendMessage } from '@/types/backend/message';
 import { RootState } from '@/store/store';
 import { UserConversation } from '@/types/conversation';
+import { ClassroomBackendMessage } from '@/types/backend/classroomMessage';
 
 export const getDisplayName = (
     item: UserConversation,
@@ -51,4 +52,35 @@ export const getSenderDisplayName = (
 
     // 4️⃣ Default fallback
     return 'User';
+};
+
+
+
+export const getClassroomSenderDisplayName = (
+  msg: ClassroomBackendMessage,
+  requireEmail: boolean
+): string => {
+
+    if (requireEmail) {
+        const name = msg.sender?.google_name || msg.sender?.name;
+        const email = msg.sender?.email;
+
+        if (name && email) return `${name} • ${email}`;
+        return name || email || 'User';
+    }
+    else {
+        if (msg.sender?.join_via === 'phone') {
+            return `${msg.sender.name || 'User'} • ${msg.sender.phone_number}`;
+        }
+        else if (msg.sender?.join_via === 'username') {
+            return `${msg.sender.name || 'User'} • @${msg.sender.username}`;
+        }
+    }
+
+  // NORMAL CLASSROOM
+  return (
+    msg.sender?.name ||
+    msg.sender?.username ||
+    'User'
+  );
 };
