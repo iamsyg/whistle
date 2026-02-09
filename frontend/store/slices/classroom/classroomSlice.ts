@@ -2,16 +2,19 @@
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { ClassroomMeta } from "@/types/classroom";
+import { ClassroomBackendMessage } from "@/types/backend/classroomMessage";
 
 interface ClassroomState {
   classrooms: Record<string, ClassroomMeta>; // key = chat_id
   selectedClassroomId: string | null;
+  classroomMessages: Record<string, ClassroomBackendMessage[]>; // key = chat_id
   loading: boolean;
 }
 
 const initialState: ClassroomState = {
   classrooms: {},
   selectedClassroomId: null,
+  classroomMessages: {},
   loading: false,
 };
 
@@ -66,8 +69,35 @@ const classroomSlice = createSlice({
       state.loading = action.payload;
     },
 
+    setMessages: (
+      state,
+      action: PayloadAction<{ chat_id: string; messages: ClassroomBackendMessage[] }>
+    ) => {
+      state.classroomMessages[action.payload.chat_id] = action.payload.messages;
+    },
+
+    addMessage: (
+      state,
+      action: PayloadAction<{ chat_id: string; message: ClassroomBackendMessage }>
+    ) => {
+      const chatId = action.payload.chat_id;
+      if (!state.classroomMessages[chatId]) {
+        state.classroomMessages[chatId] = [];
+      }
+
+      const exists = state.classroomMessages[chatId]
+        .some(m => m.id === action.payload.message.id);
+
+      if (!exists) {
+        state.classroomMessages[chatId].push(action.payload.message);
+      }
+    },
+
+
     clearClassrooms: (state) => {
       state.classrooms = {};
+      state.classroomMessages = {};
+      state.loading = false;
     },
 
     clearSelectedClassroom: (state) => {
@@ -83,6 +113,8 @@ export const {
   updateClassroomProfile,
   removeClassroomProfile,
   setClassroomLoading,
+  setMessages,
+  addMessage,
   clearClassrooms,
   clearSelectedClassroom,
 } = classroomSlice.actions;

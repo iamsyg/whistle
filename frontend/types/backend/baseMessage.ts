@@ -1,4 +1,5 @@
 // frontend/types/backend/baseMessage.ts
+
 export interface BaseBackendMessage<TMessageType extends string = string> {
   id: string;
   chat_id: string;
@@ -7,12 +8,7 @@ export interface BaseBackendMessage<TMessageType extends string = string> {
   content: string;
   message_type: TMessageType;
 
-  metadata?: {
-    file_url?: string;
-    file_name?: string;
-    mime_type?: string;
-    reply_preview?: string;
-  };
+  metadata?: Record<string, any>;
 
   reply_to_id: string | null;
 
@@ -31,8 +27,9 @@ export interface BaseBackendMessage<TMessageType extends string = string> {
     google_avatar?: string | null;
     email?: string | null;
     role?: 'admin' | 'member' | null;
-  };
-}
+    join_via?: 'phone' | 'username' | 'email' | null;
+  } | null;
+};
 
 export type CoreMessageType =
   | 'text'
