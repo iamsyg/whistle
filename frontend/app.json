@@ -65,7 +65,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos for QR code scanning."
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos for QR code scanning.",
+          "cameraPermission": "The app accesses your camera to let you take and share photos with your friends."
         }
       ],
       "expo-localization",

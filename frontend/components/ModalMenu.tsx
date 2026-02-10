@@ -95,7 +95,7 @@ const ModalMenu: React.FC<ModalMenuProps> = ({
       animationType="none"
       onRequestClose={onClose}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
+      <TouchableWithoutFeedback onPress={() => toggleMenu(false)}>
         <View style={styles.menuOverlay}>
           <View
             style={[

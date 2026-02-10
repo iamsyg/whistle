@@ -141,6 +141,25 @@ export default function ChatScreen() {
     console.log('  - WebSocket Connected:', isConnected);
   }, [contactProfileId, contact, conversationId, isConnected]);
 
+const handleMediaSelected = (media: any[]) => {
+  console.log('Selected media:', media);
+
+  // Process the selected media here
+  // 1. Upload to server
+  // 2. Display in chat
+  // 3. Store link in database
+  
+  media.forEach(item => {
+    if (item.type === 'image') {
+      // Handle image
+      console.log('Image selected:', item.uri);
+    } else if (item.type === 'video') {
+      // Handle video
+      console.log('Video selected:', item.uri);
+    }
+  });
+};
+
   return (
     <SafeAreaView
       style={[
@@ -207,6 +226,7 @@ export default function ChatScreen() {
         visible={isAttachmentSheetVisible}
         onClose={() => setIsAttachmentSheetVisible(false)}
         onSelect={handleAttachmentSelect}
+        onMediaSelected={handleMediaSelected}
         isDarkMode={isDarkMode}
       />
 

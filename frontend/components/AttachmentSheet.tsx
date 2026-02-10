@@ -1,5 +1,5 @@
 // frontend/components/AttachmentSheet.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,16 @@ import {
   Modal,
   Dimensions,
   Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import ModalMenu from './ModalMenu';
+import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
+
+import * as Linking from 'expo-linking';
+
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -19,18 +25,146 @@ interface AttachmentSheetProps {
   visible: boolean;
   onClose: () => void;
   onSelect: (type: string) => void;
+  onMediaSelected?: (media: any) => void; // New prop for handling selected media
   isDarkMode?: boolean;
 }
+
+interface MediaAsset {
+  uri: string;
+  type: 'image' | 'video';
+  fileName?: string;
+  fileSize?: number;
+  width?: number;
+  height?: number;
+  duration?: number; // for videos
+}
+
 
 const AttachmentSheet: React.FC<AttachmentSheetProps> = ({
   visible,
   onClose,
   onSelect,
+  onMediaSelected,
   isDarkMode = false,
 }) => {
 
-  const handleGalleryPress = () => onSelect('gallery');
-  const handleCameraPress = () => onSelect('camera');
+  const [mediaPermission, setMediaPermission] = useState(false);
+
+  // Request media library permissions
+  useEffect(() => {
+    (async () => {
+      if (visible) {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        setMediaPermission(status === 'granted');
+      }
+    })();
+  }, [visible]);
+
+  // const handleGalleryPress = () => onSelect('gallery');
+  // const handleCameraPress = () => onSelect('camera');
+
+  const handleGalleryPress = async () => {
+    // Close the sheet first
+    onClose();
+    
+    // Check permissions
+    if (!mediaPermission) {
+      Alert.alert(
+        'Permission Required',
+        'Please grant media library permissions to access your gallery.',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+          {
+            text: 'Open Settings',
+            onPress: () => {
+              // You might want to link to app settings
+              Linking.openSettings();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    try {
+      // Open image picker for both images and videos
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All, // Allows both images and videos
+        allowsMultipleSelection: true, // Allow multiple selection
+        quality: 0.8, // Compress images
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
+        allowsEditing: false, // Set to true if you want to allow editing
+        exif: false, // Don't include EXIF data
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        // Process selected media
+        const selectedMedia: MediaAsset[] = result.assets.map(asset => ({
+          uri: asset.uri,
+          type: asset.type === 'video' ? 'video' : 'image',
+          fileName: asset.fileName || `Media_${Date.now()}.${asset.type === 'video' ? 'mp4' : 'jpg'}`,
+          fileSize: asset.fileSize,
+          width: asset.width,
+          height: asset.height,
+          duration: asset.duration || 0,
+        }));
+
+        // Pass media to parent component
+        if (onMediaSelected) {
+          onMediaSelected(selectedMedia);
+        }
+
+        // Also call the original onSelect callback if needed
+        onSelect('gallery');
+      }
+    } catch (error) {
+      console.error('Error picking media:', error);
+      Alert.alert('Error', 'Failed to pick media from gallery');
+    }
+  };
+
+  const handleCameraPress = async () => {
+    onClose();
+    
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Please grant camera permissions to take photos.');
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.All,
+        quality: 0.8,
+        videoQuality: ImagePicker.UIImagePickerControllerQualityType.High,
+        allowsEditing: false,
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        const media = result.assets[0];
+        const mediaAsset: MediaAsset = {
+          uri: media.uri,
+          type: media.type === 'video' ? 'video' : 'image',
+          fileName: media.fileName || `Camera_${Date.now()}.${media.type === 'video' ? 'mp4' : 'jpg'}`,
+          fileSize: media.fileSize,
+          width: media.width,
+          height: media.height,
+          duration: media.duration || 0,
+        };
+
+        if (onMediaSelected) {
+          onMediaSelected([mediaAsset]);
+        }
+        onSelect('camera');
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
   const handleDocumentPress = () => onSelect('document');
   const handleContactPress = () => onSelect('contact');
   const handleLocationPress = () => onSelect('location');
@@ -124,75 +258,8 @@ const AttachmentSheet: React.FC<AttachmentSheetProps> = ({
       visible={visible}
       onClose={onClose}
       menuItems={attachmentOptions}
-      menuWidth={SCREEN_WIDTH}
+      menuWidth={SCREEN_WIDTH * 0.96}
     />
-    // <Modal
-    //   visible={visible}
-    //   transparent
-    //   animationType="slide"
-    //   onRequestClose={onClose}
-    // >
-    //   <View style={styles.modalContainer}>
-    //     <TouchableOpacity
-    //       style={[styles.backdrop, { backgroundColor: colors.backdrop }]}
-    //       activeOpacity={1}
-    //       onPress={onClose}
-    //     />
-
-    //     <View style={[styles.sheetContainer, { backgroundColor: colors.background }]}>
-    //       {/* Handle */}
-    //       <View style={styles.handleContainer}>
-    //         <View style={[styles.handle, { backgroundColor: colors.textSecondary }]} />
-    //       </View>
-
-    //       {/* Title */}
-    //       <View style={styles.header}>
-    //         <Text style={[styles.title, { color: colors.text }]}>
-    //           Choose an attachment
-    //         </Text>
-    //         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-    //           Select what you'd like to share
-    //         </Text>
-    //       </View>
-
-    //       {/* Options Grid */}
-    //       <View style={styles.optionsGrid}>
-    //         {attachmentOptions.map((option) => (
-    //           <TouchableOpacity
-    //             key={option.id}
-    //             style={[
-    //               styles.optionItem,
-    //               { backgroundColor: colors.itemBackground, borderColor: colors.border },
-    //             ]}
-    //             onPress={() => onSelect(option.id)}
-    //             activeOpacity={0.7}
-    //           >
-    //             <View style={styles.optionIcon}>
-    //               {renderIcon(option.icon, option.iconType)}
-    //             </View>
-    //             <Text style={[styles.optionLabel, { color: colors.text }]}>
-    //               {option.label}
-    //             </Text>
-    //             <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
-    //               {option.description}
-    //             </Text>
-    //           </TouchableOpacity>
-    //         ))}
-    //       </View>
-
-    //       {/* Cancel Button */}
-    //       <TouchableOpacity
-    //         style={[styles.cancelButton, { backgroundColor: colors.itemBackground }]}
-    //         onPress={onClose}
-    //         activeOpacity={0.7}
-    //       >
-    //         <Text style={[styles.cancelText, { color: isDarkMode ? '#FF3B30' : '#FF3B30' }]}>
-    //           Cancel
-    //         </Text>
-    //       </TouchableOpacity>
-    //     </View>
-    //   </View>
-    // </Modal>
   );
 };
 
