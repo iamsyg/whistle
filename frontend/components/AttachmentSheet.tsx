@@ -1,4 +1,4 @@
-// components/AttachmentSheet.tsx
+// frontend/components/AttachmentSheet.tsx
 import React from 'react';
 import {
   View,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
+import ModalMenu from './ModalMenu';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -27,27 +28,33 @@ const AttachmentSheet: React.FC<AttachmentSheetProps> = ({
   onSelect,
   isDarkMode = false,
 }) => {
+
+  const handleGalleryPress = () => onSelect('gallery');
+  const handleCameraPress = () => onSelect('camera');
+  const handleDocumentPress = () => onSelect('document');
+  const handleContactPress = () => onSelect('contact');
+  const handleLocationPress = () => onSelect('location');
+  const handleTaskPress = () => onSelect('task');
+  const handleSplitPress = () => onSelect('split');
+
   const attachmentOptions = [
     {
       id: 'gallery',
       label: 'Gallery',
       icon: 'image-outline',
-      iconType: 'ionicons',
-      description: 'Photos & videos',
+      onPress: handleGalleryPress,
     },
     {
       id: 'camera',
       label: 'Camera',
       icon: 'camera-outline',
-      iconType: 'ionicons',
-      description: 'Take photo or video',
+      onPress: handleCameraPress,
     },
     {
       id: 'document',
       label: 'Document',
       icon: 'document-outline',
-      iconType: 'ionicons',
-      description: 'Files & documents',
+      onPress: handleDocumentPress,
     },
     {
       id: 'contact',
@@ -55,6 +62,7 @@ const AttachmentSheet: React.FC<AttachmentSheetProps> = ({
       icon: 'person-outline',
       iconType: 'ionicons',
       description: 'Share a contact',
+      onPress: handleContactPress,
     },
     {
       id: 'location',
@@ -62,6 +70,7 @@ const AttachmentSheet: React.FC<AttachmentSheetProps> = ({
       icon: 'location-outline',
       iconType: 'ionicons',
       description: 'Share your location',
+      onPress: handleLocationPress,
     },
     {
       id: 'task',
@@ -69,6 +78,7 @@ const AttachmentSheet: React.FC<AttachmentSheetProps> = ({
       icon: 'checkbox-outline',
       iconType: 'ionicons',
       description: 'Assign a task',
+      onPress: handleTaskPress,
     },
     {
       id: 'split',
@@ -76,6 +86,7 @@ const AttachmentSheet: React.FC<AttachmentSheetProps> = ({
       icon: 'receipt-outline',
       iconType: 'ionicons',
       description: 'Create expense split',
+      onPress: handleSplitPress,
     },
   ];
 
@@ -108,73 +119,80 @@ const AttachmentSheet: React.FC<AttachmentSheetProps> = ({
   };
 
   return (
-    <Modal
+
+    <ModalMenu
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalContainer}>
-        <TouchableOpacity
-          style={[styles.backdrop, { backgroundColor: colors.backdrop }]}
-          activeOpacity={1}
-          onPress={onClose}
-        />
-        
-        <View style={[styles.sheetContainer, { backgroundColor: colors.background }]}>
-          {/* Handle */}
-          <View style={styles.handleContainer}>
-            <View style={[styles.handle, { backgroundColor: colors.textSecondary }]} />
-          </View>
+      onClose={onClose}
+      menuItems={attachmentOptions}
+      menuWidth={SCREEN_WIDTH}
+    />
+    // <Modal
+    //   visible={visible}
+    //   transparent
+    //   animationType="slide"
+    //   onRequestClose={onClose}
+    // >
+    //   <View style={styles.modalContainer}>
+    //     <TouchableOpacity
+    //       style={[styles.backdrop, { backgroundColor: colors.backdrop }]}
+    //       activeOpacity={1}
+    //       onPress={onClose}
+    //     />
 
-          {/* Title */}
-          <View style={styles.header}>
-            <Text style={[styles.title, { color: colors.text }]}>
-              Choose an attachment
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Select what you'd like to share
-            </Text>
-          </View>
+    //     <View style={[styles.sheetContainer, { backgroundColor: colors.background }]}>
+    //       {/* Handle */}
+    //       <View style={styles.handleContainer}>
+    //         <View style={[styles.handle, { backgroundColor: colors.textSecondary }]} />
+    //       </View>
 
-          {/* Options Grid */}
-          <View style={styles.optionsGrid}>
-            {attachmentOptions.map((option) => (
-              <TouchableOpacity
-                key={option.id}
-                style={[
-                  styles.optionItem,
-                  { backgroundColor: colors.itemBackground, borderColor: colors.border },
-                ]}
-                onPress={() => onSelect(option.id)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.optionIcon}>
-                  {renderIcon(option.icon, option.iconType)}
-                </View>
-                <Text style={[styles.optionLabel, { color: colors.text }]}>
-                  {option.label}
-                </Text>
-                <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
-                  {option.description}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+    //       {/* Title */}
+    //       <View style={styles.header}>
+    //         <Text style={[styles.title, { color: colors.text }]}>
+    //           Choose an attachment
+    //         </Text>
+    //         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+    //           Select what you'd like to share
+    //         </Text>
+    //       </View>
 
-          {/* Cancel Button */}
-          <TouchableOpacity
-            style={[styles.cancelButton, { backgroundColor: colors.itemBackground }]}
-            onPress={onClose}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.cancelText, { color: isDarkMode ? '#FF3B30' : '#FF3B30' }]}>
-              Cancel
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
+    //       {/* Options Grid */}
+    //       <View style={styles.optionsGrid}>
+    //         {attachmentOptions.map((option) => (
+    //           <TouchableOpacity
+    //             key={option.id}
+    //             style={[
+    //               styles.optionItem,
+    //               { backgroundColor: colors.itemBackground, borderColor: colors.border },
+    //             ]}
+    //             onPress={() => onSelect(option.id)}
+    //             activeOpacity={0.7}
+    //           >
+    //             <View style={styles.optionIcon}>
+    //               {renderIcon(option.icon, option.iconType)}
+    //             </View>
+    //             <Text style={[styles.optionLabel, { color: colors.text }]}>
+    //               {option.label}
+    //             </Text>
+    //             <Text style={[styles.optionDescription, { color: colors.textSecondary }]}>
+    //               {option.description}
+    //             </Text>
+    //           </TouchableOpacity>
+    //         ))}
+    //       </View>
+
+    //       {/* Cancel Button */}
+    //       <TouchableOpacity
+    //         style={[styles.cancelButton, { backgroundColor: colors.itemBackground }]}
+    //         onPress={onClose}
+    //         activeOpacity={0.7}
+    //       >
+    //         <Text style={[styles.cancelText, { color: isDarkMode ? '#FF3B30' : '#FF3B30' }]}>
+    //           Cancel
+    //         </Text>
+    //       </TouchableOpacity>
+    //     </View>
+    //   </View>
+    // </Modal>
   );
 };
 

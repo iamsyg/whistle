@@ -1,4 +1,4 @@
-// components/ModalMenu.tsx - Simplified version
+// frontend/components/ModalMenu.tsx 
 import React, { useRef } from 'react';
 import {
   Modal,
@@ -34,12 +34,14 @@ const ModalMenu: React.FC<ModalMenuProps> = ({
   const menuScaleAnim = useRef(new Animated.Value(0)).current;
   const menuOpacityAnim = useRef(new Animated.Value(0)).current;
 
+  const isGrid = menuItems.length > 4;
+
   const toggleMenu = (shouldShow: boolean) => {
     if (shouldShow) {
       // Reset initial values for opening animation
       menuScaleAnim.setValue(0);
       menuOpacityAnim.setValue(0);
-      
+
       Animated.parallel([
         Animated.spring(menuScaleAnim, {
           toValue: 1,
@@ -95,7 +97,12 @@ const ModalMenu: React.FC<ModalMenuProps> = ({
     >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.menuOverlay}>
-          <View style={styles.menuWrapper}>
+          <View
+            style={[
+              styles.menuWrapper,
+              isGrid && styles.menuWrapperCenter,
+            ]}
+          >
             <TouchableWithoutFeedback>
               <Animated.View
                 style={[
@@ -107,7 +114,7 @@ const ModalMenu: React.FC<ModalMenuProps> = ({
                   },
                 ]}
               >
-                {menuItems.map((item) => (
+                {/* {menuItems.map((item) => (
                   <TouchableOpacity
                     key={item.id}
                     style={styles.menuItem}
@@ -124,7 +131,49 @@ const ModalMenu: React.FC<ModalMenuProps> = ({
                       {item.label}
                     </Text>
                   </TouchableOpacity>
-                ))}
+                ))} */}
+
+                {isGrid ? (
+                  <View style={styles.gridContainer}>
+                    {menuItems.map((item) => (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.gridItem}
+                        onPress={() => handleMenuItemPress(item)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name={item.icon as any}
+                          size={22}
+                          color="#666"
+                        />
+                        <Text style={styles.gridItemText}>
+                          {item.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  menuItems.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={styles.menuItem}
+                      onPress={() => handleMenuItemPress(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons
+                        name={item.icon as any}
+                        size={20}
+                        color="#666"
+                        style={styles.menuIcon}
+                      />
+                      <Text style={styles.menuItemText}>
+                        {item.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                )}
+
               </Animated.View>
             </TouchableWithoutFeedback>
           </View>
@@ -170,6 +219,31 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
   },
+  gridContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+
+  gridItem: {
+    width: '25%', // ✅ 5 items per row
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+
+  gridItemText: {
+    fontSize: 12,
+    color: '#333',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  menuWrapperCenter: {
+    alignItems: 'center', // ✅ center grid horizontall
+    marginLeft: 20,
+    marginBottom: -30
+  },
+
 });
 
 export default ModalMenu;
