@@ -10,7 +10,7 @@ from app.routes import chat
 from app.routes import chat_ws, conversation
 from app.middlewares.secure_route import verify_jwt_token
 from app.routes import contact
-from app.routes import emails_route, classroom_route
+from app.routes import emails_route, classroom_route, media
 
 app = FastAPI()
 load_dotenv()
@@ -42,3 +42,4 @@ app.include_router(chat_ws.router)
 app.include_router(conversation.router, dependencies=[Depends(verify_jwt_token)])
 app.include_router(emails_route.router)
 app.include_router(classroom_route.router)
+app.include_router(media.router)
