@@ -19,6 +19,21 @@ def sanitize_filename(name: str) -> str:
 
 
 
+def resolve_message_type(content_type: str) -> str:
+    if not content_type:
+        return "document"
+
+    main = content_type.split("/")[0]
+
+    if main == "image":
+        return "image"
+    if main == "video":
+        return "video"
+
+    return "document"
+
+
+
 def upload_media_controller(
         sender_id: str,
         conversation_type: str,
@@ -35,15 +50,10 @@ def upload_media_controller(
 
         public_id = f"{filename_base}-{timestamp}"
 
-        if content_type.startswith("image/"):
-            file_type = "images"
-        elif content_type.startswith("video/"):
-            file_type = "videos"
-        else:
-            file_type = "documents"
+        file_type = resolve_message_type(content_type)
 
         folder = (
-            f"whistle/{sender_id}/{file_type}/{conversation_type}/{chat_id}"
+            f"whistle/{sender_id}/{file_type}s/{conversation_type}/{chat_id}"
         )
 
         # Upload the file to Cloudinary
@@ -62,9 +72,11 @@ def upload_media_controller(
                 {
                     "p_chat_id": chat_id,
                     "p_sender_id": sender_id,
-                    "p_content": result["secure_url"],
-                    "p_message_type": file_type[:-1],  # images → image
+                    "p_content": None,
+                    "p_message_type": file_type,  # images → image
                     "p_metadata": {
+                        "url": result["secure_url"],
+                        "original_name": file.filename,
                         "cloudinary": {
                             "public_id": result["public_id"],
                             "resource_type": result["resource_type"],
@@ -74,7 +86,6 @@ def upload_media_controller(
                             "height": result.get("height"),
                             "duration": result.get("duration"),
                         },
-                        "original_name": file.filename,
                     }
                 }
             )
@@ -100,9 +111,6 @@ def upload_media_controller(
             "message_type": rpc_msg.get("message_type", "text"),
             "metadata": {
                 **rpc_msg.get("metadata", {}),
-                "upload_preview": {
-                    "secure_url": result["secure_url"]
-                }
             },
             "reply_to_id": rpc_msg.get("reply_to_id"),
 
