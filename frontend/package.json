@@ -11,6 +11,7 @@
     "lint": "expo lint"
   },
   "dependencies": {
+    "@cloudinary/url-gen": "^1.22.0",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-google-signin/google-signin": "^16.1.1",
@@ -22,6 +23,7 @@
     "dotenv": "^17.2.3",
     "expo": "~54.0.30",
     "expo-auth-session": "~7.0.10",
+    "expo-av": "~16.0.8",
     "expo-blur": "~15.0.8",
     "expo-camera": "~17.0.10",
     "expo-clipboard": "~8.0.8",
@@ -39,6 +41,7 @@
     "expo-localization": "~17.0.8",
     "expo-media-library": "~18.2.1",
     "expo-router": "~6.0.21",
+    "expo-sharing": "~14.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-symbols": "~1.0.8",

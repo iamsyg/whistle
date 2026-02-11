@@ -4,13 +4,35 @@ import { BackendMessage } from '@/types/backend/message';
 import { FrontendMessage } from '@/types/frontend/message';
 import { getSenderDisplayName } from './getDisplayName';
 
+
+export const getMessagePreview = (msg: BackendMessage) => {
+  switch (msg.message_type) {
+    case "image":
+      return "🖼️ Photo";
+    case "video":
+      return "🎥 Video";
+    case "document":
+      return "📄 Document";
+    case "task":
+      return "✅ Task";
+    case "money_split":
+      return "💸 Split";
+    case "system":
+      return "ℹ️ System message";
+    default:
+      return msg.content;
+  }
+};
+
+
 const MESSAGE_TYPE_MAP: Record<
   BackendMessage['message_type'],
   FrontendMessage['type']
 > = {
   text: 'text',
   image: 'image',
-  file: 'file',
+  video: 'video',
+  document: 'document',
 
   system: 'system',
 
@@ -28,7 +50,7 @@ export function mapBackendMessageToUI(
 
   return {
     id: msg.id,
-    text: msg.content,
+    text: msg.message_type === 'text' ? msg.content : msg.metadata?.original_name ?? '',
     senderId: msg.sender_id,
 
     senderName:
@@ -60,7 +82,8 @@ const CLASSROOM_MESSAGE_TYPE_MAP: Record<
 > = {
   text: 'text',
   image: 'image',
-  file: 'file',
+  video: 'video',
+  document: 'document',
 
   system: 'system',
 
