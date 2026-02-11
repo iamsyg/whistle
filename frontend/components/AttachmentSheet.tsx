@@ -1,4 +1,5 @@
 // frontend/components/AttachmentSheet.tsx
+
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -31,7 +32,7 @@ interface AttachmentSheetProps {
 
 interface MediaAsset {
   uri: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'document';
   fileName?: string;
   fileSize?: number;
   width?: number;
@@ -66,7 +67,7 @@ const AttachmentSheet: React.FC<AttachmentSheetProps> = ({
   const handleGalleryPress = async () => {
     // Close the sheet first
     onClose();
-    
+
     // Check permissions
     if (!mediaPermission) {
       Alert.alert(
@@ -128,7 +129,7 @@ const AttachmentSheet: React.FC<AttachmentSheetProps> = ({
 
   const handleCameraPress = async () => {
     onClose();
-    
+
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission Required', 'Please grant camera permissions to take photos.');

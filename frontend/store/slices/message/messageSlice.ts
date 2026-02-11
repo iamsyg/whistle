@@ -1,7 +1,7 @@
-// store/slices/chat/messageDraftSlice.ts
+// frontend/store/slices/message/messageSlice.ts
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { MessageDraft } from '@/types/frontend/message';
+import { MessageDraft } from '@/types/frontend/messageDraft';
 
 const initialState: MessageDraft = {
   text: '',
