@@ -157,17 +157,25 @@ async def get_chat_messages(sender_id: str, chat_id: str):
 
             sender_member = member_map.get(msg["sender_id"])
 
+            message_type = msg.get("message_type") or "text"
+            metadata = msg.get("metadata") or {}
+
             messages.append({
                 "id": msg["id"],
                 "chat_id": msg["chat_id"],
                 "sender_id": msg["sender_id"],
-                "content": msg["content"],
-                "message_type": msg.get("message_type"),
-                "metadata": msg.get("metadata"),
+
+                # content only matters for text
+                "content": msg["content"] if message_type == "text" else None,
+
+                "message_type": message_type,
+                "metadata": metadata,  # always return object if image/video/document
+
                 "reply_to_id": msg["reply_to_id"],
                 "created_at": msg["created_at"],
                 "edited_at": msg["edited_at"],
                 "deleted_at": msg["deleted_at"],
+
                 "sender": resolve_sender(msg, classroom_meta, sender_member),
             })
 

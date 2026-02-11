@@ -77,6 +77,7 @@ def upload_media_controller(
                     "p_metadata": {
                         "url": result["secure_url"],
                         "original_name": file.filename,
+                        "mime_type": content_type,
                         "cloudinary": {
                             "public_id": result["public_id"],
                             "resource_type": result["resource_type"],
