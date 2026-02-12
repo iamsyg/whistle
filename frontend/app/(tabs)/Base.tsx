@@ -68,7 +68,7 @@ export default function BaseScreen() {
 
   const { emails, loading, error } = useGetUserGoogleEmails();
 
-  const { fetchClassrooms: fetchEmailClassrooms, loading: emailLoading, error: emailError } = useFetchEmailClassrooms(selectedEmail, "classroom");
+  const { fetchClassrooms: fetchEmailClassrooms, loading: emailLoading, error: emailError } = useFetchEmailClassrooms(selectedEmail);
 
   const { fetchClassrooms: fetchNonEmailClassrooms, loading: nonEmailLoading, error: nonEmailError } = useFetchNonEmailClassrooms("classroom");
 

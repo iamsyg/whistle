@@ -1,26 +1,30 @@
 // frontend/types/conversation.ts
 
-import { ClassroomMeta } from "./classroom";
+// import { ClassroomMeta } from "./classroom";
 
-export interface UserAllConversationsResponse {
-  conversation_ids: UserConversation[];
-}
 
 export interface UserConversation {
   chat_id: string;
-  type: 'direct' | 'group' | 'classroom';
-
-  other_user?: OtherUser; // only for direct chats
+  type: 'chat' | 'classroom';
+  sub_type: 'direct' | 'group' | 'email-classroom' | 'non-email-classroom';
+  other_user?: OtherUser | null; // only for direct chats
   
   title?: string | null; // only for group/classroom chats
+  created_at?: string | null;
+
   avatar_url?: string | null;
 
   last_message?: LastMessage | null;
 
-  last_message_at: string | null;
+  last_message_at?: string | null;
 
-  meta?: ClassroomMeta;
+  creator?: Creator | null,
 
+  require_email?: boolean |null,
+  join_method?: "email" | "non-email" | null,
+  is_admin?: boolean | null,
+
+  meta?: Record<string, any>;
 }
 
 
@@ -40,3 +44,10 @@ export interface LastMessage {
   sender_id: string;
 }
 
+export interface Creator {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  email: string;
+  google_name: string | null;
+}

@@ -84,7 +84,7 @@ export default function ChatsScreen() {
           dispatch(
             setConversation({
               conversationId: item.chat_id,
-              type: item.sub_type,
+              type: item.sub_type === 'direct' ? 'direct' : 'group',
               contactProfileId:
                 item.sub_type === 'direct' ? item.other_user?.id : undefined,
             })

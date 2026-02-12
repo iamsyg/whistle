@@ -1,4 +1,5 @@
-// CreateGroupScreen.tsx
+// frontend/app/(screens)/createGroup.tsx
+
 import React, { useState, useMemo } from 'react';
 import {
     View,
@@ -17,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { createGroupChat } from '@/services/conversation/createGroup';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
-import { addConversation, setConversation, setUserAllConversations } from '@/store/slices/message/conversationSlice';
+import { addConversation, setConversation } from '@/store/slices/message/conversationSlice';
 import { router } from 'expo-router';
 import { setContacts } from '@/store/slices/contacts/contactsSlice';
 
@@ -125,7 +126,8 @@ const CreateGroupScreen: React.FC = () => {
             
             dispatch(addConversation({
                 chat_id: result.chat_id,
-                type: 'group',
+                type: 'chat',
+                sub_type: 'group',
                 title: groupData.title,
                 last_message: null,
                 last_message_at: new Date().toISOString(),

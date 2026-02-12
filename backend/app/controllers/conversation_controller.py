@@ -1,4 +1,4 @@
-# app/controllers/conversation_controller.py
+# backend/app/controllers/conversation_controller.py
 
 from fastapi import HTTPException
 from app.utils.supabase_client import supabase
@@ -101,13 +101,16 @@ async def get_user_all_chats_controller(user_id: str):
 
         chat_cards.append({
             "chat_id": chat_id,
-            "type": chat["type"],
+            "type": "chat",
+            "sub_type": chat["type"],
             "other_user": other_user if chat["type"] == "direct" else None,
 
             "title": chat["title"] if chat["type"] != "direct" else None,
+            "created_at": None,
+
             "avatar_url": chat["image_url"] if chat["type"] != "direct" else None,
 
-            # ⬇️ SAME SHAPE AS PREVIOUS
+            # SAME SHAPE AS PREVIOUS
             "last_message": {
                 "content": last_message["content"],
                 "created_at": last_message["created_at"],
@@ -115,6 +118,14 @@ async def get_user_all_chats_controller(user_id: str):
             } if last_message else None,
 
             "last_message_at": last_message["created_at"] if last_message else chat.get("last_message_at"),
+
+            "creator": None,
+
+            "require_email": None,
+            "join_method": None,
+            "is_admin": None,
+
+            "meta": None,
         })
 
 
