@@ -21,7 +21,7 @@ import { getDisplayName } from '@/utils/getDisplayName';
 export default function ChatsScreen() {
   const dispatch = useDispatch();
 
-  const { loading } = useGetUserAllChats("chat");
+  const { loading } = useGetUserAllChats();
 
   const conversations = useSelector(
     (state: RootState) => state.conversation.userAllConversations ?? []
@@ -36,7 +36,7 @@ export default function ChatsScreen() {
   const getSubtitle = (item: UserConversation) => {
     if (item.last_message) return item.last_message.content;
 
-    if (item.type === 'group') return 'Group created';
+    if (item.sub_type === 'group') return 'Group created';
     // if (item.type === 'classroom') return 'Classroom created';
 
     return 'No messages yet';
@@ -48,7 +48,7 @@ export default function ChatsScreen() {
     contactsByProfileId: RootState['contacts']['byProfileId']
   ) => {
     // DIRECT CHAT
-    if (item.type === 'direct' && item.other_user) {
+    if (item.sub_type === 'direct' && item.other_user) {
       const contact = contactsByProfileId[item.other_user.id];
       return {
         bgColor: contact?.avatarColor || '#4dabf7',
@@ -57,7 +57,7 @@ export default function ChatsScreen() {
     }
 
     // GROUP
-    if (item.type === 'group') {
+    if (item.sub_type === 'group') {
       return {
         bgColor: '#ff9800',
         image: item.avatar_url || null,
@@ -84,9 +84,9 @@ export default function ChatsScreen() {
           dispatch(
             setConversation({
               conversationId: item.chat_id,
-              type: item.type,
+              type: item.sub_type,
               contactProfileId:
-                item.type === 'direct' ? item.other_user?.id : undefined,
+                item.sub_type === 'direct' ? item.other_user?.id : undefined,
             })
           );
           router.push('/(screens)/chatScreen');

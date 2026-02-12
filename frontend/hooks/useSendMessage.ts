@@ -13,7 +13,7 @@ const useSendMessage = () => {
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
 
-  const {selectedConversationId, conversationType, contactProfileId} = useSelector(
+  const {selectedConversationId, subConversationType, contactProfileId} = useSelector(
     (state: RootState) => state.conversation
   )
 
@@ -63,7 +63,7 @@ const useSendMessage = () => {
        *  CASE 2: chat does NOT exist yet
        *  --------------------------------*/
       else {
-        if (conversationType === 'direct' && !receiverId) {
+        if (subConversationType === 'direct' && !receiverId) {
           throw new Error("receiverId required to start chat");
         }
 

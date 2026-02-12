@@ -68,7 +68,28 @@ const migrations = {
       },
     };
   },
+
+  3: (state: any) => {
+    if (!state?.conversation) return state;
+
+    const { conversationType, ...restConversation } = state.conversation;
+
+    let newType: 'direct' | 'group' | null = null;
+
+    if (conversationType === 'direct' || conversationType === 'group') {
+      newType = conversationType;
+    }
+
+    return {
+      ...state,
+      conversation: {
+        ...restConversation,
+        subConversationType: newType,
+      },
+    };
+  },
 };
+
 
 
 const persistConfig = {

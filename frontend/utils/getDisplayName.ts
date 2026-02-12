@@ -9,7 +9,7 @@ export const getDisplayName = (
     item: UserConversation,
     contactsByProfileId: RootState['contacts']['byProfileId']
 ) => {
-    if (item.type === 'direct' && item.other_user) {
+    if (item.sub_type === 'direct' && item.other_user) {
         const savedContact = contactsByProfileId[item.other_user.id];
         return (
             savedContact?.name ||
@@ -20,7 +20,7 @@ export const getDisplayName = (
         );
     }
 
-    if (item.type === 'group') {
+    if (item.sub_type === 'group') {
         return item.title || 'Group Chat';
     }
 
