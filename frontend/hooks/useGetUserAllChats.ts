@@ -13,7 +13,7 @@ interface UseGetUserAllChatsState {
   error: string | null;
 }
 
-function useGetUserAllChats(conversation_type: "chat" | "classroom" | "all" = "chat"): UseGetUserAllChatsState {
+function useGetUserAllChats(): UseGetUserAllChatsState {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const initializingRef = useRef(false); // ✅ Prevent duplicate calls
@@ -68,7 +68,7 @@ function useGetUserAllChats(conversation_type: "chat" | "classroom" | "all" = "c
         console.log('🔄 Initializing chat...');
         console.log('   My User ID:', myUserId);
 
-        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all` + `?conversation_type=${conversation_type}`; // or classroom / all
+        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/chat/all`; 
 
         console.log('📡 GET:', url);
 
@@ -104,7 +104,6 @@ function useGetUserAllChats(conversation_type: "chat" | "classroom" | "all" = "c
         const data = await res.json();
         console.log('✅ Chats fetched successfully!');
         console.log('   Response:', data);
-        console.log('   Chat IDs:', data); // ✅ Backend returns "id"
 
         if (!Array.isArray(data)) {
           throw new Error("Invalid conversations response");
@@ -116,7 +115,6 @@ function useGetUserAllChats(conversation_type: "chat" | "classroom" | "all" = "c
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Unknown error';
         console.error('❌ Init chat error:', errorMsg);
-        console.error('❌ Stack:', err instanceof Error ? err.stack : 'No stack');
         
         setError(errorMsg);
         Alert.alert(
@@ -130,7 +128,7 @@ function useGetUserAllChats(conversation_type: "chat" | "classroom" | "all" = "c
     };
 
     initChat();
-  }, [myUserId, dispatch, conversation_type]); // ✅ Proper dependencies
+  }, [myUserId, dispatch]); // ✅ Proper dependencies
 
   return { loading, error };
 }

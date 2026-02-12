@@ -47,48 +47,14 @@ async def init_direct_chat(
 
 # Note: This endpoint is currently only used for fetching chats. Classroom conversations are fetched via the /classroom/all endpoint which combines both email and non-email classrooms.
 
-@router.get("/all")
+@router.get("/chat/all")
 async def get_all_conversations(
     user_id: str = Depends(verify_jwt_token),
-    selected_email: Optional[str] = None,
-    conversation_type: Literal["chat", "classroom", "all"] = "all"
 ):
     try:
-        chats = []
-        email_classrooms = []
-        non_email_classrooms = []
 
-        # 1️⃣ Fetch chats
-        if conversation_type in ("chat", "all"):
-            chats = await get_user_all_chats_controller(user_id)
-
-        # 2️⃣ Fetch classrooms
-        if conversation_type in ("classroom", "all"):
-            if selected_email:
-                email_classrooms = await fetch_email_classrooms_controller(
-                    user_id=user_id,
-                    selected_email=selected_email
-                )
-            else:
-                non_email_classrooms = await fetch_non_email_classrooms_controller(
-                    user_id=user_id
-                )
-
-        # 3️⃣ Normalize classrooms → conversation cards
-        classroom_conversations = [
-            {
-                "chat_id": c["chat_id"],
-                "type": "classroom",
-                "title": c["title"],
-                "avatar_url": None,
-                "last_message": None,
-                "last_message_at": None,
-                "meta": c  # 👈 unchanged classroom payload
-            }
-            for c in (email_classrooms + non_email_classrooms)
-        ]
-
-        return chats + classroom_conversations
+        chats = await get_user_all_chats_controller(user_id)
+        return chats 
 
     except HTTPException:
         raise
