@@ -62,22 +62,7 @@ async def get_email_classrooms(
             selected_email=selected_email
         )
 
-        conversations = [
-            {
-                "chat_id": c["chat_id"],
-                "type": "classroom",
-                "title": c["title"],
-                "avatar_url": None,
-                "last_message": None,
-                "last_message_at": None,
-                "meta": c,
-            }
-            for c in classrooms
-        ]
-
-        print(f"✅ Normalized email classrooms to conversation format for user {user_id}: {conversations}")
-
-        return conversations
+        return classrooms
     
     except HTTPException:
         raise
@@ -97,22 +82,7 @@ async def fetch_non_email_classrooms(
             user_id=user_id
         )
 
-        conversations = [
-            {
-                "chat_id": c["chat_id"],
-                "type": "classroom",
-                "title": c["title"],
-                "avatar_url": None,
-                "last_message": None,
-                "last_message_at": None,
-                "meta": c,
-            }
-            for c in classrooms
-        ]
-
-        print(f"✅ Normalized non-email classrooms to conversation format for user {user_id}: {conversations}")
-
-        return conversations
+        return classrooms
     
     except HTTPException:
         raise

@@ -5,7 +5,7 @@ import { supabase } from "@/utils/supabase";
 import { Alert } from "react-native";
 import { router } from "expo-router";
 
-export function useFetchNonEmailClassrooms(conversationType: string) {
+export function useFetchNonEmailClassrooms() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,7 +52,7 @@ export function useFetchNonEmailClassrooms(conversationType: string) {
     } finally {
       setLoading(false);
     }
-  }, [conversationType]);
+  }, []);
 
   return { fetchClassrooms, loading, error };
 }

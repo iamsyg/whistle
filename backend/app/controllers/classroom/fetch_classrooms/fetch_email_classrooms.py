@@ -75,11 +75,23 @@ async def fetch_email_classrooms_controller(user_id: str, selected_email: str):
                 None
             )
 
+            # member = chat["chat_members"][0] if chat.get("chat_members") else None
+
             classrooms.append({
                 "chat_id": chat["id"],
+                "type": "classroom",
+                "sub_type": "email-classroom",
+                "other_user": None,
+
                 "title": chat["title"],
-                "description": chat.get("description"),
+                # "description": chat.get("description"),
                 "created_at": chat["created_at"],
+
+                "avatar_url": None,
+
+                "last_message": None,
+
+                "last_message_at": None,
 
                 "creator": {
                     "id": chat["creator"]["id"],
@@ -89,14 +101,16 @@ async def fetch_email_classrooms_controller(user_id: str, selected_email: str):
                     "google_name": email_row.get("google_name"),
                 },
 
-                "invite_link": row.get("invite_link"),
-                "class_code": row.get("class_code"),
+                # "invite_link": row.get("invite_link"),
+                # "class_code": row.get("class_code"),
 
-                "allowed_domains": row.get("allowed_domains"),
-                "allow_student_chat": row.get("allow_student_chat", True),
+                # "allowed_domains": row.get("allowed_domains"),
+                # "allow_student_chat": row.get("allow_student_chat", True),
                 "require_email": row.get("require_email", True),
                 "join_method": "email" if row.get("require_email", True) else "non-email",
                 "is_admin": member["role"] == "admin" if member else False,
+
+                "meta": None,
             })
 
         return classrooms

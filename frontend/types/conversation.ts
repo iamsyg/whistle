@@ -48,6 +48,6 @@ export interface Creator {
   id: string;
   name: string;
   avatar_url: string | null;
-  email: string;
+  email: string | null;   // ✅ allow null
   google_name: string | null;
 }

@@ -70,7 +70,7 @@ export default function BaseScreen() {
 
   const { fetchClassrooms: fetchEmailClassrooms, loading: emailLoading, error: emailError } = useFetchEmailClassrooms(selectedEmail);
 
-  const { fetchClassrooms: fetchNonEmailClassrooms, loading: nonEmailLoading, error: nonEmailError } = useFetchNonEmailClassrooms("classroom");
+  const { fetchClassrooms: fetchNonEmailClassrooms, loading: nonEmailLoading, error: nonEmailError } = useFetchNonEmailClassrooms();
 
 
   useEffect(() => {
