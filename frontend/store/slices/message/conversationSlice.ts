@@ -3,22 +3,35 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { BackendMessage } from '@/types/backend/message';
 import { UserConversation } from "@/types/conversation";
+import { getMessagePreview } from "@/utils/messageMapper";
 interface ConversationState {
-  selectedConversationId: string | null;
-  conversationType: 'direct' | 'group' | 'classroom' | null;
+  // selectedConversationId: string | null;
+  // subConversationType: 'direct' | 'group' | null;
+  // contactProfileId: string | null;
+  // userAllConversations: UserConversation[]; // ✅ Store all conversation IDs
+  // messages: BackendMessage[];
+  // loading: boolean;
+  // typingUsers: string[]; // ✅ Track who's typing
+
+  selectedChatId: string | null;
+  subConversationType: 'direct' | 'group' | null;
   contactProfileId: string | null;
-  userAllConversations: UserConversation[]; // ✅ Store all conversation IDs
-  messages: BackendMessage[];
+
+  chatIds: string[]; // Store just the IDs for ordering
+  chatById: Record<string, UserConversation>; // ✅ Map for quick access (key = chat_id)
+  chatMessages: Record<string, BackendMessage[]>; // key = chat_id
+
   loading: boolean;
-  typingUsers: string[]; // ✅ Track who's typing
+  typingUsers: string[]; // ✅ Track who's typing in chats
 }
 
 const initialState: ConversationState = {
-  selectedConversationId: null,
-  conversationType: null,
+  selectedChatId: null,
+  subConversationType: null,
   contactProfileId: null,
-  userAllConversations: [],
-  messages: [],
+  chatIds: [],
+  chatById: {},
+  chatMessages: {},
   loading: false,
   typingUsers: [],
 };
@@ -32,49 +45,110 @@ const conversationSlice = createSlice({
     setConversation: (
       state,
       action: PayloadAction<{
-        conversationId?: string; // ✅ optional
-        type: 'direct' | 'group' | 'classroom'; // ✅ NOT nullable
+        conversationId?: string;
+        type: 'direct' | 'group';
         contactProfileId?: string;
       }>
     ) => {
-      state.selectedConversationId =
-        action.payload.conversationId ?? null;
-
-      state.conversationType = action.payload.type;
+      state.selectedChatId = action.payload.conversationId ?? null;
+      state.subConversationType = action.payload.type;
 
       state.contactProfileId =
         action.payload.type === 'direct'
           ? action.payload.contactProfileId ?? null
           : null;
-
-      state.messages = [];
     },
 
     setUserAllConversations: (
       state,
       action: PayloadAction<UserConversation[]>
     ) => {
-      state.userAllConversations = action.payload;
+      state.chatIds = [];
+      state.chatById = {};
+
+      if (!Array.isArray(action.payload)) return;
+
+      action.payload.forEach(c => {
+        state.chatIds.push(c.chat_id);
+        state.chatById[c.chat_id] = c;
+      });
     },
-    setMessages: (state, action: PayloadAction<BackendMessage[]>) => {
-      state.messages = action.payload;
+
+
+    setMessages: (
+      state,
+      action: PayloadAction<{ chat_id: string; messages: BackendMessage[] }>) => {
+      const chatId = action.payload.chat_id;
+      state.chatMessages[chatId] = action.payload.messages;
     },
-    addMessage: (state, action: PayloadAction<BackendMessage>) => {
-      // ✅ Prevent duplicate messages
-      const exists = state.messages.some(m => m.id === action.payload.id);
+    
+    addMessage: (
+      state,
+      action: PayloadAction<{ chat_id: string; message: BackendMessage }>
+    ) => {
+      const { chat_id, message } = action.payload;
+
+      //  Guard against malformed payloads
+      if (!chat_id || !message?.id) return;
+
+      // 1️ Ensure message array exists
+      if (!state.chatMessages[chat_id]) {
+        state.chatMessages[chat_id] = [];
+      }
+
+      // 2️ Prevent duplicates safely
+      const exists = state.chatMessages[chat_id].some(
+        (m) => m?.id === message.id
+      );
+
       if (!exists) {
-        state.messages.push(action.payload);
+        state.chatMessages[chat_id].push(message);
+      }
+
+      // 3️ Update preview if conversation exists
+      const chat = state.chatById[chat_id];
+      if (!chat) return;
+
+      const currentLastTime = chat.last_message_at;
+      const incomingTime = message.created_at;
+
+      if (!currentLastTime || incomingTime > currentLastTime) {
+        chat.last_message = {
+          content: getMessagePreview(message),
+          created_at: message.created_at,
+          sender_id: message.sender_id,
+        };
+
+        chat.last_message_at = message.created_at;
+
+        // Move chat to top ONLY if newer
+        const index = state.chatIds.indexOf(chat_id);
+        if (index !== -1) {
+          state.chatIds.splice(index, 1);
+        }
+
+        state.chatIds.unshift(chat_id);
       }
     },
+
+
     addConversation: (
-  state,
-  action: PayloadAction<UserConversation>
-) => {
-  state.userAllConversations.unshift(action.payload);
-},
+      state,
+      action: PayloadAction<UserConversation>
+    ) => {
+      const id = action.payload.chat_id;
+
+      if (!state.chatById[id]) {
+        state.chatIds.unshift(id);
+      }
+
+      state.chatById[id] = action.payload;
+    },
+
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
     },
+
     addTypingUser: (state, action: PayloadAction<string>) => {
       if (!state.typingUsers.includes(action.payload)) {
         state.typingUsers.push(action.payload);
@@ -84,11 +158,12 @@ const conversationSlice = createSlice({
     removeTypingUser: (state, action: PayloadAction<string>) => {
       state.typingUsers = state.typingUsers.filter(id => id !== action.payload);
     },
+
     clearConversation: (state) => {
-      state.selectedConversationId = null;
-      state.conversationType = null;
+      state.selectedChatId = null;
+      state.subConversationType = null;
       state.contactProfileId = null;
-      state.messages = [];
+      state.chatMessages = {};
       state.loading = false;
       state.typingUsers = [];
     },

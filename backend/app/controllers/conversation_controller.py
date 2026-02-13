@@ -33,6 +33,8 @@ async def get_or_create_direct_chat_controller(
 
 async def get_user_all_chats_controller(user_id: str):
 
+    # Refer send_message_rpc
+
     chats_res = (
     supabase
     .table("chat_members")

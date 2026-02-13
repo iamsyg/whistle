@@ -10,10 +10,10 @@ export function useFetchEmailClassrooms(selectedEmail: string | null) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchClassrooms = useCallback(async () => {
-      setLoading(true);
-      setError(null);
+    setLoading(true);
+    setError(null);
 
-      try {
+    try {
       const { data } = await supabase.auth.getSession();
       const token = data?.session?.access_token;
 
@@ -21,44 +21,45 @@ export function useFetchEmailClassrooms(selectedEmail: string | null) {
 
         setLoading(false);
         Alert.alert('Authentication Error', 'Please log in again.', [
-            { text: 'OK', onPress: () => router.replace('/(auth)/login') }
-          ]);
+          { text: 'OK', onPress: () => router.replace('/(auth)/login') }
+        ]);
 
         return [];
       }
 
       if (!selectedEmail) {
-      console.log('No selected email provided');
-      return [];
-    }
+        setLoading(false);
+        console.log('No selected email provided');
+        return [];
+      }
 
-    console.log('   Selected Email:', selectedEmail);
+      console.log('   Selected Email:', selectedEmail);
 
-        // const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all?selected_email=${encodeURIComponent(selectedEmail)}&conversation_type=${encodeURIComponent(conversationType)}`;
+      // const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/conversation/all?selected_email=${encodeURIComponent(selectedEmail)}&conversation_type=${encodeURIComponent(conversationType)}`;
 
-        const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/classroom/all/email?selected_email=${encodeURIComponent(selectedEmail)}`;
-        
-        console.log('📡 GET:', url);
+      const url = `${process.env.EXPO_PUBLIC_BACKEND_URL}/classroom/all/email?selected_email=${encodeURIComponent(selectedEmail)}`;
 
-        const res = await fetch(url, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+      console.log('📡 GET:', url);
 
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err?.detail || "FETCH_FAILED");
-        }
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-        const result = await res.json();
-        console.log('   Response:', result);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err?.detail || "FETCH_FAILED");
+      }
 
-        return result;
+      const result = await res.json();
+      console.log('   Response:', result);
 
-      } catch (err: any) {
+      return result;
+
+    } catch (err: any) {
       setError(err.message || "UNKNOWN_ERROR");
       return [];
     } finally {
