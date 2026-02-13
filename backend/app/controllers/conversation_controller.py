@@ -33,16 +33,34 @@ async def get_or_create_direct_chat_controller(
 
 async def get_user_all_chats_controller(user_id: str):
 
-    # 1️⃣ Fetch chats user belongs to
     chats_res = (
-        supabase
-        .table("chat_members")
-        .select("chat_id, chat(id, type, user1, user2, title, image_url, last_message_at)")
-        .eq("user_id", user_id)
-        .is_("left_at", None)
-        .neq("chat.type", "classroom")
-        .execute()
-    )
+    supabase
+    .table("chat_members")
+    .select("""
+        chat_id,
+        chat(
+            id,
+            type,
+            user1,
+            user2,
+            title,
+            image_url,
+            last_message_at,
+            last_message:messages!chat_last_message_id_fkey(
+                id,
+                content,
+                sender_id,
+                created_at
+            )
+        )
+    """)
+    .eq("user_id", user_id)
+    .is_("left_at", None)
+    .neq("chat.type", "classroom")
+    .order("chat(last_message_at)", desc=True)
+    .execute()
+)
+
 
     chat_ids = [row["chat_id"] for row in chats_res.data]
 
@@ -74,14 +92,6 @@ async def get_user_all_chats_controller(user_id: str):
 
     profile_map = {p["id"]: p for p in profiles_res.data}
 
-    # 4️⃣ Fetch last messages via RPC
-    last_messages_res = supabase.rpc(
-        "get_last_messages_per_chat",
-        {"p_chat_ids": chat_ids}
-    ).execute()
-
-    last_message_map = {msg["chat_id"]: msg for msg in last_messages_res.data}
-
     # 5️⃣ Build chat_cards exactly like original
     chat_cards = []
 
@@ -97,7 +107,18 @@ async def get_user_all_chats_controller(user_id: str):
             other_user_id = chat_to_other_user.get(chat_id)
             other_user = profile_map.get(other_user_id)
 
-        last_message = last_message_map.get(chat_id)
+        # last_message = last_message_map.get(chat_id)
+        # last_message = chat.get("last_message")
+
+        last_message_raw = chat.get("last_message")
+        last_message = None
+        if last_message_raw:
+            last_message = {
+                "content": last_message_raw["content"],
+                "created_at": last_message_raw["created_at"],  # ISO string from Supabase
+                "sender_id": last_message_raw["sender_id"],
+            }
+
 
         chat_cards.append({
             "chat_id": chat_id,
@@ -111,13 +132,12 @@ async def get_user_all_chats_controller(user_id: str):
             "avatar_url": chat["image_url"] if chat["type"] != "direct" else None,
 
             # SAME SHAPE AS PREVIOUS
-            "last_message": {
-                "content": last_message["content"],
-                "created_at": last_message["created_at"],
-                "sender_id": last_message["sender_id"],
-            } if last_message else None,
 
-            "last_message_at": last_message["created_at"] if last_message else chat.get("last_message_at"),
+            "last_message": last_message,
+
+            # "last_message_at": last_message["created_at"] if last_message else chat.get("last_message_at"),
+
+            "last_message_at": chat.get("last_message_at"),
 
             "creator": None,
 
