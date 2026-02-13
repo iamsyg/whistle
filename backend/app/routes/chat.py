@@ -1,4 +1,4 @@
-# app/routers/chat.py
+# backend/app/routes/chat.py
 
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException
@@ -36,7 +36,7 @@ async def send_message_endpoint(
         await ws_manager.broadcast(chat_id, {
             "type": "new_message",
             "data": message
-        }, exclude_user=sender_id)
+        })
 
         print(f"✅ Message broadcasted to chat {chat_id}")
 
@@ -70,7 +70,7 @@ async def send_direct_message_endpoint(
     await ws_manager.broadcast(chat_id, {
         "type": "new_message",
         "data": message
-    }, exclude_user=sender_id)
+    })
 
     return {
         "chat_id": chat_id,

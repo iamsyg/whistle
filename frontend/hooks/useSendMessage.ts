@@ -13,13 +13,13 @@ const useSendMessage = () => {
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
 
-  const {selectedConversationId, subConversationType, contactProfileId} = useSelector(
+  const {selectedChatId, subConversationType, contactProfileId} = useSelector(
     (state: RootState) => state.conversation
   )
 
   const receiverId = contactProfileId;
 
-  console.log("useSendMessage - selectedConversationId:", selectedConversationId);
+  console.log("useSendMessage - selectedChatId:", selectedChatId);
   console.log("useSendMessage - receiverId:", receiverId);
 
   const sendMessage = async (content: string) => {
@@ -38,9 +38,9 @@ const useSendMessage = () => {
       /** -------------------------------
        *  CASE 1: chat already exists
        *  ------------------------------*/
-      if (selectedConversationId) {
+      if (selectedChatId) {
         response = await fetch(
-          `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/send/${selectedConversationId}`,
+          `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/send/${selectedChatId}`,
           {
             method: "POST",
             headers: {
@@ -101,7 +101,10 @@ const useSendMessage = () => {
       }
 
       // ✅ Single source of truth
-      dispatch(addMessage(message));
+      dispatch(addMessage({
+        chat_id: message.chat_id,
+        message: message,
+      }));
     } catch (error) {
       console.error("Error sending message:", error);
     } finally {

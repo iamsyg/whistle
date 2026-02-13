@@ -1,6 +1,6 @@
 // frontend/app/(tabs)/Chats.tsx
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -23,8 +23,17 @@ export default function ChatsScreen() {
 
   const { loading } = useGetUserAllChats();
 
-  const conversations = useSelector(
-    (state: RootState) => state.conversation.userAllConversations ?? []
+  // const conversations = useSelector(
+  //   (state: RootState) => state.conversation.userAllConversations ?? []
+  // );
+
+  const { chatIds, chatById } = useSelector(
+    (state: RootState) => state.conversation
+  );
+
+  const conversations = useMemo(
+    () => chatIds.map(id => chatById[id]).filter(Boolean),
+    [chatIds, chatById]
   );
 
   const contactsByProfileId = useSelector(

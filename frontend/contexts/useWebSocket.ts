@@ -34,7 +34,7 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
   const chatId = useSelector((state: RootState) =>
     mode === 'classroom'
       ? state.classroom.selectedClassroomId
-      : state.conversation.selectedConversationId
+      : state.conversation.selectedChatId
   );
 
   console.log(`useWebSocket - mode: ${mode}, chatId: ${chatId}`);
@@ -89,13 +89,16 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
                 // Only add if it's not from us (we already have it from send API)
                 if (message.data.sender_id !== myUserId) {
                   if (mode === 'classroom') {
-                    
+
                     dispatch(addClassroomMessage({
-                      chat_id: chatId,
+                      chat_id: message.data.chat_id,
                       message: message.data as ClassroomBackendMessage,
                     }));
                   } else {
-                    dispatch(addMessage(message.data));
+                    dispatch(addMessage({
+                      chat_id: message.data.chat_id,
+                      message: message.data
+                    }));
                   }
                 }
               }
@@ -142,9 +145,12 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
           reconnectAttemptsRef.current++;
           console.log(`🔄 Reconnecting... (attempt ${reconnectAttemptsRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
 
-          reconnectTimeoutRef.current = setTimeout(() => {
-            connect();
-          }, RECONNECT_DELAY);
+          if (chatId) {
+            reconnectTimeoutRef.current = setTimeout(() => {
+              connect();
+            }, RECONNECT_DELAY);
+          }
+          
         } else {
           console.error('❌ Max reconnection attempts reached');
         }

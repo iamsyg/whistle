@@ -88,6 +88,16 @@ const migrations = {
       },
     };
   },
+
+  4: (state: any) => {
+    if (!state) return state;
+
+    return {
+      ...state,
+      conversation: undefined, // force full reset
+    };
+  },
+
 };
 
 
@@ -95,7 +105,7 @@ const migrations = {
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  version: 2,
+  version: 4,
   migrate: createMigrate(migrations, { debug: __DEV__ }),
   whitelist: ['profile', 'conversation', 'contacts', 'emailAuth'],
   blacklist: ['auth'], // Don't persist auth tokens

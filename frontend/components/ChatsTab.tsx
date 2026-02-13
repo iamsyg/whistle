@@ -1,4 +1,5 @@
-// components/ChatsTab.tsx
+// frontend/components/ChatsTab.tsx
+
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   View,
@@ -26,14 +27,24 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
 
   const flatListRef = useRef<FlatList<FrontendMessage>>(null);
 
-  const chatId = useSelector((state: RootState) => state.conversation.selectedConversationId)
+  const chatId = useSelector((state: RootState) => state.conversation.selectedChatId)
 
   const { loading } = useGetMessage(chatId);
   const myProfileId = useSelector((state: RootState) => state.profile.userId);
 
-  const backendMessages = useSelector(
-    (state: RootState) => state.conversation.messages
+  const selectedChatId = useSelector(
+    (state: RootState) => state.conversation.selectedChatId
   );
+
+  const backendMessages = useSelector(
+    (state: RootState) =>
+      selectedChatId
+        ? state.conversation.chatMessages[selectedChatId] ?? []
+        : []
+  );
+
+  console.log("ChatsTab - selectedChatId:", selectedChatId);
+  console.log("ChatsTab - myProfileId:", myProfileId);
 
   const contactsByProfileId = useSelector(
     (state: RootState) => state.contacts.byProfileId
@@ -57,15 +68,6 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
     });
   }, [backendMessages, myProfileId]);
 
-
-  useEffect(() => {
-    if (uiMessages.length > 0) {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }
-  }, [uiMessages.length]);
-
-
-
   const renderMessage = ({ item }: { item: FrontendMessage }) => (
     <MessageLayout
       message={item}
@@ -87,7 +89,7 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {loading && !myProfileId ? (
+      {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={isDarkMode ? '#00A884' : '#008069'} />
         </View>

@@ -25,7 +25,7 @@ function useGetConversationId(): useGetConversationIdState {
   );
 
   const conversationId = useSelector(
-    (state: RootState) => state.conversation.selectedConversationId
+    (state: RootState) => state.conversation.selectedChatId
   );
 
   const myUserId = useSelector(
@@ -129,6 +129,14 @@ function useGetConversationId(): useGetConversationIdState {
         console.log('   Chat ID:', data.chat_id); // ✅ Backend returns "id"
 
         // ✅ Store the conversation ID in Redux
+
+        const currentContact = contactProfileId;
+
+        if (currentContact !== contactProfileId) {
+          console.log("⚠️ Contact changed during init. Ignoring stale response.");
+          return;
+        }
+        
         dispatch(setConversation({
             contactProfileId: contactProfileId,
             type: 'direct',

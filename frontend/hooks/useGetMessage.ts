@@ -9,8 +9,8 @@ import { supabase } from "@/utils/supabase";
 import { BackendMessage } from "@/types/backend/message";
 
 interface MessageState {
-  loading: boolean;
-  messages: BackendMessage[];
+    loading: boolean;
+    messages: BackendMessage[];
 }
 
 function useGetMessage(chatId: string | null): MessageState {
@@ -22,11 +22,11 @@ function useGetMessage(chatId: string | null): MessageState {
     // );
 
     useEffect(() => {
-  if (!chatId) return;
+        if (!chatId) return;
     }, [chatId]);
 
     const messages = useSelector(
-        (state: RootState) => state.conversation.messages
+        (state: RootState) => state.conversation.chatMessages[chatId ?? ''] || []
     );
 
     useEffect(() => {
@@ -55,13 +55,16 @@ function useGetMessage(chatId: string | null): MessageState {
                 }
                 );
 
-                if(!res.ok) {
+                if (!res.ok) {
                     throw new Error("Failed to fetch messages: /chat/direct/get/{} not working");
                 }
 
                 const data: BackendMessage[] = await res.json();
 
-                dispatch(setMessages(data));
+                dispatch(setMessages({
+                    chat_id: chatId,
+                    messages: data
+                }));
             } catch (error) {
                 console.log("Error in getting messages", error);
                 setLoading(false);
