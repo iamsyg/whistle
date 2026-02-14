@@ -52,19 +52,9 @@ export default function BaseScreen() {
     (state: RootState) => state.emailAuth.emails
   );
 
-  const classrooms = useSelector((state: RootState) => {
-    const all = Object.values(state.classroom.classrooms);
-
-    if (selectedMethod === 'email') {
-      return all.filter(
-        c =>
-          c.join_method === 'email' &&
-          c.creator.email === selectedEmail
-      );
-    }
-
-    return all.filter(c => c.join_method === 'non-email');
-  });
+  const classrooms = useSelector(
+    (state: RootState) => Object.values(state.classroom.classroomById)
+  );
 
   const { emails, loading, error } = useGetUserGoogleEmails();
 
@@ -170,7 +160,10 @@ export default function BaseScreen() {
 
   // Handle classroom navigation when a classroom is pressed
   const handleClassroomPress = (chat_id: string) => {
-    dispatch(setSelectedClassroom(chat_id));
+    dispatch(setSelectedClassroom({
+      conversationId: chat_id,
+      type: selectedMethod === 'email' ? 'email-classroom' : 'non-email-classroom',
+    }));
     router.push({
       pathname: '/(screens)/classroomScreen',
       params: { chat_id },
@@ -195,12 +188,16 @@ export default function BaseScreen() {
       response = await fetchNonEmailClassrooms();
     }
 
-    const classrooms = response
-      .filter((c: UserConversation) => c.type === "classroom" && c.meta)
-      .map((c: UserConversation) => c.meta);
+    // const classrooms = response
+    //   .filter((c: UserConversation) => c.type === "classroom" && c.meta)
+    //   .map((c: UserConversation) => c.meta);
 
-    if (classrooms.length > 0) {
-      dispatch(setAllClassrooms(classrooms));
+    // if (classrooms.length > 0) {
+    //   dispatch(setAllClassrooms(classrooms));
+    // }
+
+    if (Array.isArray(response) && response.length > 0) {
+      dispatch(setAllClassrooms(response));
     }
 
     dispatch(setClassroomLoading(false));

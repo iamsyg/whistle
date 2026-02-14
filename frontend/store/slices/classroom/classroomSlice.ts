@@ -1,68 +1,120 @@
 // frontend/store/slices/classroom/classroomSlice.ts
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { ClassroomMeta } from "@/types/classroom";
+// import { ClassroomMeta } from "@/types/classroom";
+import { UserConversation } from "@/types/conversation";
 import { ClassroomBackendMessage } from "@/types/backend/classroomMessage";
+import { getMessagePreview } from "@/utils/messageMapper";
 
 interface ClassroomState {
-  classrooms: Record<string, ClassroomMeta>; // key = chat_id
+  // classrooms: Record<string, ClassroomMeta>; // key = chat_id
+  // selectedClassroomId: string | null;
+  // classroomMessages: Record<string, ClassroomBackendMessage[]>; // key = chat_id
+  // loading: boolean;
   selectedClassroomId: string | null;
+  subClassroomType: 'email-classroom' | 'non-email-classroom' | null;
+
+  classroomIds: string[]; // Store just the IDs for ordering
+  classroomById: Record<string, UserConversation>; // ✅ Map for quick access (key = chat_id)
   classroomMessages: Record<string, ClassroomBackendMessage[]>; // key = chat_id
+
   loading: boolean;
+  typingUsers: string[]; // Track who's typing in classrooms
 }
 
 const initialState: ClassroomState = {
-  classrooms: {},
+  // classrooms: {},
+  // selectedClassroomId: null,
+  // classroomMessages: {},
+  // loading: false,
+
   selectedClassroomId: null,
+  subClassroomType: null,
+  classroomIds: [],
+  classroomById: {},
   classroomMessages: {},
   loading: false,
+  typingUsers: [],
 };
 
 const classroomSlice = createSlice({
   name: "classroom",
   initialState,
   reducers: {
+    // upsertClassroom: (
+    //   state,
+    //   action: PayloadAction<UserConversation>
+    // ) => {
+    //   // state.classrooms[action.payload.chat_id] = action.payload;
+    //   state.classroomById[action.payload.chat_id] = action.payload;
+    //   const id = action.payload.chat_id;
+
+    //   if (!state.classroomById[id]) {
+    //     state.classroomIds.push(id);
+    //   }
+
+    //   state.classroomById[id] = action.payload;
+    // },
+
     upsertClassroom: (
       state,
-      action: PayloadAction<ClassroomMeta>
+      action: PayloadAction<UserConversation>
     ) => {
-      state.classrooms[action.payload.chat_id] = action.payload;
+      const id = action.payload.chat_id;
+
+      if (!state.classroomById[id]) {
+        state.classroomIds.unshift(id);
+      }
+
+      state.classroomById[id] = action.payload;
     },
+
 
     setAllClassrooms: (
       state,
-      action: PayloadAction<ClassroomMeta[] | undefined | null>
+      action: PayloadAction<UserConversation[]>
     ) => {
+      state.classroomIds = [];
+      state.classroomById = {};
 
       if (!Array.isArray(action.payload)) return;
 
       action.payload.forEach(c => {
-        state.classrooms[c.chat_id] = c;
+        state.classroomById[c.chat_id] = c;
+        if (!state.classroomIds.includes(c.chat_id)) {
+          state.classroomIds.push(c.chat_id);
+        }
       });
     },
 
     setSelectedClassroom: (
       state,
-      action: PayloadAction<string | null>
+      action: PayloadAction<{
+        conversationId?: string;
+        type: 'email-classroom' | 'non-email-classroom';
+      }>
     ) => {
-      state.selectedClassroomId = action.payload;
+
+      state.selectedClassroomId = action.payload.conversationId ?? null;
+      state.subClassroomType = action.payload.type;
     },
 
     updateClassroomProfile: (
       state,
       action: PayloadAction<{
         chat_id: string;
-        changes: Partial<ClassroomMeta>;
+        changes: Partial<UserConversation>;
       }>
     ) => {
-      const classroom = state.classrooms[action.payload.chat_id];
+      const classroom = state.classroomById[action.payload.chat_id];
       if (classroom) {
         Object.assign(classroom, action.payload.changes);
       }
     },
 
     removeClassroomProfile: (state, action: PayloadAction<string>) => {
-      delete state.classrooms[action.payload];
+      delete state.classroomById[action.payload];
+      state.classroomIds = state.classroomIds.filter(id => id !== action.payload);
     },
 
     setClassroomLoading: (state, action: PayloadAction<boolean>) => {
@@ -80,23 +132,64 @@ const classroomSlice = createSlice({
       state,
       action: PayloadAction<{ chat_id: string; message: ClassroomBackendMessage }>
     ) => {
-      const chatId = action.payload.chat_id;
-      if (!state.classroomMessages[chatId]) {
-        state.classroomMessages[chatId] = [];
+      const { chat_id, message } = action.payload;
+
+      if (!chat_id || !message?.id) return;
+
+      if (!state.classroomMessages[chat_id]) {
+        state.classroomMessages[chat_id] = [];
       }
 
-      const exists = state.classroomMessages[chatId]
-        .some(m => m.id === action.payload.message.id);
+      const exists = state.classroomMessages[chat_id]
+        .some(m => m.id === message.id);
 
       if (!exists) {
-        state.classroomMessages[chatId].push(action.payload.message);
+        state.classroomMessages[chat_id].push(message);
       }
+
+      const classroom = state.classroomById[chat_id];
+      if (!classroom) return;
+
+      const currentLastTime = classroom.last_message_at;
+      const incomingTime = message.created_at;
+
+      if (!currentLastTime || incomingTime > currentLastTime) {
+
+        classroom.last_message = {
+          content: getMessagePreview(message),
+          created_at: message.created_at,
+          sender_id: message.sender_id,
+        };
+
+        classroom.last_message_at = message.created_at;
+
+        // Move to top efficiently
+        const index = state.classroomIds.indexOf(chat_id);
+        if (index !== -1) {
+          state.classroomIds.splice(index, 1);
+        }
+        state.classroomIds.unshift(chat_id);
+      }
+    },
+
+    addTypingUser: (state, action: PayloadAction<string>) => {
+      if (!state.typingUsers.includes(action.payload)) {
+        state.typingUsers.push(action.payload);
+      }
+    },
+
+    removeTypingUser: (state, action: PayloadAction<string>) => {
+      state.typingUsers = state.typingUsers.filter(id => id !== action.payload);
     },
 
 
     clearClassrooms: (state) => {
-      state.classrooms = {};
+      state.classroomById = {};
+      state.classroomIds = [];
       state.classroomMessages = {};
+      state.selectedClassroomId = null;
+      state.subClassroomType = null;
+      state.typingUsers = [];
       state.loading = false;
     },
 
@@ -115,6 +208,8 @@ export const {
   setClassroomLoading,
   setMessages,
   addMessage,
+  addTypingUser,
+  removeTypingUser,
   clearClassrooms,
   clearSelectedClassroom,
 } = classroomSlice.actions;

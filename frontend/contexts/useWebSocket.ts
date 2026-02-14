@@ -1,6 +1,6 @@
 // frontend/contexts/useWebSocket.ts
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { addMessage } from '@/store/slices/message/conversationSlice';
@@ -11,7 +11,7 @@ import { ClassroomBackendMessage } from '@/types/backend/classroomMessage';
 
 interface WebSocketMessage {
   type: 'new_message' | 'user_joined' | 'user_left' | 'typing' | 'error';
-  data?: BackendMessage;
+  data?: BackendMessage | ClassroomBackendMessage;
   user_id?: string;
   timestamp?: string;
   message?: string;
@@ -27,7 +27,8 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const reconnectAttemptsRef = useRef<number>(0);
-  const isConnectedRef = useRef<boolean>(false);
+  // const isConnectedRef = useRef<boolean>(false);
+  const [isConnected, setIsConnected] = useState(false);
 
   const dispatch = useDispatch();
 
@@ -54,7 +55,7 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
 
   const connect = useCallback(async () => {
     // Skip if no chat selected or already connected
-    if (!chatId || !myUserId || isConnectedRef.current) {
+    if (!chatId || !myUserId) {
       return;
     }
 
@@ -73,7 +74,8 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
 
       ws.onopen = () => {
         console.log('✅ WebSocket connected to chat:', chatId);
-        isConnectedRef.current = true;
+        // isConnectedRef.current = true;
+        setIsConnected(true);
         reconnectAttemptsRef.current = 0;
       };
 
@@ -87,17 +89,23 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
               if (message.data) {
                 console.log('💬 New message from:', message.data.sender_id);
                 // Only add if it's not from us (we already have it from send API)
+
+                if (message.data.chat_id !== chatId) {
+                  console.warn('⚠️ Received message for different chat:', message.data.chat_id);
+                  break;
+                }
+
                 if (message.data.sender_id !== myUserId) {
                   if (mode === 'classroom') {
 
                     dispatch(addClassroomMessage({
                       chat_id: message.data.chat_id,
-                      message: message.data as ClassroomBackendMessage,
+                      message: message.data as ClassroomBackendMessage 
                     }));
                   } else {
                     dispatch(addMessage({
                       chat_id: message.data.chat_id,
-                      message: message.data
+                      message: message.data as BackendMessage
                     }));
                   }
                 }
@@ -133,12 +141,14 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
 
       ws.onerror = (error) => {
         console.error('❌ WebSocket error:', error);
-        isConnectedRef.current = false;
+        // isConnectedRef.current = false;
+        setIsConnected(false);
       };
 
       ws.onclose = (event) => {
         console.log('🔌 WebSocket disconnected:', event.code, event.reason);
-        isConnectedRef.current = false;
+        // isConnectedRef.current = false;
+        setIsConnected(false);
 
         // Attempt to reconnect
         if (reconnectAttemptsRef.current < MAX_RECONNECT_ATTEMPTS) {
@@ -157,7 +167,8 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
       };
     } catch (error) {
       console.error('❌ Error creating WebSocket:', error);
-      isConnectedRef.current = false;
+      // isConnectedRef.current = false;
+      setIsConnected(false);
     }
   }, [chatId, myUserId, dispatch]);
 
@@ -170,7 +181,8 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
       console.log('🔌 Closing WebSocket connection');
       wsRef.current.close();
       wsRef.current = null;
-      isConnectedRef.current = false;
+      // isConnectedRef.current = false;
+      setIsConnected(false);
     }
   }, []);
 
@@ -181,10 +193,10 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
   }, [disconnect, connect]);
 
   const sendTypingIndicator = useCallback(() => {
-    if (wsRef.current && isConnectedRef.current) {
+    if (wsRef.current && isConnected) {
       wsRef.current.send(JSON.stringify({ type: 'typing' }));
     }
-  }, []);
+  }, [isConnected]);
 
   // Connect when chat changes
   useEffect(() => {
@@ -199,7 +211,7 @@ export default function useWebSocket(mode: 'conversation' | 'classroom' = 'conve
   }, [chatId, myUserId, connect, disconnect]);
 
   return {
-    isConnected: isConnectedRef.current,
+    isConnected: isConnected,
     sendTypingIndicator,
     reconnect,
   };

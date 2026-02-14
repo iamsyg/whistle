@@ -11,6 +11,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSelector, useDispatch } from 'react-redux';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -24,13 +25,15 @@ import AttachmentSheet from '@/components/AttachmentSheet';
 import CallOptionsSheet from '@/components/CallOptionsSheet';
 import MenuSheet from '@/components/MenuSheet';
 import { RootState } from '@/store/store';
-import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
+import { addMessage, setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
 import useSendClassroomMessage from '@/hooks/classroom/messages/useSendClassroomMessage';
 import useWebSocket from '@/contexts/useWebSocket';
 import { useFetchJoinRequests } from '@/hooks/useFetchJoinRequests';
 import AdminJoinRequestToast from '@/components/AdminJoinRequestToast';
 import { useAcceptClassroomRequest } from '@/hooks/classroom/useAcceptClassroomRequest';
 import { useRejectClassroomRequest } from '@/hooks/classroom/useRejectClassroomRequest';
+import { uploadMedia } from '@/utils/uploadMedia';
+import resolveMimeType from '@/utils/resolveMimeType';
 
 type ClassroomTab = 'chats' | 'announcements' | 'assignments';
 
@@ -53,7 +56,7 @@ const ClassroomScreen = () => {
   );
 
   const classroom = useSelector((state: RootState) =>
-    chat_id ? state.classroom.classrooms[chat_id] : undefined
+    chat_id ? state.classroom.classroomById[chat_id] : undefined
   );
 
   const { sendMessage, loading: sendingMessage } = useSendClassroomMessage(chat_id);
@@ -63,7 +66,11 @@ const ClassroomScreen = () => {
   // Set selected classroom in Redux
   useEffect(() => {
     if (chat_id && chat_id !== selectedClassroomId) {
-      dispatch(setSelectedClassroom(chat_id));
+      dispatch(setSelectedClassroom({
+          conversationId: chat_id,
+          type: 'non-email-classroom',
+      }));
+
     }
   }, [chat_id, selectedClassroomId, dispatch]);
 
@@ -85,6 +92,57 @@ const ClassroomScreen = () => {
   const handleMenuItemSelect = (item: string) => {
     console.log('Selected menu item:', item);
     setIsMenuSheetVisible(false);
+  };
+
+  const handleMediaSelected = async (media: any[]) => {
+    console.log('Selected media:', media);
+  
+    // Process the selected media here
+    // 1. Upload to server
+    // 2. Display in chat
+    // 3. Store link in database
+  
+    if (!selectedClassroomId) return;
+  
+    try {
+      for (const item of media) {
+  
+        const mimeType = resolveMimeType(item);
+  
+        const uploadedMessage = await uploadMedia({
+          uri: item.uri,
+          fileName: item.fileName ?? item.name ?? 'file',
+          mimeType: mimeType,
+          chatId: selectedClassroomId,
+          conversationType: 'classroom',
+        });
+  
+        console.log('Uploaded media message:', uploadedMessage);
+  
+        // Add message instantly to Redux store
+        dispatch(
+          addMessage({
+            chat_id: selectedClassroomId,
+            message: uploadedMessage,
+          })
+        );
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Upload failed', 'Could not upload media');
+    };
+  
+    media.forEach(item => {
+      if (item.type === 'image') {
+        // Handle image
+        console.log('Image selected:', item.uri);
+      } else if (item.type === 'video') {
+        // Handle video
+        console.log('Video selected:', item.uri);
+      } else {
+        console.log('document selected:', item.uri);
+      }
+    });
   };
 
   // Determine header title
@@ -210,6 +268,7 @@ const ClassroomScreen = () => {
       <AttachmentSheet
         visible={isAttachmentSheetVisible}
         onClose={() => setIsAttachmentSheetVisible(false)}
+        onMediaSelected={handleMediaSelected}
         onSelect={handleAttachmentSelect}
         isDarkMode={isDarkMode}
       />

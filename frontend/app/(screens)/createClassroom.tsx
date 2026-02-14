@@ -1,4 +1,4 @@
-// app/(screens)/createClassroom.tsx
+// frontend/app/(screens)/createClassroom.tsx
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -65,7 +65,10 @@ export default function CreateClassroom() {
       console.log('Created classroom:', classroom);
 
       dispatch(upsertClassroom(classroom));
-      dispatch(setSelectedClassroom(classroom.chat_id));
+      dispatch(setSelectedClassroom({
+        conversationId: classroom.chat_id,
+        type: 'non-email-classroom',
+      }));
 
 
       Alert.alert(
