@@ -11,6 +11,8 @@ from app.controllers.classroom.fetch_classrooms.fetch_non_email_classrooms impor
 
 from app.controllers.classroom.fetch_classroom_profile.fetch_email_classroom_profile import fetch_email_classroom_profile_controller
 
+from app.controllers.classroom.fetch_classroom_profile.fetch_non_email_classroom_profile import fetch_non_email_classroom_profile_controller
+
 from app.controllers.classroom.fetch_members.fetch_email_classroom_members import fetch_email_classroom_members_controller
 
 from app.controllers.classroom.fetch_members.fetch_non_email_classroom_members import fetch_non_email_classroom_members_controller
@@ -103,7 +105,7 @@ async def fetch_email_classroom_profile(
     try:
 
         print(f"✅ Fetching email classroom profile for classroom {classroom_chat_id} and user {current_user_id} with page {page} and limit {limit}")
-        
+
         response = await fetch_email_classroom_profile_controller(
             classroom_chat_id=classroom_chat_id,
             current_user_id=current_user_id,
@@ -118,6 +120,34 @@ async def fetch_email_classroom_profile(
         raise
     except Exception as e:
         print(f"❌ Error fetching email classroom profile: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/profile/non-email")
+async def fetch_non_email_classroom_profile(
+    classroom_chat_id: str = Query(..., description="Classroom chat ID to fetch profile for"),
+    current_user_id: str = Depends(verify_jwt_token),
+    page: int = Query(1, description="Page number for members pagination"),
+    limit: int = Query(20, description="Number of members per page")
+):
+    try:
+
+        print(f"✅ Fetching non-email classroom profile for classroom {classroom_chat_id} and user {current_user_id} with page {page} and limit {limit}")
+
+        response = await fetch_non_email_classroom_profile_controller(
+            classroom_chat_id=classroom_chat_id,
+            current_user_id=current_user_id,
+            page=page,
+            limit=limit
+        )
+
+        print(f"✅ Fetched non-email classroom profile: {response}")
+        return response
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching non-email classroom profile: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
     

@@ -59,7 +59,7 @@ async def fetch_non_email_classrooms_controller(user_id: str):
                 "other_user": None,
 
                 "title": chat["title"],
-                # "description": chat.get("description"),
+                "description": chat.get("description"),
                 "created_at": chat["created_at"],
 
                 "avatar_url": None,
@@ -80,7 +80,7 @@ async def fetch_non_email_classrooms_controller(user_id: str):
                 # "class_code": row.get("class_code"),
 
                 # "allowed_domains": row.get("allowed_domains") or [],
-                # "allow_student_chat": row.get("allow_student_chat", True),
+                "allow_student_chat": row.get("allow_student_chat", True),
                 "require_email": row.get("require_email", False),
                 "join_method": "email" if row.get("require_email", False) else "non-email",
                 "is_admin": member["role"] == "admin" if member else False,
