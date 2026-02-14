@@ -132,14 +132,14 @@ async def fetch_email_classroom_profile_controller(
 
         # Admin only fields
         if is_admin:
-            response.update({
+            response["admin_fields"] = {
                 "invite_link": classroom["invite_link"],
                 "class_code": classroom["class_code"],
                 "allowed_domains": classroom["allowed_domains"],
                 "allow_student_chat": classroom["allow_student_chat"],
                 "require_email": classroom["require_email"],
                 "join_method": "email" if classroom["require_email"] else "non-email"
-            })
+            }
 
         return response
 
