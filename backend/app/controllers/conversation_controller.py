@@ -129,6 +129,7 @@ async def get_user_all_chats_controller(user_id: str):
             "other_user": other_user if chat["type"] == "direct" else None,
 
             "title": chat["title"] if chat["type"] != "direct" else None,
+            "description": None,
             "created_at": None,
 
             "avatar_url": chat["image_url"] if chat["type"] != "direct" else None,
@@ -143,6 +144,7 @@ async def get_user_all_chats_controller(user_id: str):
 
             "creator": None,
 
+            "allow_student_chat": None,
             "require_email": None,
             "join_method": None,
             "is_admin": None,

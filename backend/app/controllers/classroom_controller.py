@@ -87,9 +87,20 @@ async def create_classroom_controller(
     # 5️⃣ Return full ClassroomProfile-compatible object
     return {
         "chat_id": chat["id"],
+        "type": "classroom",
+        "sub_type": "email-classroom" if require_email else "non-email-classroom",
+        "other_user": None,
+
         "title": chat["title"],
         "description": chat.get("description"),
         "created_at": chat["created_at"],
+
+        "avatar_url": None,
+
+        "last_message": None,
+
+        "last_message_at": None,
+
         "creator": {
             "id": creator_id,
             "name": google_name or "Unknown",
@@ -97,10 +108,13 @@ async def create_classroom_controller(
             "email": creator_email,
             "google_name": google_name,
         },
-        "allowed_domains": None,
+        # "allowed_domains": None,
         "allow_student_chat": allow_student_chat,
         "require_email": require_email,
+        "join_method": "email" if require_email else "non-email",
         "is_admin": True,
+
+        "meta": None,
     }
 
 

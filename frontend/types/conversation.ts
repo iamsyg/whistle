@@ -10,6 +10,7 @@ export interface UserConversation {
   other_user?: OtherUser | null; // only for direct chats
   
   title?: string | null; // only for group/classroom chats
+  description?: string | null; // only for group/classroom chats
   created_at?: string | null;
 
   avatar_url?: string | null;
@@ -20,6 +21,7 @@ export interface UserConversation {
 
   creator?: Creator | null,
 
+  allow_student_chat?: boolean | null,
   require_email?: boolean |null,
   join_method?: "email" | "non-email" | null,
   is_admin?: boolean | null,
