@@ -9,7 +9,7 @@ export interface ClassroomProfileType {
   created_at: string; // ISO string
   is_admin: boolean;
 
-  members: Members[];
+  members: Record<string, Members>;
 
   pagination: Pagination;
   meta?: Record<string, any> | null;

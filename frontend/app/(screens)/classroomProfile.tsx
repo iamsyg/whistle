@@ -1,6 +1,6 @@
 // frontend/app/(screens)/classroomProfile.tsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -23,11 +23,10 @@ import MessagingHeader from '@/components/MessagingHeader';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
-import { updateClassroomProfile } from '@/store/slices/classroom/classroomSlice';
-import { useFetchEmailClassroomMembers } from '@/hooks/classroom/fetchMembers/useFetchEmailClassroomMembers';
-import { useFetchNonEmailClassroomMembers } from '@/hooks/classroom/fetchMembers/userFetchNonEmailClassroomMembers';
-import { clearMembers, setAllMembers } from '@/store/slices/classroom/classroomMembersCard';
-import { classroomMembersCardTypes } from '@/types/classroom/classroomMembersCardTypes';
+import { updateClassroomProfile } from '@/store/slices/classroom/classroomProfileSlice';
+
+import { useFetchEmailClassroomProfile } from '@/hooks/classroom/fetchClassroomProfile/fetchEmailClassroomProfile';
+import { Members } from '@/types/classroom/classroomProfileTypes';
 
 interface ClassroomProfileProps {
   classroomId: string;
@@ -37,27 +36,48 @@ interface ClassroomProfileProps {
 
 const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBackPress, isDarkMode }) => {
   // State for classroom data
+
+  const chat_id = useLocalSearchParams().chat_id as string;
+
+  const selectedClassroomId = useSelector(
+    (state: RootState) => state.classroom.selectedClassroomId
+  );
+
+  const activeChatId = selectedClassroomId || chat_id;
+
+  console.log('Active chat ID in ClassroomProfile:', activeChatId);
+
+  const { fetchClassroomProfile, error } = useFetchEmailClassroomProfile(activeChatId);
+
   const [loading, setLoading] = useState(false);
+
+  const classroom = useSelector(
+    (state: RootState) => state.classroom.classroomById[activeChatId]
+  )
 
   const dispatch = useDispatch();
 
-  const { chat_id } = useLocalSearchParams<{ chat_id: string }>();
 
-  const classroom = useSelector(
-    (state: RootState) => chat_id ? state.classroom.classrooms[chat_id] : undefined
+  const classroomProfile = useSelector(
+    (state: RootState) => state.classroomProfile.profile[activeChatId]
   )
 
-  const admins = useSelector(
-    (state: RootState) => state.classroomMembersCard.members ? Object.values(state.classroomMembersCard.members).filter(m => m.role === 'admin') : []
-  )
+  const membersObj = useSelector(
+    (state: RootState) =>
+      state.classroomProfile.profile[activeChatId]?.members
+  );
 
-  const members = useSelector(
-    (state: RootState) => state.classroomMembersCard.members ? Object.values(state.classroomMembersCard.members).filter(m => m.role === 'member') : []
-  )
+  const admins = useMemo(() => {
+    if (!membersObj) return [];
+    return Object.values(membersObj).filter(m => m.role === "admin");
+  }, [membersObj]);
 
-  const { fetchClassroomMembers: fetchEmailClassroomMembers, loading: loadingEmailClassroomMembers, error: errorEmailClassroomMembers } = useFetchEmailClassroomMembers(chat_id);
+  const members = useMemo(() => {
+    if (!membersObj) return [];
+    return Object.values(membersObj).filter(m => m.role === "member");
+  }, [membersObj]);
 
-  const { fetchClassroomMembers: fetchNonEmailClassroomMembers, loading: loadingNonEmailClassroomMembers, error: errorNonEmailClassroomMembers } = useFetchNonEmailClassroomMembers(chat_id);
+  console.log("classroomProfile", classroomProfile);
 
   // const membersTitle = () => {
   //   if (classroom?.join_method === 'email') {
@@ -74,49 +94,50 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
   //   }
   // }
 
-  const fetchMembers = async () => {
+  const fetchProfile = async () => {
+
+    if (!classroom) {
+      Alert.alert('Error', 'Classroom data not available. Please try again later.');
+      return;
+    };
 
     setLoading(true);
-    let members = [];
+    // let members = [];
+
+    let profile = null;
 
     if (classroom?.join_method === 'email') {
 
       try {
-        members = await fetchEmailClassroomMembers();
+        // members = await fetchEmailClassroomMembers();
+        profile = await fetchClassroomProfile();
+
       }
       catch (err) {
-        Alert.alert('Error', 'Failed to fetch classroom members. Please try again later.');
-        console.error('Error fetching email classroom members:', err);
+        Alert.alert('Error', 'Failed to fetch classroom profile. Please try again later.');
+        console.error('Error fetching email classroom profile:', err);
       }
     }
     else if (classroom?.join_method === 'non-email') {
       try {
-        members = await fetchNonEmailClassroomMembers();
+        // members = await fetchNonEmailClassroomMembers();
       }
       catch (err) {
-        Alert.alert('Error', 'Failed to fetch classroom members. Please try again later.');
-        console.error('Error fetching non-email classroom members:', err);
+        Alert.alert('Error', 'Failed to fetch classroom profile. Please try again later.');
+        console.error('Error fetching non-email classroom profile:', err);
       }
     }
 
-    console.log('Fetched members:', members);
-    dispatch(clearMembers());
-    dispatch(setAllMembers(members));
-    // membersTitle();
+    console.log('Fetched profile:', profile);
     setLoading(false);
   }
 
   useEffect(() => {
-    console.log('Classroom data:', classroom);
-
-    if (classroom) {
-      fetchMembers();
+    if (activeChatId && classroom) {
+      fetchProfile();
     }
+  }, [activeChatId, classroom]);
 
-    console.log('Admins:', admins); 
-    console.log('Members:', members);
-
-  }, [classroom]);
 
   // State for UI
   const [newInvites, setNewInvites] = useState<string>('');
@@ -165,48 +186,66 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
   // Toggle allow chat
   const toggleAllowChat = () => {
 
+    if (!classroomProfile?.admin_fields) {
+      Alert.alert('Error', 'Admin fields not available');
+      return;
+    }
+
     dispatch(updateClassroomProfile({
-      chat_id,
+      chat_id: activeChatId,
       changes: {
-        allow_student_chat: !classroom?.allow_student_chat
+        admin_fields: {
+          allow_student_chat: !classroomProfile?.admin_fields?.allow_student_chat
+        }
       }
     }));
+
   };
 
   // Add new domain
   const addDomain = () => {
-    if (newDomain.trim() && !classroom?.allowed_domains?.includes(newDomain.trim())) {
+    if (newDomain.trim() && !classroomProfile?.admin_fields?.allowed_domains?.includes(newDomain.trim())) {
 
       dispatch(updateClassroomProfile({
-        chat_id,
+        chat_id: activeChatId,
         changes: {
-          allowed_domains: [...(classroom?.allowed_domains || []), newDomain.trim()],
+          admin_fields: {
+            allowed_domains: [
+              ...(classroomProfile?.admin_fields?.allowed_domains || []),
+              newDomain.trim()
+            ]
+          }
         }
       }));
-
+      
       setNewDomain('');
     }
   };
 
   // Remove domain
   const removeDomain = (domain: string) => {
+    if (!classroomProfile?.admin_fields) return;
 
     dispatch(updateClassroomProfile({
-      chat_id,
+      chat_id: activeChatId,
       changes: {
-
-        allowed_domains: classroom?.allowed_domains?.filter(d => d !== domain) || [],
+        admin_fields: {
+          allowed_domains: classroomProfile.admin_fields.allowed_domains?.filter(
+            d => d !== domain
+          )
+        }
       }
     }));
   };
 
+
   // Validate email domain
   const isValidEmailDomain = (email: string): boolean => {
-    if (!classroom?.join_method || !classroom?.allowed_domains || classroom.allowed_domains.length === 0) {
+    if (!classroom.join_method || !classroomProfile?.admin_fields?.allowed_domains || classroomProfile?.admin_fields.allowed_domains.length === 0) {
       return true;
     }
 
-    return classroom?.allowed_domains.some(domain => email.endsWith(`@${domain}`));
+    return classroomProfile?.admin_fields?.allowed_domains.some(domain => email.endsWith(`@${domain}`));
   };
 
   // Process invitations
@@ -265,7 +304,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
     if (validInvites.length > 0) {
       // Add new members (in a real app, this would be an API call)
-      const newMembers: classroomMembersCardTypes[] = validInvites.map((invite, index) => {
+      const newMembers = validInvites.map((invite, index) => {
         const baseMember = {
           user_id: `new-${Date.now()}-${index}`,
           name: invite.split('@')[0] || invite,
@@ -277,23 +316,23 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
           return {
             ...baseMember,
             email: invite
-          } as classroomMembersCardTypes;
+          }
         } else {
           if (inviteMode === 'phone') {
             return {
               ...baseMember,
               phone: invite
-            } as classroomMembersCardTypes;
+            }
           } else {
             return {
               ...baseMember,
               username: invite
-            } as classroomMembersCardTypes;
+            }
           }
         }
       });
 
-      dispatch(setAllMembers([...members, ...newMembers]));
+      // dispatch(setAllMembers([...members, ...newMembers]));
       setNewInvites('');
       setShowInviteModal(false);
 
@@ -301,37 +340,39 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
     }
   };
 
-  const renderMemberItem = ({ item }: { item: classroomMembersCardTypes }) => {
-  const avatarUri =
-    item.google_avatar ||
-    (item.google_name || item.email
-      ? `https://ui-avatars.com/api/?name=${encodeURIComponent(
+
+
+  const renderMemberItem = ({ item }: { item: Members }) => {
+    const avatarUri =
+      item.google_avatar ||
+      (item.google_name || item.email
+        ? `https://ui-avatars.com/api/?name=${encodeURIComponent(
           item.google_name || item.email || 'U'
         )}`
-      : null);
+        : null);
 
-  return (
-    <View style={styles.memberCard}>
-      {avatarUri ? (
-        <Image source={{ uri: avatarUri }} style={styles.memberAvatar} />
-      ) : (
-        <View style={styles.classroomAvatar}>
-          <Text style={styles.avatarText}>
-            {(item.name || 'U').charAt(0).toUpperCase()}
+    return (
+      <View style={styles.memberCard}>
+        {avatarUri ? (
+          <Image source={{ uri: avatarUri }} style={styles.memberAvatar} />
+        ) : (
+          <View style={styles.classroomAvatar}>
+            <Text style={styles.avatarText}>
+              {(item.name || 'U').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.memberInfo}>
+          <Text style={styles.memberName}>
+            {classroom.join_method === 'email'
+              ? item.google_name || item.email || 'Unknown'
+              : item.name || 'Unknown'}
           </Text>
         </View>
-      )}
-
-      <View style={styles.memberInfo}>
-        <Text style={styles.memberName}>
-          {classroom?.join_method === 'email'
-            ? item.google_name || item.email || 'Unknown'
-            : item.name || 'Unknown'}
-        </Text>
       </View>
-    </View>
-  );
-};
+    );
+  };
 
   // Get invite placeholder based on mode
   const getInvitePlaceholder = () => {
@@ -352,6 +393,14 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
       return `Enter ${inviteMode}s (separated by commas, semicolons, or newlines)`;
     }
   };
+
+  if (!classroomProfile) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[
@@ -390,7 +439,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
             <Text style={[
               styles.title,
               isDarkMode && styles.darkText
-            ]}>{classroom?.title}</Text>
+            ]}>{classroomProfile && classroomProfile?.title}</Text>
             <View style={styles.classroomCodeContainer}>
             </View>
           </View>
@@ -409,89 +458,98 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
           <Text style={[
             styles.description,
             isDarkMode && styles.darkSubtext
-          ]}>{classroom?.description || '4o4'}</Text>
+          ]}>{classroomProfile?.description || '4o4'}</Text>
         </View>
 
         {/* Invite Link & Code */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Invitation</Text>
 
-          <TouchableOpacity
-            style={styles.inviteCard}
-            onPress={() => copyToClipboard(classroom?.invite_link || '')}
-          >
-            <MaterialIcons name="link" size={20} color="#4A90E2" />
-            <View style={styles.inviteInfo}>
-              <Text style={styles.inviteLabel}>Invite Link</Text>
-              <Text style={styles.inviteValue} numberOfLines={1}>
-                {classroom?.invite_link}
-              </Text>
-            </View>
-            <MaterialIcons name="content-copy" size={20} color="#666" />
-          </TouchableOpacity>
+        {classroomProfile.is_admin && classroomProfile?.admin_fields && (
 
-          <TouchableOpacity
-            style={styles.inviteCard}
-            onPress={() => copyToClipboard(classroom?.class_code || '')}
-          >
-            <MaterialIcons name="code" size={20} color="#4A90E2" />
-            <View style={styles.inviteInfo}>
-              <Text style={styles.inviteLabel}>Classroom Code</Text>
-              <Text style={styles.inviteValue}>{classroom?.class_code}</Text>
-            </View>
-            <MaterialIcons name="content-copy" size={20} color="#666" />
-          </TouchableOpacity>
-        </View>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Invitation</Text>
 
-        {/* Settings */}
-        <View style={[
-          styles.section,
-          isDarkMode && styles.darkSection
-        ]}>
-          <Text style={[
-            styles.sectionTitle,
-            isDarkMode && styles.darkText
-          ]}>Settings</Text>
+            <TouchableOpacity
+              style={styles.inviteCard}
+              onPress={() => copyToClipboard(classroomProfile?.admin_fields?.invite_link || '')}
+            >
+              <MaterialIcons name="link" size={20} color="#4A90E2" />
+              <View style={styles.inviteInfo}>
+                <Text style={styles.inviteLabel}>Invite Link</Text>
+                <Text style={styles.inviteValue} numberOfLines={1}>
+                  {classroomProfile?.admin_fields?.invite_link || 'No invite link available'}
+                </Text>
+              </View>
+              <MaterialIcons name="content-copy" size={20} color="#666" />
+            </TouchableOpacity>
 
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={[
-                styles.settingLabel,
-                isDarkMode && styles.darkText
-              ]}>Allow Chat</Text>
-              <Text style={[
-                styles.settingDescription,
-                isDarkMode && styles.darkSubtext
-              ]}>
-                Members can chat with each other
-              </Text>
-            </View>
-            <Switch
-              value={classroom?.allow_student_chat}
-              onValueChange={toggleAllowChat}
-              trackColor={{ false: '#767577', true: '#81b0ff' }}
-              thumbColor={classroom?.allow_student_chat ? '#4A90E2' : '#f4f3f4'}
-            />
+            <TouchableOpacity
+              style={styles.inviteCard}
+              onPress={() => copyToClipboard(classroomProfile?.admin_fields?.class_code || '')}
+            >
+              <MaterialIcons name="code" size={20} color="#4A90E2" />
+              <View style={styles.inviteInfo}>
+                <Text style={styles.inviteLabel}>Classroom Code</Text>
+                <Text style={styles.inviteValue}>{classroomProfile?.admin_fields?.class_code}</Text>
+              </View>
+              <MaterialIcons name="content-copy" size={20} color="#666" />
+            </TouchableOpacity>
           </View>
 
-          {/* Show allowed domains only if joinMethod is 'email' */}
-          {classroom?.join_method === 'email' && (
-            <TouchableOpacity
-              style={[
-                styles.domainButton,
-                isDarkMode && styles.darkDomainButton
-              ]}
-              onPress={() => setShowDomainsModal(true)}
-            >
-              <MaterialIcons name="domain" size={20} color="#4A90E2" />
-              <View style={styles.domainButtonInfo}>
+        )}
+
+        {/* Settings */}
+
+        {classroomProfile.is_admin && classroomProfile?.admin_fields && (
+
+
+          <View style={[
+            styles.section,
+            isDarkMode && styles.darkSection
+          ]}>
+            <Text style={[
+              styles.sectionTitle,
+              isDarkMode && styles.darkText
+            ]}>Settings</Text>
+
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
                 <Text style={[
-                  styles.domainButtonText,
+                  styles.settingLabel,
                   isDarkMode && styles.darkText
+                ]}>Allow Chat</Text>
+                <Text style={[
+                  styles.settingDescription,
+                  isDarkMode && styles.darkSubtext
                 ]}>
-                  Allowed Email Domains
+                  Members can chat with each other
                 </Text>
-                {/* <Text style={[
+              </View>
+              <Switch
+                value={classroomProfile?.admin_fields?.allow_student_chat || false}
+                onValueChange={toggleAllowChat}
+                trackColor={{ false: '#767577', true: '#81b0ff' }}
+                thumbColor={classroomProfile?.admin_fields?.allow_student_chat ? '#4A90E2' : '#f4f3f4'}
+              />
+            </View>
+
+            {/* Show allowed domains only if joinMethod is 'email' */}
+            {classroom?.join_method === 'email' && (
+              <TouchableOpacity
+                style={[
+                  styles.domainButton,
+                  isDarkMode && styles.darkDomainButton
+                ]}
+                onPress={() => setShowDomainsModal(true)}
+              >
+                <MaterialIcons name="domain" size={20} color="#4A90E2" />
+                <View style={styles.domainButtonInfo}>
+                  <Text style={[
+                    styles.domainButtonText,
+                    isDarkMode && styles.darkText
+                  ]}>
+                    Allowed Email Domains
+                  </Text>
+                  {/* <Text style={[
                   styles.domainButtonSubtext,
                   isDarkMode && styles.darkSubtext
                 ]}>
@@ -500,44 +558,50 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
                     : 'No restrictions (any email allowed)'
                   }
                 </Text> */}
-              </View>
-              <MaterialIcons name="chevron-right" size={20} color="#666" />
-            </TouchableOpacity>
-          )}
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#666" />
+              </TouchableOpacity>
+            )}
 
-          {/* Join method info (non-editable, from backend) */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingInfo}>
-              <Text style={[
-                styles.settingLabel,
-                isDarkMode && styles.darkText
-              ]}>Join Method</Text>
-              <Text style={[
-                styles.settingDescription,
-                isDarkMode && styles.darkSubtext
-              ]}>
-                {classroom?.join_method === 'email'
-                  ? 'Members must join with email address'
-                  : 'Members can join with phone number or username'
-                }
-              </Text>
+            {/* Join method info (non-editable, from backend) */}
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={[
+                  styles.settingLabel,
+                  isDarkMode && styles.darkText
+                ]}>Join Method</Text>
+                <Text style={[
+                  styles.settingDescription,
+                  isDarkMode && styles.darkSubtext
+                ]}>
+                  {classroom?.join_method === 'email'
+                    ? 'Members must join with email address'
+                    : 'Members can join with phone number or username'
+                  }
+                </Text>
+              </View>
+              <MaterialIcons
+                name={classroom?.join_method === 'email' ? "email" : "smartphone"}
+                size={24}
+                color="#4A90E2"
+              />
             </View>
-            <MaterialIcons
-              name={classroom?.join_method === 'email' ? "email" : "smartphone"}
-              size={24}
-              color="#4A90E2"
-            />
           </View>
-        </View>
+
+        )}
 
         {/* Invite Members Button */}
-        <TouchableOpacity
-          style={styles.inviteButton}
-          onPress={() => setShowInviteModal(true)}
-        >
-          <Ionicons name="person-add" size={24} color="#fff" />
-          <Text style={styles.inviteButtonText}>Invite Members</Text>
-        </TouchableOpacity>
+
+        {classroomProfile.is_admin && (
+          <TouchableOpacity
+            style={styles.inviteButton}
+            onPress={() => setShowInviteModal(true)}
+          >
+            <Ionicons name="person-add" size={24} color="#fff" />
+            <Text style={styles.inviteButtonText}>Invite Members</Text>
+          </TouchableOpacity>
+
+        )}
 
         {/* Admins Section */}
         <View style={[
@@ -569,14 +633,17 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
         {/* Modals */}
         {/* Allowed Domains Modal */}
-        <Modal
-          visible={showDomainsModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowDomainsModal(false)}
-        >
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
+
+        {classroomProfile.is_admin && classroomProfile?.admin_fields && (
+
+          <Modal
+            visible={showDomainsModal}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setShowDomainsModal(false)}
+          >
+            <View style={styles.modalContainer}>
+
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Allowed Email Domains</Text>
                 <TouchableOpacity onPress={() => setShowDomainsModal(false)}>
@@ -602,7 +669,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
               </View>
 
               <FlatList
-                data={classroom?.allowed_domains}
+                data={classroomProfile?.admin_fields?.allowed_domains}
                 renderItem={({ item }) => (
                   <View style={styles.domainItem}>
                     <Text style={styles.domainText}>{item}</Text>
@@ -621,124 +688,131 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
               >
                 <Text style={styles.modalCloseButtonText}>Done</Text>
               </TouchableOpacity>
+
             </View>
-          </View>
-        </Modal>
+          </Modal>
+
+        )}
 
         {/* Invite Members Modal */}
-        <Modal
-          visible={showInviteModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowInviteModal(false)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalContainer}
+
+        {classroomProfile.is_admin && classroomProfile?.admin_fields && (
+
+
+          <Modal
+            visible={showInviteModal}
+            animationType="slide"
+            transparent={true}
+            onRequestClose={() => setShowInviteModal(false)}
           >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Invite Members</Text>
-                  <TouchableOpacity onPress={() => setShowInviteModal(false)}>
-                    <MaterialIcons name="close" size={24} color="#333" />
-                  </TouchableOpacity>
-                </View>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.modalContainer}
+            >
+              <View style={styles.modalContainer}>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Invite Members</Text>
+                    <TouchableOpacity onPress={() => setShowInviteModal(false)}>
+                      <MaterialIcons name="close" size={24} color="#333" />
+                    </TouchableOpacity>
+                  </View>
 
-                <ScrollView
-                  style={styles.modalScrollView}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {!classroom?.require_email && (
-                    <View style={styles.inviteModeSelector}>
-                      <TouchableOpacity
-                        style={[
-                          styles.modeButton,
-                          inviteMode === 'phone' && styles.modeButtonActive
-                        ]}
-                        onPress={() => setInviteMode('phone')}
-                      >
-                        <Text style={[
-                          styles.modeButtonText,
-                          inviteMode === 'phone' && styles.modeButtonTextActive
-                        ]}>Phone</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.modeButton,
-                          inviteMode === 'username' && styles.modeButtonActive
-                        ]}
-                        onPress={() => setInviteMode('username')}
-                      >
-                        <Text style={[
-                          styles.modeButtonText,
-                          inviteMode === 'username' && styles.modeButtonTextActive
-                        ]}>Username</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  <Text style={styles.modalDescription}>
-                    {getInviteDescription()}
-                  </Text>
-
-                  {classroom?.require_email && (classroom?.allowed_domains?.length ?? 0) > 0 && (
-                    <View style={styles.domainRestrictionsNote}>
-                      <MaterialIcons name="info" size={16} color="#4A90E2" />
-                      <Text style={styles.allowedDomainsNote}>
-                        Allowed domains: {classroom?.allowed_domains?.join(', ')}
-                      </Text>
-                    </View>
-                  )}
-
-                  <TextInput
-                    style={styles.inviteInput}
-                    placeholder={getInvitePlaceholder()}
-                    value={newInvites}
-                    onChangeText={setNewInvites}
-                    multiline
-                    numberOfLines={6}
-                    textAlignVertical="top"
-                    returnKeyType="done"
-                  />
-                </ScrollView>
-
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.pasteButton]}
-                    onPress={async () => {
-                      const text = await Clipboard.getStringAsync();
-                      if (text) {
-                        setNewInvites(text);
-                        Alert.alert('Success', 'Text pasted successfully!');
-                      }
-                    }}
+                  <ScrollView
+                    style={styles.modalScrollView}
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
                   >
-                    <MaterialIcons name="content-paste" size={20} color="#4A90E2" />
-                    <Text style={styles.pasteButtonText}>Paste</Text>
-                  </TouchableOpacity>
+                    {!classroomProfile?.admin_fields?.require_email && (
+                      <View style={styles.inviteModeSelector}>
+                        <TouchableOpacity
+                          style={[
+                            styles.modeButton,
+                            inviteMode === 'phone' && styles.modeButtonActive
+                          ]}
+                          onPress={() => setInviteMode('phone')}
+                        >
+                          <Text style={[
+                            styles.modeButtonText,
+                            inviteMode === 'phone' && styles.modeButtonTextActive
+                          ]}>Phone</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.modeButton,
+                            inviteMode === 'username' && styles.modeButtonActive
+                          ]}
+                          onPress={() => setInviteMode('username')}
+                        >
+                          <Text style={[
+                            styles.modeButtonText,
+                            inviteMode === 'username' && styles.modeButtonTextActive
+                          ]}>Username</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
 
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.cancelButton]}
-                    onPress={() => setShowInviteModal(false)}
-                  >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.sendButton]}
-                    onPress={processInvitations}
-                  >
-                    <Text style={styles.sendButtonText}>
-                      {classroom?.require_email ? 'Send Email Invites' : 'Send Invites'}
+                    <Text style={styles.modalDescription}>
+                      {getInviteDescription()}
                     </Text>
-                  </TouchableOpacity>
+
+                    {classroomProfile?.admin_fields?.require_email && (classroomProfile?.admin_fields?.allowed_domains?.length ?? 0) > 0 && (
+                      <View style={styles.domainRestrictionsNote}>
+                        <MaterialIcons name="info" size={16} color="#4A90E2" />
+                        <Text style={styles.allowedDomainsNote}>
+                          Allowed domains: {classroomProfile?.admin_fields?.allowed_domains?.join(', ')}
+                        </Text>
+                      </View>
+                    )}
+
+                    <TextInput
+                      style={styles.inviteInput}
+                      placeholder={getInvitePlaceholder()}
+                      value={newInvites}
+                      onChangeText={setNewInvites}
+                      multiline
+                      numberOfLines={6}
+                      textAlignVertical="top"
+                      returnKeyType="done"
+                    />
+                  </ScrollView>
+
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.pasteButton]}
+                      onPress={async () => {
+                        const text = await Clipboard.getStringAsync();
+                        if (text) {
+                          setNewInvites(text);
+                          Alert.alert('Success', 'Text pasted successfully!');
+                        }
+                      }}
+                    >
+                      <MaterialIcons name="content-paste" size={20} color="#4A90E2" />
+                      <Text style={styles.pasteButtonText}>Paste</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.cancelButton]}
+                      onPress={() => setShowInviteModal(false)}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.sendButton]}
+                      onPress={processInvitations}
+                    >
+                      <Text style={styles.sendButtonText}>
+                        {classroomProfile?.admin_fields?.require_email ? 'Send Email Invites' : 'Send Invites'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+            </KeyboardAvoidingView>
+          </Modal>
+        )}
       </ScrollView>
     </View>
   );

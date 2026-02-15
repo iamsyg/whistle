@@ -127,6 +127,7 @@ async def fetch_email_classroom_profile_controller(
                 "total": total_members,
                 "has_more": offset + limit < total_members
             },
+            "admin_fields": None,  # to be filled if is_admin
             "meta": None
         }
 

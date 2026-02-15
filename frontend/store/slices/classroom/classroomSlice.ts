@@ -99,24 +99,6 @@ const classroomSlice = createSlice({
       state.subClassroomType = action.payload.type;
     },
 
-    updateClassroomProfile: (
-      state,
-      action: PayloadAction<{
-        chat_id: string;
-        changes: Partial<UserConversation>;
-      }>
-    ) => {
-      const classroom = state.classroomById[action.payload.chat_id];
-      if (classroom) {
-        Object.assign(classroom, action.payload.changes);
-      }
-    },
-
-    removeClassroomProfile: (state, action: PayloadAction<string>) => {
-      delete state.classroomById[action.payload];
-      state.classroomIds = state.classroomIds.filter(id => id !== action.payload);
-    },
-
     setClassroomLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
     },
@@ -203,8 +185,6 @@ export const {
   upsertClassroom,
   setAllClassrooms,
   setSelectedClassroom,
-  updateClassroomProfile,
-  removeClassroomProfile,
   setClassroomLoading,
   setMessages,
   addMessage,
