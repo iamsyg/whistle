@@ -63,9 +63,6 @@ const ChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
 
   useEffect(() => {
     console.log('🧑 My Profile ID:', myProfileId);
-    backendMessages.forEach((m) => {
-      console.log('📨 Message sender:', m.sender_id);
-    });
   }, [backendMessages, myProfileId]);
 
   const renderMessage = ({ item }: { item: FrontendMessage }) => (

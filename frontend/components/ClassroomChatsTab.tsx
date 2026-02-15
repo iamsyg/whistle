@@ -11,7 +11,7 @@ import {
   RefreshControl,
 } from 'react-native';
 // import MessageBubble from './MessageBubble';
-import MessageLayoutClassroom from './MessageLayoutClassroom'; 
+import MessageLayoutClassroom from './MessageLayoutClassroom';
 import useGetClassroomMessages from '@/hooks/classroom/messages/useGetClassroomMessage';
 import { mapClassroomBackendMessageToUI } from '@/utils/messageMapper';
 import { useSelector } from 'react-redux';
@@ -29,8 +29,8 @@ const ClassroomChatsTab: React.FC<ChatsTabProps> = ({ isDarkMode = false }) => {
   const flatListRef = useRef<FlatList<ClassroomFrontendMessage>>(null);
 
   const [isAtBottom, setIsAtBottom] = useState(true);
-const prevMessageCountRef = useRef(0);
-const isAtBottomRef = useRef(true);
+  const prevMessageCountRef = useRef(0);
+  const isAtBottomRef = useRef(true);
 
 
   // const chatId = useSelector((state: RootState) => state.conversation.selectedConversationId)
@@ -59,44 +59,41 @@ const isAtBottomRef = useRef(true);
   // );
 
   const requireEmail = useSelector((state: RootState) => {
-    
+
     if (!chatId) return false;
-    return state.classroom.classroomById[chatId]?.require_email ?? false; 
+    return state.classroom.classroomById[chatId]?.require_email ?? false;
   })
 
   const uiMessages = useMemo(() => {
     if (!myProfileId || !chatId) return [];
 
     return backendMessages.map(m =>
-        mapClassroomBackendMessageToUI(
-          m,
-          myProfileId,
-          requireEmail
-        )
-      );
+      mapClassroomBackendMessageToUI(
+        m,
+        myProfileId,
+        requireEmail
+      )
+    );
   }, [backendMessages, myProfileId, chatId, contactsByProfileId, requireEmail]);
 
   useEffect(() => {
     console.log('🧑 My Profile ID:', myProfileId);
-    backendMessages.forEach((m) => {
-      console.log('📨 Message sender:', m.sender_id);
-    });
   }, [backendMessages, myProfileId]);
 
 
   useEffect(() => {
-  const prevCount = prevMessageCountRef.current;
-  const newCount = uiMessages.length;
+    const prevCount = prevMessageCountRef.current;
+    const newCount = uiMessages.length;
 
-  // Only run when new message is ADDED
-  if (newCount > prevCount) {
-    if (isAtBottom) {
-      flatListRef.current?.scrollToEnd({ animated: true });
+    // Only run when new message is ADDED
+    if (newCount > prevCount) {
+      if (isAtBottom) {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }
     }
-  }
 
-  prevMessageCountRef.current = newCount;
-}, [uiMessages.length, isAtBottom]);
+    prevMessageCountRef.current = newCount;
+  }, [uiMessages.length, isAtBottom]);
 
   const renderMessage = ({ item }: { item: ClassroomFrontendMessage }) => (
     <MessageLayoutClassroom
@@ -151,7 +148,7 @@ const isAtBottomRef = useRef(true);
             isAtBottomRef.current = atBottom;
           }}
 
-        scrollEventThrottle={16}
+          scrollEventThrottle={16}
 
         />
 
