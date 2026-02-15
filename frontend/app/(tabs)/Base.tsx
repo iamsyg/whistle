@@ -27,7 +27,6 @@ import { setSelectedClassroom } from '@/store/slices/classroom/classroomSlice';
 import { useFetchNonEmailClassrooms } from '@/hooks/classroom/fetchClassrooms/useFetchNonEmailClassrooms';
 import { clearClassrooms, setAllClassrooms, setClassroomLoading } from "@/store/slices/classroom/classroomSlice";
 import { UserConversation } from '@/types/conversation';
-import { ClassroomMeta } from '@/types/classroom';
 
 export default function BaseScreen() {
   const [isLoading, setIsLoading] = useState(false);
@@ -233,7 +232,7 @@ export default function BaseScreen() {
             {item.title}
           </Text>
 
-          <Text style={styles.classroomMeta}>
+          <Text style={styles.classroomData}>
             By {item.creator.google_name || item.creator.name || 'Unknown'}
           </Text>
 
@@ -480,7 +479,7 @@ const styles = StyleSheet.create({
     color: '#2d1e5f',
     marginBottom: 4,
   },
-  classroomMeta: {
+  classroomData: {
     fontSize: 13,
     color: '#555',
     marginBottom: 2,

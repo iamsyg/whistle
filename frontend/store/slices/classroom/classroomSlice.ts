@@ -1,13 +1,11 @@
 // frontend/store/slices/classroom/classroomSlice.ts
 
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-// import { ClassroomMeta } from "@/types/classroom";
 import { UserConversation } from "@/types/conversation";
 import { ClassroomBackendMessage } from "@/types/backend/classroomMessage";
 import { getMessagePreview } from "@/utils/messageMapper";
 
 interface ClassroomState {
-  // classrooms: Record<string, ClassroomMeta>; // key = chat_id
   // selectedClassroomId: string | null;
   // classroomMessages: Record<string, ClassroomBackendMessage[]>; // key = chat_id
   // loading: boolean;

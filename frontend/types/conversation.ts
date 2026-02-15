@@ -1,8 +1,5 @@
 // frontend/types/conversation.ts
 
-// import { ClassroomMeta } from "./classroom";
-
-
 export interface UserConversation {
   chat_id: string;
   type: 'chat' | 'classroom';
