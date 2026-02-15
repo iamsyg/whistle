@@ -21,7 +21,6 @@ import conversationReducer from './slices/message/conversationSlice';
 import messageReducer from './slices/message/messageSlice';
 import contactsReducer from './slices/contacts/contactsSlice';
 import classroomReducer from './slices/classroom/classroomSlice';
-import classroomMembersCardReducer from './slices/classroom/classroomMembersCard';
 import classroomProfileReducer from './slices/classroom/classroomProfileSlice';
 
 const rootReducer = combineReducers({
@@ -32,7 +31,6 @@ const rootReducer = combineReducers({
   message: messageReducer,
   contacts: contactsReducer,
   classroom: classroomReducer,
-  classroomMembersCard: classroomMembersCardReducer,
   classroomProfile: classroomProfileReducer,
 });
 
