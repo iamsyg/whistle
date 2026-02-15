@@ -60,19 +60,25 @@ const ClassroomScreen = () => {
   );
 
   const { sendMessage, loading: sendingMessage } = useSendClassroomMessage(chat_id);
+
   const { isConnected, sendTypingIndicator, reconnect } = useWebSocket('classroom');
+
   const { fetchRequests, loading: loadingRequests, error: requestsError } = useFetchJoinRequests(chat_id || '');
 
-  // Set selected classroom in Redux
-  useEffect(() => {
-    if (chat_id && chat_id !== selectedClassroomId) {
-      dispatch(setSelectedClassroom({
-          conversationId: chat_id,
-          type: 'non-email-classroom',
-      }));
+  const { acceptClassroomRequest, loading: acceptingRequest, error: acceptRequestError } = useAcceptClassroomRequest(classroomRequestId || '');
 
-    }
-  }, [chat_id, selectedClassroomId, dispatch]);
+  const { rejectClassroomRequest, loading: rejectingRequest, error: rejectRequestError } = useRejectClassroomRequest(classroomRequestId || '');
+
+  // Set selected classroom in Redux
+  // useEffect(() => {
+  //   if (chat_id && chat_id !== selectedClassroomId) {
+  //     dispatch(setSelectedClassroom({
+  //       conversationId: chat_id,
+  //       type: 'non-email-classroom',
+  //     }));
+
+  //   }
+  // }, [chat_id, selectedClassroomId, dispatch]);
 
   // Handle tab change
   const handleTabChange = (tab: ClassroomTab) => {
@@ -96,42 +102,44 @@ const ClassroomScreen = () => {
 
   const handleMediaSelected = async (media: any[]) => {
     console.log('Selected media:', media);
-  
+
     // Process the selected media here
     // 1. Upload to server
     // 2. Display in chat
     // 3. Store link in database
-  
+
     if (!selectedClassroomId) return;
-  
+
     try {
-      for (const item of media) {
-  
-        const mimeType = resolveMimeType(item);
-  
-        const uploadedMessage = await uploadMedia({
-          uri: item.uri,
-          fileName: item.fileName ?? item.name ?? 'file',
-          mimeType: mimeType,
-          chatId: selectedClassroomId,
-          conversationType: 'classroom',
-        });
-  
-        console.log('Uploaded media message:', uploadedMessage);
-  
-        // Add message instantly to Redux store
-        dispatch(
-          addMessage({
-            chat_id: selectedClassroomId,
-            message: uploadedMessage,
-          })
-        );
-      }
+      await Promise.all(
+        media.map(async (item) => {
+
+          const mimeType = resolveMimeType(item);
+
+          const uploadedMessage = await uploadMedia({
+            uri: item.uri,
+            fileName: item.fileName ?? item.name ?? 'file',
+            mimeType: mimeType,
+            chatId: selectedClassroomId,
+            conversationType: 'classroom',
+          });
+
+          console.log('Uploaded media message:', uploadedMessage);
+
+          // Add message instantly to Redux store
+          dispatch(
+            addMessage({
+              chat_id: selectedClassroomId,
+              message: uploadedMessage,
+            })
+          );
+        }));
+
     } catch (error) {
       console.error(error);
       Alert.alert('Upload failed', 'Could not upload media');
     };
-  
+
     media.forEach(item => {
       if (item.type === 'image') {
         // Handle image
@@ -155,18 +163,6 @@ const ClassroomScreen = () => {
     return classroom?.description || '';
   }, [classroom]);
 
-  // Show loading if classroom not found
-  if (!classroom) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.initializingContainer}>
-          <ActivityIndicator size="large" color="#1971c2" />
-          <Text style={styles.loadingText}>Loading classroom...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   useEffect(() => {
     if (!classroom?.is_admin) return;
 
@@ -180,9 +176,17 @@ const ClassroomScreen = () => {
     });
   }, [classroom?.is_admin]);
 
-  const { acceptClassroomRequest, loading: acceptingRequest, error: acceptRequestError } = useAcceptClassroomRequest(classroomRequestId || '');
-
-  const { rejectClassroomRequest, loading: rejectingRequest, error: rejectRequestError } = useRejectClassroomRequest(classroomRequestId || '');
+  // Show loading if classroom not found
+  if (!classroom) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.initializingContainer}>
+          <ActivityIndicator size="large" color="#1971c2" />
+          <Text style={styles.loadingText}>Loading classroom...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView
@@ -206,7 +210,7 @@ const ClassroomScreen = () => {
           onPress={() => {
             router.push({
               pathname: '/(screens)/classroomProfile',
-              params: { chat_id }
+              params: { chat_id: selectedClassroomId || chat_id }
             })
           }}
         />

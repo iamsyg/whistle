@@ -5,9 +5,10 @@ import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { Alert } from 'react-native';
 import { FrontendMessage } from '@/types/frontend/message';
+import { ClassroomFrontendMessage } from '@/types/frontend/classroomMessage';
 
 export async function downloadMediaToDevice(
-  message?: FrontendMessage
+  message?: FrontendMessage | ClassroomFrontendMessage
 ) {
   try {
     const originalName = message?.metadata?.original_name;

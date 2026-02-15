@@ -3,7 +3,8 @@
 export type FrontendCoreMessageType =
   | 'text'
   | 'image'
-  | 'file'
+  | 'video'
+  | 'document'
   | 'system';
 
 export interface BaseFrontendMessage<
@@ -20,7 +21,25 @@ export interface BaseFrontendMessage<
   timestamp: Date; // UI-friendly
 
   type: TMessageType;
-  metadata?: Record<string, unknown>;
+  // metadata?: Record<string, unknown>;
+  metadata?: MediaMetadata | Record<string, any>;
 
   isRead: boolean;
+}
+
+
+export interface MediaMetadata {
+  url: string;
+  original_name?: string;
+  mime_type?: string;
+
+  cloudinary?: {
+    public_id: string;
+    resource_type: string;
+    format?: string;
+    bytes?: number;
+    width?: number;
+    height?: number;
+    duration?: number;
+  }
 }

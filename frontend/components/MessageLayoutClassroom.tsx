@@ -11,6 +11,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { ClassroomFrontendMessage } from '@/types/frontend/classroomMessage';
 
+import { Image } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
+import { downloadMediaToDevice } from '@/utils/downloadMediaToDevice';
+
+
 interface MessageLayoutProps {
     message: ClassroomFrontendMessage;
     isOwnMessage: boolean;
@@ -48,20 +53,142 @@ const MessageLayoutClassroom: React.FC<MessageLayoutProps> = ({
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
+    // const renderContent = () => {
+    //     return (
+    //         <>
+    //             {message.senderName && !isOwnMessage && (
+    //                 <Text style={styles.senderName}>
+    //                     {message.senderName || message.senderGoogleName}
+    //                 </Text>
+    //             )}
+    //             <Text style={[styles.messageText, { color: isOwnMessage ? colors.ownText : colors.otherText }]}>
+    //                 {message.text}
+    //             </Text>
+    //         </>
+    //     )
+    // };
+
+
     const renderContent = () => {
+        const senderNameBlock =
+            message.senderName && !isOwnMessage ? (
+                <Text style={styles.senderName}>
+                    {message.senderName || message.senderGoogleName}
+                </Text>
+            ) : null;
+
+        // 🖼 IMAGE
+        if (message.type === 'image') {
+            return (
+                <>
+                    {senderNameBlock}
+
+                    {message.metadata?.url && (
+                        <TouchableOpacity
+                            onLongPress={() => downloadMediaToDevice(message)}
+                        >
+                            <Image
+                                source={{ uri: message.metadata.url }}
+                                style={{ width: 220, height: 220, borderRadius: 14 }}
+                                resizeMode="cover"
+                            />
+                        </TouchableOpacity>
+                    )}
+
+                    {message.text ? (
+                        <Text
+                            style={[
+                                styles.messageText,
+                                { color: isOwnMessage ? colors.ownText : colors.otherText }
+                            ]}
+                        >
+                            {message.text}
+                        </Text>
+                    ) : null}
+                </>
+            );
+        }
+
+        // 🎥 VIDEO
+        if (message.type === 'video') {
+            return (
+                <>
+                    {senderNameBlock}
+
+                    {message.metadata?.url && (
+                        <TouchableOpacity
+                            onLongPress={() => downloadMediaToDevice(message)}
+                        >
+                            <Video
+                                source={{ uri: message.metadata.url }}
+                                style={{ width: 240, height: 280, borderRadius: 14 }}
+                                resizeMode={ResizeMode.CONTAIN}
+                                useNativeControls
+                                shouldPlay={false}
+                            />
+                        </TouchableOpacity>
+                    )}
+
+                    {message.text ? (
+                        <Text
+                            style={[
+                                styles.messageText,
+                                { color: isOwnMessage ? colors.ownText : colors.otherText }
+                            ]}
+                        >
+                            {message.text}
+                        </Text>
+                    ) : null}
+                </>
+            );
+        }
+
+        // 📄 DOCUMENT
+        if (message.type === 'document') {
+            return (
+                <>
+                    {senderNameBlock}
+
+                    {message.metadata?.url && (
+                        <TouchableOpacity
+                            style={styles.documentContainer}
+                            onPress={() => downloadMediaToDevice(message)}
+                        >
+                            <Ionicons
+                                name="document-text-outline"
+                                size={22}
+                                color="#1971c2"
+                            />
+                            <View style={{ marginLeft: 8 }}>
+                                <Text style={styles.documentName}>
+                                    {message.metadata.original_name || 'Document'}
+                                </Text>
+                                <Text style={styles.documentMeta}>
+                                    Tap to download
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+                    )}
+                </>
+            );
+        }
+
+        // 💬 TEXT (default)
         return (
             <>
-                {message.senderName && !isOwnMessage && (
-                    <Text style={styles.senderName}>
-                        {message.senderName || message.senderGoogleName}
-                    </Text>
-                )}
-                <Text style={[styles.messageText, { color: isOwnMessage ? colors.ownText : colors.otherText }]}>
+                {senderNameBlock}
+                <Text
+                    style={[
+                        styles.messageText,
+                        { color: isOwnMessage ? colors.ownText : colors.otherText }
+                    ]}
+                >
                     {message.text}
                 </Text>
             </>
-        )
+        );
     };
+
 
     return (
         <View>
@@ -141,8 +268,28 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
         marginBottom: 2,
-        color: '#1FA855', // WhatsApp-ish green
-    }
+        color: '#1FA855',
+    },
+    documentContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 10,
+        backgroundColor: '#F1F3F5',
+        borderRadius: 12,
+        marginVertical: 4,
+        maxWidth: 240,
+    },
+
+    documentName: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+
+    documentMeta: {
+        fontSize: 12,
+        color: '#666',
+    },
+
 });
 
 export default MessageLayoutClassroom;

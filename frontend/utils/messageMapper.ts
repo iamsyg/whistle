@@ -5,24 +5,57 @@ import { FrontendMessage } from '@/types/frontend/message';
 import { getSenderDisplayName } from './getDisplayName';
 
 
-export const getMessagePreview = (msg: BackendMessage) => {
-  switch (msg.message_type) {
-    case "image":
-      return "🖼️ Photo";
-    case "video":
-      return "🎥 Video";
-    case "document":
-      return "📄 Document";
-    case "task":
-      return "✅ Task";
-    case "money_split":
-      return "💸 Split";
-    case "system":
-      return "ℹ️ System message";
+// export const getMessagePreview = (msg: BackendMessage) => {
+//   switch (msg.message_type) {
+//     case "image":
+//       return "🖼️ Photo";
+//     case "video":
+//       return "🎥 Video";
+//     case "document":
+//       return "📄 Document";
+//     case "task":
+//       return "✅ Task";
+//     case "money_split":
+//       return "💸 Split";
+//     case "system":
+//       return "ℹ️ System message";
+//     default:
+//       return msg.content;
+//   }
+// };
+
+
+
+import { BaseBackendMessage } from "@/types/backend/baseMessage";
+
+export function getMessagePreview<T extends string>(
+  message: BaseBackendMessage<T>
+): string {
+
+  switch (message.message_type) {
+    case 'image':
+      return '🖼️ Photo';
+
+    case 'video':
+      return '🎥 Video';
+
+    case 'document':
+      return '📎 Document';
+
+    case 'assignment':
+      return '📝 Assignment';
+
+    case 'announcement':
+      return '📢 Announcement';
+
+    case 'system':
+      return message.content;
+
     default:
-      return msg.content;
+      return message.content;
   }
-};
+}
+
 
 
 const MESSAGE_TYPE_MAP: Record<

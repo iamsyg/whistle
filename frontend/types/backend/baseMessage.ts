@@ -34,5 +34,6 @@ export interface BaseBackendMessage<TMessageType extends string = string> {
 export type CoreMessageType =
   | 'text'
   | 'image'
-  | 'file'
+  | 'video'
+  | 'document'
   | 'system';

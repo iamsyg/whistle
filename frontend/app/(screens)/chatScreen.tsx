@@ -33,9 +33,11 @@ import { RootState } from '@/store/store';
 import { Contact } from '@/types/contact';
 import useSendMessage from '@/hooks/useSendMessage';
 import { useDispatch } from 'react-redux';
-import { clearConversation, setConversation } from '@/store/slices/message/conversationSlice';
+import { addMessage, clearConversation, setConversation } from '@/store/slices/message/conversationSlice';
 import useGetConversationId from '@/hooks/useGetConversationId';
 import useWebSocket from '@/contexts/useWebSocket';
+import { uploadMedia } from '@/utils/uploadMedia';
+import resolveMimeType from '@/utils/resolveMimeType';
 
 export default function ChatScreen() {
 
@@ -53,36 +55,47 @@ export default function ChatScreen() {
 
   const myUserId = useSelector((state: RootState) => state.profile.userId);
 
-  const {selectedConversationId, conversationType, contactProfileId} = useSelector(
+  const { selectedChatId, subConversationType, contactProfileId, chatById } = useSelector(
     (state: RootState) => state.conversation
   );
+
+  console.log("ChatScreen - selectedChatId:", selectedChatId);
+  console.log("ChatScreen - subConversationType:", subConversationType);
+  console.log("ChatScreen - contactProfileId:", contactProfileId);
+  console.log("ChatScreen - myUserId:", chatById);
 
   const contact = useSelector((state: RootState) =>
     contactProfileId ? state.contacts.byProfileId[contactProfileId] : undefined
   );
 
-  const conversationId = selectedConversationId;
+  const conversationId = selectedChatId;
 
   const { sendMessage, loading } = useSendMessage();
   const { loading: initializingChat, error: chatError } = useGetConversationId();
   const { isConnected, sendTypingIndicator, reconnect } = useWebSocket(); // ✅ WebSocket
 
-  const groupTitle = useSelector((state: RootState) =>
-  (state.conversation.userAllConversations ?? []).find(
-    c => c.chat_id === selectedConversationId
-  )?.title
-);
+  // const groupTitle = useSelector((state: RootState) =>
+  //   (state.conversation.userAllConversations ?? []).find(
+  //     c => c.chat_id === selectedChatId
+  //   )?.title
+  // );
+
+  const groupTitle = useMemo(() => {
+  return selectedChatId
+    ? chatById[selectedChatId]?.title
+    : undefined;
+}, [selectedChatId, chatById]);
 
   // ✅ Determine header title with fallback chain
   const headerTitle = useMemo(() => {
-    if(conversationType === "direct" && contact) {
+    if (subConversationType === "direct" && contact) {
       if (contact?.name) return contact.name;
       if (contact?.phone) return contact.phone;
-    } else if (conversationType === "group") {
+    } else if (subConversationType === "group") {
       return groupTitle || 'Group Chat';
     }
     return 'Chat';
-  }, [contact, conversationType, groupTitle]);
+  }, [contact, subConversationType, groupTitle]);
 
   // ✅ Get last seen status (you can enhance this with real data later)
   const lastSeenStatus = useMemo(() => {
@@ -115,13 +128,13 @@ export default function ChatScreen() {
   };
 
   useEffect(() => {
-    if (conversationType === "direct" && !contactProfileId) {
+    if (subConversationType === "direct" && !contactProfileId) {
       console.warn('⚠️  No contact selected, redirecting...');
       Alert.alert('Error', 'No contact selected', [
         { text: 'OK', onPress: () => router.back() }
       ]);
     }
-  }, [contactProfileId, conversationType]);
+  }, [contactProfileId, subConversationType]);
 
   useEffect(() => {
     return () => {
@@ -141,24 +154,58 @@ export default function ChatScreen() {
     console.log('  - WebSocket Connected:', isConnected);
   }, [contactProfileId, contact, conversationId, isConnected]);
 
-const handleMediaSelected = (media: any[]) => {
-  console.log('Selected media:', media);
 
-  // Process the selected media here
-  // 1. Upload to server
-  // 2. Display in chat
-  // 3. Store link in database
-  
-  media.forEach(item => {
-    if (item.type === 'image') {
-      // Handle image
-      console.log('Image selected:', item.uri);
-    } else if (item.type === 'video') {
-      // Handle video
-      console.log('Video selected:', item.uri);
-    }
-  });
-};
+  const handleMediaSelected = async (media: any[]) => {
+    console.log('Selected media:', media);
+
+    // Process the selected media here
+    // 1. Upload to server
+    // 2. Display in chat
+    // 3. Store link in database
+
+    if (!conversationId || !subConversationType) return;
+
+    try {
+      
+        await Promise.all(
+          media.map(async (item) => {
+
+            const mimeType = resolveMimeType(item);
+            
+            const uploadedMessage = await uploadMedia({
+              uri: item.uri,
+              fileName: item.fileName ?? item.name ?? 'file',
+              mimeType: mimeType,
+              chatId: conversationId,
+              conversationType: subConversationType,
+            });
+
+            console.log('Uploaded media message:', uploadedMessage);
+
+            // Add message instantly to Redux store
+            dispatch(addMessage({
+              chat_id: conversationId,
+              message: uploadedMessage,
+            }))
+          }));
+      
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Upload failed', 'Could not upload media');
+    };
+
+    media.forEach(item => {
+      if (item.type === 'image') {
+        // Handle image
+        console.log('Image selected:', item.uri);
+      } else if (item.type === 'video') {
+        // Handle video
+        console.log('Video selected:', item.uri);
+      } else {
+        console.log('document selected:', item.uri);
+      }
+    });
+  };
 
   return (
     <SafeAreaView
