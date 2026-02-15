@@ -25,7 +25,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
 import { updateClassroomProfile } from '@/store/slices/classroom/classroomProfileSlice';
 
-import { useFetchEmailClassroomProfile } from '@/hooks/classroom/fetchClassroomProfile/fetchEmailClassroomProfile';
+import { useFetchEmailClassroomProfile } from '@/hooks/classroom/fetchClassroomProfile/useFetchEmailClassroomProfile';
+import { useFetchNonEmailClassroomProfile } from '@/hooks/classroom/fetchClassroomProfile/useFetchNonEmailClassroomProfile';
 import { Members } from '@/types/classroom/classroomProfileTypes';
 
 interface ClassroomProfileProps {
@@ -47,7 +48,9 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
   console.log('Active chat ID in ClassroomProfile:', activeChatId);
 
-  const { fetchClassroomProfile, error } = useFetchEmailClassroomProfile(activeChatId);
+  const { fetchClassroomProfile: fetchEmailClassroomProfile, error } = useFetchEmailClassroomProfile(activeChatId);
+
+  const { fetchClassroomProfile: fetchNonEmailClassroomProfile, error: nonEmailError } = useFetchNonEmailClassroomProfile(activeChatId);
 
   const [loading, setLoading] = useState(false);
 
@@ -110,7 +113,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
 
       try {
         // members = await fetchEmailClassroomMembers();
-        profile = await fetchClassroomProfile();
+        profile = await fetchEmailClassroomProfile();
 
       }
       catch (err) {
@@ -121,6 +124,7 @@ const ClassroomProfile: React.FC<ClassroomProfileProps> = ({ classroomId, onBack
     else if (classroom?.join_method === 'non-email') {
       try {
         // members = await fetchNonEmailClassroomMembers();
+        profile = await fetchNonEmailClassroomProfile();
       }
       catch (err) {
         Alert.alert('Error', 'Failed to fetch classroom profile. Please try again later.');
