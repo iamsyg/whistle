@@ -1,10 +1,14 @@
 # backend/app/routes/chat.py
 
+from datetime import datetime
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException
+from pyparsing import Literal, Optional
 
 from app.controllers.messages.send_chat_messages import send_chat_messages
 from app.controllers.messages.get_chat_messages import get_chat_messages
+
+from app.controllers.chat.task.create_task import create_task_controller
 
 from app.controllers.conversation_controller import get_or_create_direct_chat_controller
 from app.middlewares.secure_route import verify_jwt_token
@@ -100,5 +104,39 @@ async def get_messages_endpoint(
         raise
     except Exception as e:
         print(f"❌ Error fetching messages: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/task/create/{chat_id}")
+async def create_task_endpoint(
+    chat_id: str,
+    title: str = Body(..., embed=True),
+    assignee_ids: list[str] = Body(..., embed=True),
+    description: str = Body(None, embed=True),
+    due_date: datetime | None = Body(None, embed=True),
+    task_status: str = Body(..., embed=True),
+    creator_id: str = Depends(verify_jwt_token),
+):
+
+    try:
+        print(f"/task/create/chat_id: {chat_id} creator_id: {creator_id} title: {title} assignee_ids: {assignee_ids} description: {description} due_date: {due_date} task_status: {task_status}")
+
+        task = create_task_controller(
+            chat_id=chat_id,
+            creator_id=creator_id,
+            title=title,
+            description=description,
+            due_date=due_date,
+            task_status=task_status,
+            assignee_ids=assignee_ids
+        )
+
+        return task
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error creating task: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
