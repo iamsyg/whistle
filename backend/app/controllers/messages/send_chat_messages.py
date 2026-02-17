@@ -17,6 +17,10 @@ async def send_chat_messages(
                     "p_chat_id": chat_id,
                     "p_sender_id": sender_id,
                     "p_content": content,
+                    "p_metadata": {
+                        "type": "text",
+                        "payload": {}
+                    }
                 },
             )
             .execute()
@@ -38,7 +42,7 @@ async def send_chat_messages(
 
             "content": rpc_msg["content"],
             "message_type": rpc_msg.get("message_type", "text"),
-            "metadata": rpc_msg.get("metadata"),
+            "metadata": rpc_msg.get("metadata") or {},
             "reply_to_id": rpc_msg.get("reply_to_id"),
 
             "created_at": rpc_msg["created_at"],
@@ -62,6 +66,10 @@ async def send_chat_messages(
             #     "google_avatar": rpc_msg["sender"].get("google_avatar"),
             # },
             "sender": rpc_msg.get("sender"),   # 🔥 THIS IS THE KEY
+            "entities": {
+                "tasks": None,
+                "assignees": None,
+            }
         }
 
         return message

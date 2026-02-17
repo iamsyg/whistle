@@ -177,6 +177,10 @@ async def get_chat_messages(sender_id: str, chat_id: str):
                 "deleted_at": msg["deleted_at"],
 
                 "sender": resolve_sender(msg, classroom_meta, sender_member),
+                "entities": {
+                    "tasks": None,
+                    "assignees": None,
+                }
             })
 
         return messages

@@ -1,7 +1,5 @@
 # backend/app/controllers/chat/task/create_task.py
 
-# Fix api response structure and ensure task creation is atomic with system message creation
-
 from fastapi import HTTPException
 from app.utils.supabase_client import supabase
 from typing import List, Optional, Literal
@@ -18,16 +16,10 @@ def create_task_controller(
     task_status: Literal["pending", "in_progress", "completed"] = "pending",
 ):
     try:
-       
-        # Basic Validations
-       
         if not title or not title.strip():
             raise HTTPException(status_code=400, detail="Task title is required")
 
-        if task_status not in ["pending", "in_progress", "completed"]:
-            raise HTTPException(status_code=400, detail="Invalid task status")
-
-        if not assignee_ids or len(assignee_ids) == 0:
+        if not assignee_ids:
             raise HTTPException(
                 status_code=400,
                 detail="At least one assignee is required"
@@ -39,9 +31,7 @@ def create_task_controller(
             else:
                 due_date = due_date.astimezone(timezone.utc)
 
-       
         # Insert Task
-   
         task_payload = {
             "chat_id": chat_id,
             "created_by": creator_id,
@@ -59,94 +49,103 @@ def create_task_controller(
         created_task = task_res.data[0]
         task_id = created_task["id"]
 
-
         # Insert Assignees
-     
         unique_ids = list(set(assignee_ids))
 
         assignee_rows = [
-            {
-                "task_id": task_id,
-                "user_id": user_id,
-            }
-            for user_id in unique_ids
+            {"task_id": task_id, "user_id": uid}
+            for uid in unique_ids
         ]
 
-        assignee_res = (
+        supabase.table("task_assignees").insert(assignee_rows).execute()
+
+        # Create System Message via RPC
+        rpc_res = (
             supabase
-            .table("task_assignees")
-            .insert(assignee_rows)
+            .rpc(
+                "send_message_rpc",
+                {
+                    "p_chat_id": chat_id,
+                    "p_sender_id": creator_id,
+                    "p_content": None,
+                    "p_message_type": "system",
+                    "p_metadata": {
+                        "type": "task",
+                        "payload": {
+                            "entity": "task",
+                            "entity_id": task_id,
+                            "action": "created",
+                        }
+                    },
+                },
+            )
             .execute()
         )
 
-        if not assignee_res.data:
-            raise HTTPException(status_code=500, detail="Failed to assign task")
-
-     
-        # Insert System Message
-     
-        system_message_payload = {
-            "chat_id": chat_id,
-            "sender_id": creator_id,
-            "message_type": "system",
-            "content": None,
-            "metadata": {
-                "entity": "task",
-                "entity_id": task_id,
-                "action": "created",
-            },
-        }
-
-        message_res = (
-            supabase
-            .table("messages")
-            .insert(system_message_payload)
-            .execute()
-        )
-
-        if not message_res.data:
+        if not rpc_res.data:
             raise HTTPException(status_code=500, detail="Failed to create system message")
 
-        system_message = message_res.data[0]
-        message_id = system_message["id"]
+        rpc_msg = rpc_res.data[0]
+        message_id = rpc_msg["id"]
 
-        # After creating system message
+        # Link message to task
         supabase.table("tasks").update(
             {"message_id": message_id}
         ).eq("id", task_id).execute()
 
-      
-        # Update chat.last_message_id
-       
+        # Fetch task with creator
+        # task_with_creator = (
+        #     supabase
+        #     .table("tasks")
+        #     .select("""
+        #         *,
+        #         creator:created_by (
+        #             id,
+        #             name,
+        #             username,
+        #             avatar_url
+        #         )
+        #     """)
+        #     .eq("id", task_id)
+        #     .single()
+        #     .execute()
+        # )
 
-        supabase.table("chat").update(
-            {
-                "last_message_id": message_id,
-                "last_message_at": system_message["created_at"],
-            }
-        ).eq("id", chat_id).execute()
-
-      
-        # Return Response
-      
-        # return {
-        #     "task": created_task,
-        #     "assignees": assignee_res.data,
-        #     "system_message": system_message,
-        # }
+        # Fetch assignee profiles
+        # profiles_res = (
+        #     supabase
+        #     .table("profile")
+        #     .select("id, name, username, avatar_url")
+        #     .in_("id", unique_ids)
+        #     .execute()
+        # )
 
         return {
-            "message": system_message,
+            "id": rpc_msg.get("id"),
+            "chat_id": rpc_msg.get("chat_id"),
+            "sender_id": rpc_msg.get("sender_id"),
+
+            "content": rpc_msg.get("content"),
+            "message_type": rpc_msg.get("message_type"),
+            "metadata": rpc_msg.get("metadata") or {},
+            "reply_to_id": rpc_msg.get("reply_to_id"),
+
+            "created_at": rpc_msg.get("created_at"),
+            "edited_at": None,
+            "deleted_at": None,
+            
+            "sender": rpc_msg.get("sender"),
+            # "message": rpc_msg,
             "entities": {
-                "tasks": [created_task],
-                "users": assignee_res.data,
+                # "tasks": [task_with_creator.data],
+                "tasks": None,
+                # "assignees": profiles_res.data,
+                "assignees": None,
             }
         }
 
-
     except HTTPException:
         raise
-
     except Exception as e:
         raise HTTPException(
             status_code=500,

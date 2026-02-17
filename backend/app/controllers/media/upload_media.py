@@ -75,18 +75,22 @@ def upload_media_controller(
                     "p_content": None,
                     "p_message_type": file_type,  # images → image
                     "p_metadata": {
-                        "url": result["secure_url"],
-                        "original_name": file.filename,
-                        "mime_type": content_type,
-                        "cloudinary": {
-                            "public_id": result["public_id"],
-                            "resource_type": result["resource_type"],
-                            "bytes": result["bytes"],
-                            "format": result.get("format"),
-                            "width": result.get("width"),
-                            "height": result.get("height"),
-                            "duration": result.get("duration"),
-                        },
+                        "type": "media",
+                        "payload": {
+                            "url": result["secure_url"],
+                            "original_name": file.filename,
+                            "mime_type": content_type,
+                            "cloudinary": {
+                                "public_id": result["public_id"],
+                                "resource_type": result["resource_type"],
+                                "bytes": result["bytes"],
+                                "format": result.get("format"),
+                                "width": result.get("width"),
+                                "height": result.get("height"),
+                                "duration": result.get("duration"),
+                            },
+                        }
+                        
                     }
                 }
             )
@@ -136,6 +140,10 @@ def upload_media_controller(
             #     "google_avatar": rpc_msg["sender"].get("google_avatar"),
             # },
             "sender": rpc_msg.get("sender"),   # 🔥 THIS IS THE KEY
+            "entities": {
+                "tasks": None,
+                "assignees": None,
+            }
         }
 
         return message
