@@ -8,6 +8,8 @@ from pyparsing import Literal, Optional
 from app.controllers.messages.send_chat_messages import send_chat_messages
 from app.controllers.messages.get_chat_messages import get_chat_messages
 
+from app.controllers.chat.fetch_members.fetch_members import fetch_chat_members_controller
+
 from app.controllers.chat.task.create_task import create_task_controller
 
 from app.controllers.conversation_controller import get_or_create_direct_chat_controller
@@ -138,5 +140,26 @@ async def create_task_endpoint(
         raise
     except Exception as e:
         print(f"❌ Error creating task: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/{chat_id}/members")
+async def get_chat_members_endpoint(
+    chat_id: str,
+    user_id: str = Depends(verify_jwt_token)
+):
+    """
+    Get members of a chat
+    """
+
+    try:
+        members = await fetch_chat_members_controller(chat_id, user_id)
+        return members
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching chat members: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
