@@ -1,6 +1,6 @@
 // frontend/app/(screens)/chatScreen.tsx
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo} from 'react';
 import {
   View,
   Text,
@@ -38,6 +38,7 @@ import useGetConversationId from '@/hooks/useGetConversationId';
 import useWebSocket from '@/contexts/useWebSocket';
 import { uploadMedia } from '@/utils/uploadMedia';
 import resolveMimeType from '@/utils/resolveMimeType';
+import { useFetchMembers } from '@/hooks/chat/fetchMembers/useFetchMembers';
 
 export default function ChatScreen() {
 
@@ -59,6 +60,14 @@ export default function ChatScreen() {
     (state: RootState) => state.conversation
   );
 
+  if(!selectedChatId) {
+    console.warn('⚠️  No chat selected, redirecting...');
+    Alert.alert('Error', 'No chat selected', [
+      { text: 'OK', onPress: () => router.back() }
+    ]);
+    return null;
+  }
+
   console.log("ChatScreen - selectedChatId:", selectedChatId);
   console.log("ChatScreen - subConversationType:", subConversationType);
   console.log("ChatScreen - contactProfileId:", contactProfileId);
@@ -79,6 +88,15 @@ export default function ChatScreen() {
   //     c => c.chat_id === selectedChatId
   //   )?.title
   // );
+
+  const { fetchMembers, loading: membersLoading } = useFetchMembers(selectedChatId);
+
+  useEffect(() => {
+    if (selectedChatId) {
+      fetchMembers();
+    }
+  }, [selectedChatId]);
+
 
   const groupTitle = useMemo(() => {
   return selectedChatId

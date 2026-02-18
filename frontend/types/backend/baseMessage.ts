@@ -1,11 +1,13 @@
 // frontend/types/backend/baseMessage.ts
 
+import { Task } from "../chat/task";
+
 export interface BaseBackendMessage<TMessageType extends string = string> {
   id: string;
   chat_id: string;
   sender_id: string;
 
-  content: string;
+  content: string | null;
   message_type: TMessageType;
 
   metadata?: Record<string, any>;
@@ -42,40 +44,8 @@ export type CoreMessageType =
   | 'system';
 
 
-export type Task = {
-  
-  "id": string,
-  "chat_id": string,
-  "message_id": string,
-  "title": string,
-
-  "description": string | null,
-  "created_by": string,
-  "due_date": string | null,
-
-  "status": "pending" | "in_progress" | "completed",
-  "created_at": string,
-  "updated_at": string,
-
-  "creator": {
-      "id": string,
-      "name": string | null,
-      "username": string | null,
-      "avatar_url": string | null,
-  }
-};
-
 export type Entities = {
   "tasks"?: Task[] | null;
-  "assignees"?: Assignees[] | null;
-}
-
-export type Assignees = {
-
-  "id": string,
-  "name": string,
-  "username": string | null,
-  "avatar_url": string | null,
 }
 
 export type TextMetadata = {

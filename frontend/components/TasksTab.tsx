@@ -374,7 +374,6 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
       <CreateTask
         visible={createTaskVisible}
         onClose={() => setCreateTaskVisible(false)}
-        onSubmit={handleCreateTask}
         isDarkMode={isDarkMode}
       />
     </View>

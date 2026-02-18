@@ -1,4 +1,4 @@
-// components/chat/CreateTask.tsx
+// frontend/components/chat/CreateTask.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -14,36 +14,40 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useCreateTask } from '@/hooks/chat/useCreateTask';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '@/store/store';
+import { Task } from '@/types/chat/task';
+import { Assignees } from '@/types/chat/task';
+import { ChatMember } from '@/types/chat/members';
 
-interface Assignee {
-  id: string;
-  name: string;
-  avatar?: string;
-  status: 'pending' | 'in-progress' | 'completed';
-}
+// interface Assignee {
+//   id: string;
+//   name: string;
+//   avatar?: string;
+//   status: 'pending' | 'in_progress' | 'completed';
+// }
 
 interface CreateTaskProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (taskData: Partial<Task>) => void;
   isDarkMode?: boolean;
-  availableAssignees?: Assignee[];
+  availableAssignees?: ChatMember[];
 }
 
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  assignedTo: Assignee[];
-  dueDate: Date;
-  status: 'pending' | 'in-progress' | 'completed';
-  priority: 'low' | 'medium' | 'high';
-}
+// interface Task {
+//   id: string;
+//   title: string;
+//   description: string;
+//   assignedTo: Assignees[];
+//   dueDate: Date;
+//   status: 'pending' | 'in_progress' | 'completed';
+//   priority: 'low' | 'medium' | 'high';
+// }
 
 const CreateTask: React.FC<CreateTaskProps> = ({
   visible,
   onClose,
-  onSubmit,
   isDarkMode = false,
   availableAssignees = [],
 }) => {
@@ -51,22 +55,28 @@ const CreateTask: React.FC<CreateTaskProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
-  const [status, setStatus] = useState<'pending' | 'in-progress' | 'completed'>('pending');
-  const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
-  const [selectedAssignees, setSelectedAssignees] = useState<Assignee[]>([]);
+  const [status, setStatus] = useState<'pending' | 'in_progress' | 'completed'>('pending');
+  // const [priority, setPriority] = useState<'low' | 'medium' | 'high'>('medium');
+  const [selectedAssignees, setSelectedAssignees] = useState<ChatMember[]>([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [assigneeStatuses, setAssigneeStatuses] = useState<Record<string, 'pending' | 'in-progress' | 'completed'>>({});
+  const [assigneeStatuses, setAssigneeStatuses] = useState<Record<string, 'pending' | 'in_progress' | 'completed'>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Mock assignees if none provided
-  const mockAssignees: Assignee[] = [
-    { id: '1', name: 'You', status: 'pending' },
-    { id: '2', name: 'John Doe', status: 'pending' },
-    { id: '3', name: 'Jane Smith', status: 'pending' },
-    { id: '4', name: 'Bob Johnson', status: 'pending' },
-  ];
+  const dispatch = useDispatch();
 
-  const assignees = availableAssignees.length > 0 ? availableAssignees : mockAssignees;
+  const selectedChatId = useSelector(
+    (state: RootState) => state.conversation.selectedChatId
+  )
+
+  if (!selectedChatId) return;
+
+  const members = useSelector((state: RootState) => {
+    if (!selectedChatId) return [];
+    return state.chatMembers.membersByChatId[selectedChatId] ?? [];
+  });
+
+  const { createTask, loading } = useCreateTask(selectedChatId);
+
 
   // Reset form
   const resetForm = () => {
@@ -74,7 +84,7 @@ const CreateTask: React.FC<CreateTaskProps> = ({
     setDescription('');
     setDueDate(new Date());
     setStatus('pending');
-    setPriority('medium');
+    // setPriority('medium');
     setSelectedAssignees([]);
     setAssigneeStatuses({});
     setErrors({});
@@ -96,12 +106,6 @@ const CreateTask: React.FC<CreateTaskProps> = ({
       newErrors.title = 'Title must be at least 3 characters';
     }
 
-    if (!description.trim()) {
-      newErrors.description = 'Description is required';
-    } else if (description.length < 10) {
-      newErrors.description = 'Description must be at least 10 characters';
-    }
-
     if (selectedAssignees.length === 0) {
       newErrors.assignees = 'At least one assignee is required';
     }
@@ -111,53 +115,65 @@ const CreateTask: React.FC<CreateTaskProps> = ({
   };
 
   // Handle submit
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (validateForm()) {
-      const taskData: Partial<Task> = {
+      const taskData: any = {
         title: title.trim(),
         description: description.trim(),
-        dueDate,
+        due_date: dueDate.toISOString(),
         status,
-        priority,
-        assignedTo: selectedAssignees.map(assignee => ({
-          ...assignee,
-          status: assigneeStatuses[assignee.id] || 'pending',
-        })),
+        assignees: selectedAssignees.map(a => ({
+          user_id: a.user_id,
+          status: assigneeStatuses[a.user_id] || "pending",
+        }))
       };
 
-      onSubmit(taskData);
-      handleClose();
+      try {
+        await createTask({
+          title: taskData.title!,
+          description: taskData.description!,
+          due_date: taskData.due_date!,
+          task_status: taskData.status!,
+          assignee_ids: selectedAssignees.map(a => a.user_id),
+        })
 
-      // Show success message
-      Alert.alert(
-        'Success',
-        'Task created successfully!',
-        [{ text: 'OK' }]
-      );
+        handleClose();
+
+        // Show success message
+        Alert.alert(
+          'Success',
+          'Task created successfully!',
+          [{ text: 'OK' }]
+        );
+
+      } catch (error) {
+        console.error("Error creating task:", error);
+        Alert.alert("Error", "Failed to create task. Please try again.");
+      }
     }
   };
 
   // Toggle assignee selection
-  const toggleAssignee = (assignee: Assignee) => {
+  const toggleAssignee = (assignee: ChatMember) => {
     setSelectedAssignees(prev => {
-      const isSelected = prev.some(a => a.id === assignee.id);
-      
+      const isSelected = prev.some(a => a.user_id === assignee.user_id);
+
       if (isSelected) {
         // Remove assignee and their status
         const newStatuses = { ...assigneeStatuses };
-        delete newStatuses[assignee.id];
+        delete newStatuses[assignee.user_id];
         setAssigneeStatuses(newStatuses);
-        return prev.filter(a => a.id !== assignee.id);
+        return prev.filter(a => a.user_id !== assignee.user_id);
       } else {
         // Add assignee with default status
-        setAssigneeStatuses(prev => ({ ...prev, [assignee.id]: 'pending' }));
+        setAssigneeStatuses(prev => ({ ...prev, [assignee.user_id]: 'pending' }));
         return [...prev, assignee];
       }
     });
   };
 
   // Update assignee status
-  const updateAssigneeStatus = (assigneeId: string, newStatus: 'pending' | 'in-progress' | 'completed') => {
+  const updateAssigneeStatus = (assigneeId: string, newStatus: 'pending' | 'in_progress' | 'completed') => {
     setAssigneeStatuses(prev => ({
       ...prev,
       [assigneeId]: newStatus,
@@ -168,7 +184,7 @@ const CreateTask: React.FC<CreateTaskProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return '#34C759';
-      case 'in-progress': return '#FF9500';
+      case 'in_progress': return '#FF9500';
       default: return '#666666';
     }
   };
@@ -222,12 +238,16 @@ const CreateTask: React.FC<CreateTaskProps> = ({
               <Ionicons name="close" size={24} color={colors.subtext} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: colors.text }]}>Create New Task</Text>
-            <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
+            <TouchableOpacity 
+            onPress={handleSubmit} 
+            style={styles.submitButton}
+            disabled={loading}
+            >
               <Text style={styles.submitButtonText}>Create</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView 
+          <ScrollView
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
@@ -323,14 +343,14 @@ const CreateTask: React.FC<CreateTaskProps> = ({
             <View style={styles.inputContainer}>
               <Text style={[styles.label, { color: colors.text }]}>Task Status</Text>
               <View style={styles.statusContainer}>
-                {(['pending', 'in-progress', 'completed'] as const).map((statusOption) => (
+                {(['pending', 'in_progress', 'completed'] as const).map((statusOption) => (
                   <TouchableOpacity
                     key={statusOption}
                     style={[
                       styles.statusOption,
                       {
-                        backgroundColor: status === statusOption 
-                          ? getStatusColor(statusOption) 
+                        backgroundColor: status === statusOption
+                          ? getStatusColor(statusOption)
                           : colors.inputBackground,
                         borderColor: colors.border,
                       },
@@ -341,13 +361,13 @@ const CreateTask: React.FC<CreateTaskProps> = ({
                       style={[
                         styles.statusOptionText,
                         {
-                          color: status === statusOption 
-                            ? '#FFFFFF' 
+                          color: status === statusOption
+                            ? '#FFFFFF'
                             : colors.subtext,
                         },
                       ]}
                     >
-                      {statusOption === 'in-progress' ? 'In Progress' : 
+                      {statusOption === 'in_progress' ? 'In Progress' :
                         statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
                     </Text>
                   </TouchableOpacity>
@@ -396,13 +416,13 @@ const CreateTask: React.FC<CreateTaskProps> = ({
               {errors.assignees && (
                 <Text style={styles.errorText}>{errors.assignees}</Text>
               )}
-              
+
               {/* Available Assignees */}
               <View style={styles.assigneesList}>
-                {assignees.map((assignee) => {
-                  const isSelected = selectedAssignees.some(a => a.id === assignee.id);
+                {members.map((members: ChatMember) => {
+                  const isSelected = selectedAssignees.some(a => a.user_id === members.user_id);
                   return (
-                    <View key={assignee.id} style={styles.assigneeItem}>
+                    <View key={members.user_id} style={styles.assigneeItem}>
                       <TouchableOpacity
                         style={[
                           styles.assigneeSelectButton,
@@ -412,16 +432,16 @@ const CreateTask: React.FC<CreateTaskProps> = ({
                             borderWidth: isSelected ? 2 : 1,
                           },
                         ]}
-                        onPress={() => toggleAssignee(assignee)}
+                        onPress={() => toggleAssignee(members)}
                       >
                         <View style={styles.assigneeInfo}>
                           <View style={[styles.assigneeAvatar, { backgroundColor: getPriorityColor('medium') + '20' }]}>
                             <Text style={[styles.assigneeInitial, { color: getPriorityColor('medium') }]}>
-                              {assignee.name.charAt(0)}
+                              {members?.name?.charAt(0)}
                             </Text>
                           </View>
                           <Text style={[styles.assigneeName, { color: colors.text }]}>
-                            {assignee.name}
+                            {members.name}
                           </Text>
                         </View>
                         {isSelected && (
@@ -432,30 +452,30 @@ const CreateTask: React.FC<CreateTaskProps> = ({
                       {/* Assignee Status (only if selected) */}
                       {isSelected && (
                         <View style={styles.assigneeStatusContainer}>
-                          {(['pending', 'in-progress', 'completed'] as const).map((statusOption) => (
+                          {(['pending', 'in_progress', 'completed'] as const).map((statusOption) => (
                             <TouchableOpacity
                               key={statusOption}
                               style={[
                                 styles.assigneeStatusOption,
                                 {
-                                  backgroundColor: assigneeStatuses[assignee.id] === statusOption
+                                  backgroundColor: assigneeStatuses[members.user_id] === statusOption
                                     ? getStatusColor(statusOption)
                                     : colors.inputBackground,
                                 },
                               ]}
-                              onPress={() => updateAssigneeStatus(assignee.id, statusOption)}
+                              onPress={() => updateAssigneeStatus(members.user_id, statusOption)}
                             >
                               <Text
                                 style={[
                                   styles.assigneeStatusText,
                                   {
-                                    color: assigneeStatuses[assignee.id] === statusOption
+                                    color: assigneeStatuses[members.user_id] === statusOption
                                       ? '#FFFFFF'
                                       : colors.subtext,
                                   },
                                 ]}
                               >
-                                {statusOption === 'in-progress' ? 'In Progress' : 
+                                {statusOption === 'in_progress' ? 'In Progress' :
                                   statusOption.charAt(0).toUpperCase() + statusOption.slice(1)}
                               </Text>
                             </TouchableOpacity>
