@@ -123,26 +123,10 @@ def upload_media_controller(
             "edited_at": None,
             "deleted_at": None,
 
-            # "sender": {
-            #     "id": rpc_msg["sender"]["id"],
-
-            #     "role": rpc_msg["sender"].get("role"),
-            #     "join_via": rpc_msg["sender"].get("join_via"),
-
-            #     "name": rpc_msg["sender"].get("name"),
-            #     "avatar_url": rpc_msg["sender"].get("avatar_url"),
-
-            #     "phone_number": rpc_msg["sender"].get("phone_number"),
-            #     "username": rpc_msg["sender"].get("username"),
-
-            #     "email": rpc_msg["sender"].get("email"),
-            #     "google_name": rpc_msg["sender"].get("google_name"),
-            #     "google_avatar": rpc_msg["sender"].get("google_avatar"),
-            # },
             "sender": rpc_msg.get("sender"),   # 🔥 THIS IS THE KEY
+            
             "entities": {
                 "tasks": None,
-                "assignees": None,
             }
         }
 

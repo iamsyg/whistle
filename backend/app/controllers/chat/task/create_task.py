@@ -16,22 +16,57 @@ def create_task_controller(
     task_status: Literal["pending", "in_progress", "completed"] = "pending",
 ):
     try:
+
+        # Validation
+        # Combined membership + chat type check
+        membership_check = (
+            supabase.table("chat_members")
+            .select("""
+                user_id,
+                chat:chat_id (
+                    id,
+                    type
+                )
+            """)
+            .eq("chat_id", chat_id)
+            .eq("user_id", creator_id)
+            .is_("left_at", None)
+            .limit(1)
+            .execute()
+        )
+
+        if not membership_check.data:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        chat_type = membership_check.data[0]["chat"]["type"]
+
+        if chat_type == "classroom":
+            raise HTTPException(
+                status_code=403,
+                detail="Tasks cannot be created in classroom chats",
+            )
+
         if not title or not title.strip():
             raise HTTPException(status_code=400, detail="Task title is required")
 
         if not assignee_ids:
             raise HTTPException(
                 status_code=400,
-                detail="At least one assignee is required"
+                detail="At least one assignee is required",
             )
 
+        # Normalize due_date to UTC ISO
         if due_date:
             if due_date.tzinfo is None:
                 due_date = due_date.replace(tzinfo=timezone.utc)
             else:
                 due_date = due_date.astimezone(timezone.utc)
 
-        # Insert Task
+        # Remove duplicate assignees
+        unique_ids = list(set(assignee_ids))
+
+        #Insert Task
+
         task_payload = {
             "chat_id": chat_id,
             "created_by": creator_id,
@@ -49,20 +84,25 @@ def create_task_controller(
         created_task = task_res.data[0]
         task_id = created_task["id"]
 
-        # Insert Assignees
-        unique_ids = list(set(assignee_ids))
+    
+        # Insert Task Assignees
 
         assignee_rows = [
-            {"task_id": task_id, "user_id": uid}
+            {
+                "task_id": task_id,
+                "user_id": uid,
+            }
             for uid in unique_ids
         ]
 
         supabase.table("task_assignees").insert(assignee_rows).execute()
 
-        # Create System Message via RPC
+      
+        # Create System Message (RPC)
+      
+
         rpc_res = (
-            supabase
-            .rpc(
+            supabase.rpc(
                 "send_message_rpc",
                 {
                     "p_chat_id": chat_id,
@@ -75,50 +115,95 @@ def create_task_controller(
                             "entity": "task",
                             "entity_id": task_id,
                             "action": "created",
-                        }
+                        },
                     },
                 },
-            )
-            .execute()
+            ).execute()
         )
 
         if not rpc_res.data:
-            raise HTTPException(status_code=500, detail="Failed to create system message")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create system message",
+            )
 
         rpc_msg = rpc_res.data[0]
         message_id = rpc_msg["id"]
 
-        # Link message to task
-        supabase.table("tasks").update(
-            {"message_id": message_id}
-        ).eq("id", task_id).execute()
+        # Link message_id to task
+       
 
-        # Fetch task with creator
-        # task_with_creator = (
-        #     supabase
-        #     .table("tasks")
-        #     .select("""
-        #         *,
-        #         creator:created_by (
-        #             id,
-        #             name,
-        #             username,
-        #             avatar_url
-        #         )
-        #     """)
-        #     .eq("id", task_id)
-        #     .single()
-        #     .execute()
-        # )
+        update_res = supabase.table("tasks") \
+            .update({"message_id": message_id}) \
+            .eq("id", task_id) \
+            .execute()
 
-        # Fetch assignee profiles
-        # profiles_res = (
-        #     supabase
-        #     .table("profile")
-        #     .select("id, name, username, avatar_url")
-        #     .in_("id", unique_ids)
-        #     .execute()
-        # )
+        if not update_res.data:
+            raise HTTPException(500, "Failed to link message to task")
+
+
+        # Fetch Hydrated Task
+
+        task_with_relations = (
+            supabase.table("tasks")
+            .select(
+                """
+                *,
+                creator:created_by (
+                    id,
+                    name,
+                    username,
+                    avatar_url
+                ),
+                assignees:task_assignees (
+                    user_id,
+                    status,
+                    assigned_at,
+                    user:user_id (
+                        id,
+                        name,
+                        username,
+                        avatar_url
+                    )
+                )
+                """
+            )
+            .eq("id", task_id)
+            .single()
+            .execute()
+        )
+
+        if not task_with_relations.data:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to fetch hydrated task",
+            )
+
+        task_data = task_with_relations.data
+
+        # Normalize assignees
+     
+
+        normalized_assignees = []
+
+        for a in task_data.get("assignees", []):
+            user = a.get("user") or {}
+
+            normalized_assignees.append(
+                {
+                    "user_id": a.get("user_id"),
+                    "status": a.get("status"),
+                    "assigned_at": a.get("assigned_at"),
+                    "name": user.get("name"),
+                    "username": user.get("username"),
+                    "avatar_url": user.get("avatar_url"),
+                }
+            )
+
+        task_data["assignees"] = normalized_assignees
+
+       
+        # Return Normalized Message + Entities
 
         return {
             "id": rpc_msg.get("id"),
@@ -133,15 +218,12 @@ def create_task_controller(
             "created_at": rpc_msg.get("created_at"),
             "edited_at": None,
             "deleted_at": None,
-            
+
             "sender": rpc_msg.get("sender"),
-            # "message": rpc_msg,
+
             "entities": {
-                # "tasks": [task_with_creator.data],
-                "tasks": None,
-                # "assignees": profiles_res.data,
-                "assignees": None,
-            }
+                "tasks": [task_data],
+            },
         }
 
     except HTTPException:
@@ -149,5 +231,5 @@ def create_task_controller(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Unexpected error while creating task: {str(e)}"
+            detail=f"Unexpected error while creating task: {str(e)}",
         )

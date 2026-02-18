@@ -155,6 +155,8 @@ async def get_chat_members_endpoint(
 
     try:
         members = await fetch_chat_members_controller(chat_id, user_id)
+
+        print(f"✅ Fetched members for chat {chat_id}: {members}")
         return members
     
     except HTTPException:
