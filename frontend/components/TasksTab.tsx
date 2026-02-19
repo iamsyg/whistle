@@ -1,3 +1,22 @@
+// frontend/types/task.types.ts
+
+export type TaskStatus = 'pending' | 'in-progress' | 'completed';
+
+export interface Assignee {
+  id: string;
+  name: string;
+  status: TaskStatus; // Make it required
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  assignedTo: Assignee[];
+  dueDate: Date;
+  status: TaskStatus;
+}
+
 // frontend/components/TasksTab.tsx
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -14,23 +33,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import FloatingActionButton from './FloatingActionButton';
 import CreateTask from './chat/CreateTask';
-
-// Update the Task interface to match CreateTask's output
-interface Assignee {
-  id: string;
-  name: string;
-  status: 'pending' | 'in-progress' | 'completed';
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  assignedTo: Assignee[]; // Changed from string to Assignee[]
-  dueDate: Date;
-  status: 'pending' | 'in-progress' | 'completed';
-  priority: 'low' | 'medium' | 'high';
-}
+import TaskDetailsModal from './chat/task/TaskDetailsModal';
 
 interface TasksTabProps {
   isDarkMode?: boolean;
@@ -42,8 +45,10 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [createTaskVisible, setCreateTaskVisible] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
-  // Update mockTasks to match the new Task interface
+  // Update mockTasks with proper status for each assignee
   const mockTasks: Task[] = [
     {
       id: '1',
@@ -52,7 +57,6 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
       assignedTo: [{ id: '1', name: 'You', status: 'pending' }],
       dueDate: new Date(Date.now() + 86400000),
       status: 'pending',
-      priority: 'high',
     },
     {
       id: '2',
@@ -61,7 +65,6 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
       assignedTo: [{ id: '2', name: 'John Doe', status: 'in-progress' }],
       dueDate: new Date(Date.now() + 172800000),
       status: 'in-progress',
-      priority: 'medium',
     },
     {
       id: '3',
@@ -70,7 +73,6 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
       assignedTo: [{ id: '3', name: 'Jane Smith', status: 'pending' }],
       dueDate: new Date(Date.now() + 259200000),
       status: 'pending',
-      priority: 'low',
     },
     {
       id: '4',
@@ -82,7 +84,6 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
       ],
       dueDate: new Date(Date.now() + 43200000),
       status: 'completed',
-      priority: 'high',
     },
   ];
 
@@ -110,24 +111,15 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
     }, 1000);
   }, [loadTasks]);
 
-  const getPriorityColor = useCallback((priority: string) => {
-    switch (priority) {
-      case 'high': return '#FF3B30';
-      case 'medium': return '#FF9500';
-      case 'low': return '#34C759';
-      default: return '#666666';
-    }
-  }, []);
-
-  const getStatusColor = useCallback((status: string) => {
+  const getStatusColor = useCallback((status: TaskStatus) => {
     switch (status) {
       case 'completed': return '#34C759';
       case 'in-progress': return '#FF9500';
-      default: return '#666666';
+      default: return '#8E8E93';
     }
   }, []);
 
-  const getStatusIcon = useCallback((status: string) => {
+  const getStatusIcon = useCallback((status: TaskStatus) => {
     switch (status) {
       case 'completed': return 'checkmark-circle';
       case 'in-progress': return 'time-outline';
@@ -140,22 +132,18 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
       id: Date.now().toString(),
       title: taskData.title || '',
       description: taskData.description || '',
-      assignedTo: taskData.assignedTo || [],
+      assignedTo: taskData.assignedTo?.map(a => ({ ...a, status: a.status || 'pending' })) || [],
       dueDate: taskData.dueDate || new Date(),
-      status: taskData.status || 'pending',
-      priority: taskData.priority || 'medium',
+      status: (taskData.status as TaskStatus) || 'pending',
     };
     
     setTasks(prevTasks => [newTask, ...prevTasks]);
     
-    // Show success message
     Alert.alert(
       'Success',
       'Task created successfully!',
       [{ text: 'OK' }]
     );
-    
-    console.log('Task created:', newTask);
   }, []);
 
   // Helper function to get assignee names for display
@@ -165,8 +153,8 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
     return `${assignees[0].name} +${assignees.length - 1}`;
   }, []);
 
-  // Get overall task status based on assignees (optional feature)
-  const getOverallStatus = useCallback((assignees: Assignee[]) => {
+  // Get overall task status based on assignees
+  const getOverallStatus = useCallback((assignees: Assignee[]): TaskStatus => {
     if (assignees.length === 0) return 'pending';
     
     const allCompleted = assignees.every(a => a.status === 'completed');
@@ -192,27 +180,22 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
         ]}
         activeOpacity={0.7}
         onPress={() => {
-          // Navigate to task details
-          console.log('Task pressed:', item.id);
+          setSelectedTask(item);
+          setModalVisible(true);
         }}
       >
         <View style={styles.taskHeader}>
           <View style={styles.taskTitleRow}>
             <Ionicons 
-              name={getStatusIcon(overallStatus)} 
+              name={getStatusIcon(item.status)} 
               size={20} 
-              color={getStatusColor(overallStatus)} 
+              color={getStatusColor(item.status)} 
             />
             <Text style={[
               styles.taskTitle,
               { color: isDarkMode ? '#FFFFFF' : '#000000' }
             ]} numberOfLines={1}>
               {item.title}
-            </Text>
-          </View>
-          <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) + '20' }]}>
-            <Text style={[styles.priorityText, { color: getPriorityColor(item.priority) }]}>
-              {item.priority.toUpperCase()}
             </Text>
           </View>
         </View>
@@ -248,7 +231,7 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
 
         {/* Show assignee status indicators if multiple assignees */}
         {item.assignedTo.length > 1 && (
-          <View style={styles.assigneeStatusRow}>
+          <View style={[styles.assigneeStatusRow, { borderTopColor: isDarkMode ? '#2A3942' : '#E5E5E5' }]}>
             {item.assignedTo.slice(0, 3).map((assignee, index) => (
               <View 
                 key={assignee.id}
@@ -257,6 +240,7 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
                   { 
                     backgroundColor: getStatusColor(assignee.status),
                     marginLeft: index > 0 ? -4 : 0,
+                    borderColor: isDarkMode ? '#1F2C34' : '#FFFFFF',
                   }
                 ]}
               />
@@ -270,7 +254,15 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
         )}
       </TouchableOpacity>
     );
-  }, [isDarkMode, getPriorityColor, getStatusColor, getStatusIcon, getAssigneeNames, getOverallStatus]);
+  }, [isDarkMode, getStatusColor, getStatusIcon, getAssigneeNames, getOverallStatus]);
+
+  const handleTaskUpdate = useCallback((updatedTask: Task) => {
+    setTasks(prevTasks => 
+      prevTasks.map(task => 
+        task.id === updatedTask.id ? updatedTask : task
+      )
+    );
+  }, []);
 
   const theme = useMemo(() => ({
     light: {
@@ -298,8 +290,11 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
             key={filterType}
             style={[
               styles.filterButton,
-              filter === filterType && styles.filterButtonActive,
-              filter === filterType && { backgroundColor: isDarkMode ? '#00A884' : '#008069' },
+              {
+                backgroundColor: filter === filterType 
+                  ? (isDarkMode ? '#00A884' : '#008069') 
+                  : (isDarkMode ? '#2A3942' : '#F0F0F0')
+              },
             ]}
             onPress={() => setFilter(filterType)}
             activeOpacity={0.7}
@@ -307,7 +302,10 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
             <Text
               style={[
                 styles.filterText,
-                { color: filter === filterType ? '#FFFFFF' : (isDarkMode ? '#A0A0A0' : '#666666') },
+                { color: filter === filterType 
+                  ? '#FFFFFF' 
+                  : (isDarkMode ? '#A0A0A0' : '#666666')
+                },
               ]}
             >
               {filterType.charAt(0).toUpperCase() + filterType.slice(1)}
@@ -346,7 +344,7 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
               <Text style={[styles.emptyStateText, { color: isDarkMode ? '#A0A0A0' : '#666666' }]}>
                 No tasks found
               </Text>
-              <Text style={[styles.emptyStateSubtext, { color: isDarkMode ? '#2A3942' : '#E0E0E0' }]}>
+              <Text style={[styles.emptyStateSubtext, { color: isDarkMode ? '#2A3942' : '#A0A0A0' }]}>
                 {filter === 'all' ? 'Create your first task' : `No ${filter} tasks`}
               </Text>
               {filter === 'all' && (
@@ -376,6 +374,17 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
         onClose={() => setCreateTaskVisible(false)}
         isDarkMode={isDarkMode}
       />
+
+      <TaskDetailsModal
+        visible={modalVisible}
+        onClose={() => {
+          setModalVisible(false);
+          setSelectedTask(null);
+        }}
+        task={selectedTask}
+        isDarkMode={isDarkMode}
+        onSave={handleTaskUpdate}
+      />
     </View>
   );
 };
@@ -394,10 +403,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-  },
-  filterButtonActive: {
-    backgroundColor: '#008069',
   },
   filterText: {
     fontSize: 12,
@@ -440,15 +445,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     flex: 1,
   },
-  priorityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  priorityText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
   taskDescription: {
     fontSize: 14,
     lineHeight: 20,
@@ -484,14 +480,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
   },
   assigneeStatusDot: {
     width: 20,
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   assigneeMoreText: {
     fontSize: 10,
