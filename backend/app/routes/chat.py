@@ -12,6 +12,8 @@ from app.controllers.chat.fetch_members.fetch_members import fetch_chat_members_
 
 from app.controllers.chat.task.create_task import create_task_controller
 
+from app.controllers.chat.task.fetch_task import fetch_tasks_controller
+
 from app.controllers.conversation_controller import get_or_create_direct_chat_controller
 from app.middlewares.secure_route import verify_jwt_token
 from app.services.websocket_manager import ws_manager
@@ -163,5 +165,29 @@ async def get_chat_members_endpoint(
         raise
     except Exception as e:
         print(f"❌ Error fetching chat members: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/{chat_id}/tasks")
+async def fetch_tasks_endpoint(
+    chat_id: str,
+    user_id: str = Depends(verify_jwt_token)
+):
+    """
+    Get tasks of a chat
+    """
+
+    try:
+        tasks = await fetch_tasks_controller(chat_id, user_id)
+
+        print(f"✅ Fetched tasks for chat {chat_id}: {tasks}")
+        return tasks
+    
+    except HTTPException:
+        raise
+    
+    except Exception as e:
+        print(f"❌ Error fetching chat tasks: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
