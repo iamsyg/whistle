@@ -12,7 +12,7 @@ from app.controllers.chat.fetch_members.fetch_members import fetch_chat_members_
 
 from app.controllers.chat.task.create_task import create_task_controller
 
-from app.controllers.chat.task.fetch_task import fetch_tasks_controller
+from backend.app.controllers.chat.task.fetch_task_list import fetch_task_list_controller
 
 from app.controllers.conversation_controller import get_or_create_direct_chat_controller
 from app.middlewares.secure_route import verify_jwt_token
@@ -179,14 +179,14 @@ async def fetch_tasks_endpoint(
     """
 
     try:
-        tasks = await fetch_tasks_controller(chat_id, user_id)
+        tasks = await fetch_task_list_controller(chat_id, user_id)
 
         print(f"✅ Fetched tasks for chat {chat_id}: {tasks}")
         return tasks
     
     except HTTPException:
         raise
-    
+
     except Exception as e:
         print(f"❌ Error fetching chat tasks: {str(e)}")
         print(traceback.format_exc())

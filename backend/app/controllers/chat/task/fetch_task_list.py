@@ -1,10 +1,10 @@
-# backend/app/controllers/chat/task/fetch_task.py
+# backend/app/controllers/chat/task/fetch_task_list.py
 
 from fastapi import HTTPException
 from app.utils.supabase_client import supabase
 
 
-async def fetch_tasks_controller(chat_id: str, current_user_id: str):
+async def fetch_task_list_controller(chat_id: str, current_user_id: str):
     try:
 
         # ✅ Membership + chat type check
