@@ -5,12 +5,12 @@ import { TaskListItem } from "@/types/chat/task/taskListItem";
 
 interface TaskListState {
     taskListsByChatId: Record<string, TaskListItem[]>;  // key = chat_id
-    loadedTaskIds: Record<string, boolean>;
+    isTaskListLoaded: Record<string, boolean>;
 }
 
 const initialState: TaskListState = {
     taskListsByChatId: {},
-    loadedTaskIds: {},
+    isTaskListLoaded: {},
 };
  
 const taskListSlice = createSlice({
@@ -20,7 +20,7 @@ const taskListSlice = createSlice({
         setTaskList: (state, action: PayloadAction<{ chatId: string; tasks: TaskListItem[] }>) => {
             const { chatId, tasks } = action.payload;
             state.taskListsByChatId[chatId] = tasks;
-            state.loadedTaskIds[chatId] = true;
+            state.isTaskListLoaded[chatId] = true;
         },
 
         addTaskToList: (state, action: PayloadAction<{ chatId: string; task: TaskListItem }>) => {
@@ -28,7 +28,8 @@ const taskListSlice = createSlice({
             if (!state.taskListsByChatId[chatId]) {
                 state.taskListsByChatId[chatId] = [];
             }
-            state.taskListsByChatId[chatId].push(task);
+            // state.taskListsByChatId[chatId].push(task);
+            state.taskListsByChatId[chatId].unshift(task);
         },
 
         updateTaskInList: (state, action: PayloadAction<{ chatId: string; task: TaskListItem }>) => {
@@ -50,7 +51,9 @@ const taskListSlice = createSlice({
         },
 
         clearTaskList: (state, action: PayloadAction<string>) => {
-            delete state.taskListsByChatId[action.payload];
+            const chatId = action.payload;
+            delete state.taskListsByChatId[chatId];
+            delete state.isTaskListLoaded[chatId];
         },
     },
 });

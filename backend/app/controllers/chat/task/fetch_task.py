@@ -82,6 +82,10 @@ async def fetch_tasks_controller(chat_id: str, current_user_id: str):
 
         return tasks
 
+    except HTTPException:
+        raise
+
     except Exception as e:
         print(f"Error fetching tasks: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch tasks")
+

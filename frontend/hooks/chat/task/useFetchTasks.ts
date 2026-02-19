@@ -12,7 +12,7 @@ export function useFetchTasks(chat_id: string) {
     const dispatch = useDispatch();
 
     const loadedTaskIds = useSelector(
-        (state: RootState) => state.taskList.loadedTaskIds[chat_id]
+        (state: RootState) => state.taskList.isTaskListLoaded[chat_id]
     )
 
     const fetchTasks = async () => {
@@ -32,7 +32,7 @@ export function useFetchTasks(chat_id: string) {
             }
 
             const response = await fetch(
-                `${process.env.EXPO_PUBLIC_BACKEND_URL}/${chat_id}/tasks`,
+                `${process.env.EXPO_PUBLIC_BACKEND_URL}/chat/${chat_id}/tasks`,
                 {
                     method: "GET",
                     headers: {
@@ -46,7 +46,7 @@ export function useFetchTasks(chat_id: string) {
 
             if (!response.ok) {
                 console.error("Failed to fetch tasks:", result);
-                throw new Error(result.message || "Failed to fetch tasks");
+               throw new Error(result.detail || "Failed to fetch tasks");
             }
 
             dispatch(setTaskList({ chatId: chat_id, tasks: result }));
@@ -60,11 +60,11 @@ export function useFetchTasks(chat_id: string) {
         }
     };
     
-    useEffect(() => {
-        if (chat_id) {
-            fetchTasks();
-        }
-    }, [chat_id]);
+    // useEffect(() => {
+    //     if (chat_id) {
+    //         fetchTasks();
+    //     }
+    // }, [chat_id]);
 
-    return { loading };
+    return { fetchTasks, loading };
 }
