@@ -17,39 +17,19 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useCreateTask } from '@/hooks/chat/useCreateTask';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
-import { Task } from '@/types/chat/task';
-import { Assignees } from '@/types/chat/task';
 import { ChatMember } from '@/types/chat/members';
-
-// interface Assignee {
-//   id: string;
-//   name: string;
-//   avatar?: string;
-//   status: 'pending' | 'in_progress' | 'completed';
-// }
 
 interface CreateTaskProps {
   visible: boolean;
   onClose: () => void;
   isDarkMode?: boolean;
-  availableAssignees?: ChatMember[];
+  // availableAssignees?: ChatMember[];
 }
-
-// interface Task {
-//   id: string;
-//   title: string;
-//   description: string;
-//   assignedTo: Assignees[];
-//   dueDate: Date;
-//   status: 'pending' | 'in_progress' | 'completed';
-//   priority: 'low' | 'medium' | 'high';
-// }
 
 const CreateTask: React.FC<CreateTaskProps> = ({
   visible,
   onClose,
   isDarkMode = false,
-  availableAssignees = [],
 }) => {
   // Form state
   const [title, setTitle] = useState('');

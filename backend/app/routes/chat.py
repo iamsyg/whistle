@@ -2,7 +2,7 @@
 
 from datetime import datetime
 import traceback
-from fastapi import APIRouter, Depends, Body, HTTPException
+from fastapi import APIRouter, Depends, Body, HTTPException, Query
 from pyparsing import Literal, Optional
 
 from app.controllers.messages.send_chat_messages import send_chat_messages
@@ -196,10 +196,10 @@ async def fetch_tasks_endpoint(
         raise HTTPException(status_code=500, detail=str(e))
     
 
-@router.get("/task/{task_id}")
+@router.get("/{chat_id}/task/{task_id}")
 async def fetch_task_details_endpoint(
+    chat_id: str,
     task_id: str,
-    chat_id: str = Body(..., embed=True),
     user_id: str = Depends(verify_jwt_token)
 ):
     """

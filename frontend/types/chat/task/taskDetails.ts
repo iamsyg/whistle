@@ -45,7 +45,7 @@ export type Assignees = {
 
 export type Updater = {
 
-  id: string,
+  id: string | null,
   name: string | null,
   username: string | null,
   avatar_url: string | null

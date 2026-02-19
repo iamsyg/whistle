@@ -1,6 +1,6 @@
 // frontend/hooks/chat/task/useFetchTasks.ts
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import { setTaskList } from "@/store/slices/chat/task/taskListSlice";
@@ -15,7 +15,7 @@ export function useFetchTasks(chat_id: string) {
         (state: RootState) => state.taskList.isTaskListLoaded[chat_id]
     )
 
-    const fetchTasks = async () => {
+    const fetchTasks = useCallback(async () => {
 
         if (loadedTaskIds) {
             return;
@@ -58,7 +58,7 @@ export function useFetchTasks(chat_id: string) {
         } finally {
             setLoading(false);
         }
-    };
+    } , [chat_id, dispatch, loadedTaskIds]);
     
     // useEffect(() => {
     //     if (chat_id) {

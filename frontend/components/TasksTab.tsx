@@ -21,6 +21,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useFetchTasks } from '@/hooks/chat/task/useFetchTasks';
 import { RootState } from '@/store/store';
 import { TaskListItem } from '@/types/chat/task/taskListItem';
+import { Assignees } from '@/types/chat/task/taskDetails';
 
 interface TasksTabProps {
   isDarkMode?: boolean;
@@ -59,7 +60,7 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
 
   useEffect(() => {
     fetchTasks();
-  }, [selectedChatId]);
+  }, [selectedChatId, fetchTasks]);
 
    // Filtered tasks (no local duplication)
   const tasks = useMemo(() => {
@@ -91,19 +92,6 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
     return `${task.assignees[0]} +${task.assignees.length - 1}`;
   }, []);
 
-  // Get overall task status based on assignees
-  const getOverallStatus = useCallback((assignees: TaskListItem[]): TaskStatus => {
-    if (assignees.length === 0) return 'pending';
-    
-    const allCompleted = assignees.every(a => a.status === 'completed');
-    if (allCompleted) return 'completed';
-    
-    const anyInProgress = assignees.some(a => a.status === 'in_progress');
-    if (anyInProgress) return 'in_progress';
-    
-    return 'pending';
-  }, []);
-
   const renderTaskItem = useCallback(({ item }: { item: TaskListItem }) => {
     // const overallStatus = getOverallStatus(item.assignedTo);
     
@@ -119,6 +107,7 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
         activeOpacity={0.7}
         onPress={() => {
           setSelectedTask(item);
+          console.log("Selected Task from TasksTab:", item);
           setModalVisible(true);
         }}
       >
@@ -197,7 +186,7 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
         )} */}
       </TouchableOpacity>
     );
-  }, [isDarkMode, getStatusColor, getStatusIcon, getAssigneeDisplay, getOverallStatus]);
+  }, [isDarkMode, getStatusColor, getStatusIcon, getAssigneeDisplay]);
 
   const theme = useMemo(() => ({
     light: {
@@ -308,7 +297,8 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
           setModalVisible(false);
           setSelectedTask(null);
         }}
-        task={selectedTask}
+        taskId={selectedTask?.id || ''}
+        
         isDarkMode={isDarkMode}
         // onSave={handleTaskUpdate}
       />

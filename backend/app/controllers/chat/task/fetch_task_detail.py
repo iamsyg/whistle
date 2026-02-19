@@ -79,7 +79,7 @@ async def fetch_task_details_controller(chat_id: str, current_user_id: str, task
             """)
             .eq("id", task_id)
             .eq("chat_id", chat_id)
-            .single()
+            .maybe_single()
             .execute()
         )
 
@@ -149,6 +149,8 @@ async def fetch_task_details_controller(chat_id: str, current_user_id: str, task
             # "updater_username": updater.get("username"),
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error fetching task details: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch task details")

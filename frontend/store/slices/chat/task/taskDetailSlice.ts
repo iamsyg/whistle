@@ -6,7 +6,7 @@ import { TaskDetails } from "@/types/chat/task/taskDetails";
 interface TaskDetailState {
   tasksById: Record<string, TaskDetails>;  // key = task_id
   taskIds: Record<string, string[]>;  // key = chat_id, value = array of task_ids for that chat
-  isTaskDetailLoaded: Record<string, boolean>; // key = chat_id
+  isTaskDetailLoaded: Record<string, boolean>; // key = task_id, value = whether the task details have been loaded for that task  
 }
 
 const initialState: TaskDetailState = {
@@ -20,14 +20,20 @@ const taskSlice = createSlice({
   initialState,
     reducers: {
 
-    setAllTasks: (state, action: PayloadAction<{ chatId: string; tasks: TaskDetails[] }>) => {
-      const { chatId, tasks } = action.payload;
-      state.taskIds[chatId] = tasks.map(task => task.id);
-        tasks.forEach(task => {
-            state.tasksById[task.id] = task;
-        });
-        state.isTaskDetailLoaded[chatId] = true;
+    setTask: (state, action: PayloadAction<TaskDetails>) => {
+      const task = action.payload;
+      state.tasksById[task.id] = task;
+      state.isTaskDetailLoaded[task.id] = true;
+
+      if (!state.taskIds[task.chat_id]) {
+        state.taskIds[task.chat_id] = [];
+      }
+
+      if (!state.taskIds[task.chat_id].includes(task.id)) {
+        state.taskIds[task.chat_id].push(task.id);
+      }
     },
+
 
     upsertTask: (state, action: PayloadAction<TaskDetails>) => {
       const task = action.payload;
@@ -50,6 +56,6 @@ const taskSlice = createSlice({
     },
 });
 
-export const { setAllTasks, upsertTask, removeTask } = taskSlice.actions;
+export const { setTask, upsertTask, removeTask } = taskSlice.actions;
 
 export default taskSlice.reducer;

@@ -1,6 +1,6 @@
 // frontend/types/backend/baseMessage.ts
 
-import { Task } from "../chat/task";
+import { TaskDetails } from "../chat/task/taskDetails";
 
 export interface BaseBackendMessage<TMessageType extends string = string> {
   id: string;
@@ -45,7 +45,7 @@ export type CoreMessageType =
 
 
 export type Entities = {
-  "tasks"?: Task[] | null;
+  "tasks"?: TaskDetails[] | null;
 }
 
 export type TextMetadata = {
