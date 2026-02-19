@@ -1,23 +1,6 @@
-// frontend/types/task.types.ts
-
-export type TaskStatus = 'pending' | 'in-progress' | 'completed';
-
-export interface Assignee {
-  id: string;
-  name: string;
-  status: TaskStatus; // Make it required
-}
-
-export interface Task {
-  id: string;
-  title: string;
-  description: string;
-  assignedTo: Assignee[];
-  dueDate: Date;
-  status: TaskStatus;
-}
-
 // frontend/components/TasksTab.tsx
+
+type TaskStatus = 'pending' | 'in_progress' | 'completed';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -26,7 +9,7 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  RefreshControl,
+  // RefreshControl,
   ActivityIndicator,
   Alert,
 } from 'react-native';
@@ -34,87 +17,60 @@ import { Ionicons } from '@expo/vector-icons';
 import FloatingActionButton from './FloatingActionButton';
 import CreateTask from './chat/CreateTask';
 import TaskDetailsModal from './chat/task/TaskDetailsModal';
+import { useSelector, useDispatch } from 'react-redux';
+import { useFetchTasks } from '@/hooks/chat/task/useFetchTasks';
+import { RootState } from '@/store/store';
+import { TaskListItem } from '@/types/chat/task/taskListItem';
 
 interface TasksTabProps {
   isDarkMode?: boolean;
 }
 
 const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+
+  const dispatch = useDispatch();
+
+  const selectedChatId = useSelector(
+    (state: RootState) => state.conversation.selectedChatId
+  );
+
+  if (!selectedChatId) {
+    return (
+      <View style={styles.container}>
+        <Text style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}>
+          Please select a chat to view tasks.
+        </Text>
+      </View>
+    );
+  }
+
+  const taskList = useSelector(
+    (state: RootState) => state.taskList.taskListsByChatId[selectedChatId] || []
+  )
+
+  // const [loading, setLoading] = useState(false);
+  // const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [createTaskVisible, setCreateTaskVisible] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<TaskListItem | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Update mockTasks with proper status for each assignee
-  const mockTasks: Task[] = [
-    {
-      id: '1',
-      title: 'Design Review',
-      description: 'Review the final design mockups for the mobile app',
-      assignedTo: [{ id: '1', name: 'You', status: 'pending' }],
-      dueDate: new Date(Date.now() + 86400000),
-      status: 'pending',
-    },
-    {
-      id: '2',
-      title: 'API Integration',
-      description: 'Integrate backend API with chat functionality',
-      assignedTo: [{ id: '2', name: 'John Doe', status: 'in-progress' }],
-      dueDate: new Date(Date.now() + 172800000),
-      status: 'in-progress',
-    },
-    {
-      id: '3',
-      title: 'Documentation',
-      description: 'Write technical documentation for the new features',
-      assignedTo: [{ id: '3', name: 'Jane Smith', status: 'pending' }],
-      dueDate: new Date(Date.now() + 259200000),
-      status: 'pending',
-    },
-    {
-      id: '4',
-      title: 'Bug Fixes',
-      description: 'Fix critical bugs reported in production',
-      assignedTo: [
-        { id: '1', name: 'You', status: 'completed' },
-        { id: '4', name: 'Bob Johnson', status: 'completed' }
-      ],
-      dueDate: new Date(Date.now() + 43200000),
-      status: 'completed',
-    },
-  ];
+  const { fetchTasks, loading } = useFetchTasks(selectedChatId);
 
   useEffect(() => {
-    loadTasks();
-  }, [filter]);
+    fetchTasks();
+  }, [selectedChatId]);
 
-  const loadTasks = useCallback(() => {
-    setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const filteredTasks = filter === 'all' 
-        ? mockTasks 
-        : mockTasks.filter(task => task.status === filter);
-      setTasks(filteredTasks);
-      setLoading(false);
-    }, 500);
-  }, [filter]);
-
-  const handleRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => {
-      loadTasks();
-      setRefreshing(false);
-    }, 1000);
-  }, [loadTasks]);
+   // Filtered tasks (no local duplication)
+  const tasks = useMemo(() => {
+    if (filter === 'all') return taskList;
+    return taskList.filter(task => task.status === filter);
+  }, [taskList, filter]);
 
   const getStatusColor = useCallback((status: TaskStatus) => {
     switch (status) {
       case 'completed': return '#34C759';
-      case 'in-progress': return '#FF9500';
+      case 'in_progress': return '#FF9500';
       default: return '#8E8E93';
     }
   }, []);
@@ -122,52 +78,34 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
   const getStatusIcon = useCallback((status: TaskStatus) => {
     switch (status) {
       case 'completed': return 'checkmark-circle';
-      case 'in-progress': return 'time-outline';
+      case 'in_progress': return 'time-outline';
       default: return 'ellipse-outline';
     }
   }, []);
 
-  const handleCreateTask = useCallback((taskData: Partial<Task>) => {
-    const newTask: Task = {
-      id: Date.now().toString(),
-      title: taskData.title || '',
-      description: taskData.description || '',
-      assignedTo: taskData.assignedTo?.map(a => ({ ...a, status: a.status || 'pending' })) || [],
-      dueDate: taskData.dueDate || new Date(),
-      status: (taskData.status as TaskStatus) || 'pending',
-    };
-    
-    setTasks(prevTasks => [newTask, ...prevTasks]);
-    
-    Alert.alert(
-      'Success',
-      'Task created successfully!',
-      [{ text: 'OK' }]
-    );
-  }, []);
 
   // Helper function to get assignee names for display
-  const getAssigneeNames = useCallback((assignees: Assignee[]) => {
-    if (assignees.length === 0) return 'Unassigned';
-    if (assignees.length === 1) return assignees[0].name;
-    return `${assignees[0].name} +${assignees.length - 1}`;
+  const getAssigneeDisplay = useCallback((task: TaskListItem) => {
+    if (task.assignees.length === 0) return 'Unassigned';
+    if (task.assignees.length === 1) return task.assignees[0] || 'Unknown';
+    return `${task.assignees[0]} +${task.assignees.length - 1}`;
   }, []);
 
   // Get overall task status based on assignees
-  const getOverallStatus = useCallback((assignees: Assignee[]): TaskStatus => {
+  const getOverallStatus = useCallback((assignees: TaskListItem[]): TaskStatus => {
     if (assignees.length === 0) return 'pending';
     
     const allCompleted = assignees.every(a => a.status === 'completed');
     if (allCompleted) return 'completed';
     
-    const anyInProgress = assignees.some(a => a.status === 'in-progress');
-    if (anyInProgress) return 'in-progress';
+    const anyInProgress = assignees.some(a => a.status === 'in_progress');
+    if (anyInProgress) return 'in_progress';
     
     return 'pending';
   }, []);
 
-  const renderTaskItem = useCallback(({ item }: { item: Task }) => {
-    const overallStatus = getOverallStatus(item.assignedTo);
+  const renderTaskItem = useCallback(({ item }: { item: TaskListItem }) => {
+    // const overallStatus = getOverallStatus(item.assignedTo);
     
     return (
       <TouchableOpacity
@@ -200,12 +138,17 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
           </View>
         </View>
         
-        <Text style={[
-          styles.taskDescription,
-          { color: isDarkMode ? '#A0A0A0' : '#666666' }
-        ]} numberOfLines={2}>
-          {item.description}
-        </Text>
+        {item.description && (
+          <Text
+            style={[
+              styles.taskDescription,
+              { color: isDarkMode ? '#A0A0A0' : '#666666' },
+            ]}
+            numberOfLines={2}
+          >
+            {item.description}
+          </Text>
+        )}
         
         <View style={styles.taskFooter}>
           <View style={styles.assigneeContainer}>
@@ -214,7 +157,7 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
               styles.assigneeText,
               { color: isDarkMode ? '#A0A0A0' : '#666666' }
             ]} numberOfLines={1}>
-              {getAssigneeNames(item.assignedTo)}
+              {getAssigneeDisplay(item)}
             </Text>
           </View>
           
@@ -224,15 +167,15 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
               styles.dateText,
               { color: isDarkMode ? '#A0A0A0' : '#666666' }
             ]}>
-              {item.dueDate.toLocaleDateString()}
+              {item.due_date ? new Date(item.due_date).toLocaleDateString() : 'No due date'}
             </Text>
           </View>
         </View>
 
         {/* Show assignee status indicators if multiple assignees */}
-        {item.assignedTo.length > 1 && (
+        {/* {item.assignees.length > 1 && (
           <View style={[styles.assigneeStatusRow, { borderTopColor: isDarkMode ? '#2A3942' : '#E5E5E5' }]}>
-            {item.assignedTo.slice(0, 3).map((assignee, index) => (
+            {item.assignees.slice(0, 3).map((assignee, index) => (
               <View 
                 key={assignee.id}
                 style={[
@@ -245,24 +188,16 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
                 ]}
               />
             ))}
-            {item.assignedTo.length > 3 && (
+            {item.assignees.length > 3 && (
               <Text style={[styles.assigneeMoreText, { color: isDarkMode ? '#A0A0A0' : '#666666' }]}>
-                +{item.assignedTo.length - 3}
+                +{item.assignees.length - 3}
               </Text>
             )}
           </View>
-        )}
+        )} */}
       </TouchableOpacity>
     );
-  }, [isDarkMode, getStatusColor, getStatusIcon, getAssigneeNames, getOverallStatus]);
-
-  const handleTaskUpdate = useCallback((updatedTask: Task) => {
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === updatedTask.id ? updatedTask : task
-      )
-    );
-  }, []);
+  }, [isDarkMode, getStatusColor, getStatusIcon, getAssigneeDisplay, getOverallStatus]);
 
   const theme = useMemo(() => ({
     light: {
@@ -326,14 +261,6 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.tasksList}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[isDarkMode ? '#00A884' : '#008069']}
-              tintColor={isDarkMode ? '#00A884' : '#008069'}
-            />
-          }
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Ionicons 
@@ -383,7 +310,7 @@ const TasksTab: React.FC<TasksTabProps> = ({ isDarkMode = false }) => {
         }}
         task={selectedTask}
         isDarkMode={isDarkMode}
-        onSave={handleTaskUpdate}
+        // onSave={handleTaskUpdate}
       />
     </View>
   );

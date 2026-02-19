@@ -23,7 +23,8 @@ import contactsReducer from './slices/contacts/contactsSlice';
 import classroomReducer from './slices/classroom/classroomSlice';
 import classroomProfileReducer from './slices/classroom/classroomProfileSlice';
 import chatMembersReducer from './slices/chat/membersSlice';
-import taskReducer from './slices/chat/taskSlice';
+import taskReducer from './slices/chat/task/taskDetailSlice';
+import taskListReducer from './slices/chat/task/taskListSlice';
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -36,6 +37,7 @@ const rootReducer = combineReducers({
   classroomProfile: classroomProfileReducer,
   chatMembers: chatMembersReducer,
   task: taskReducer,
+  taskList: taskListReducer,
 });
 
 // Migration strategy for state shape changes
