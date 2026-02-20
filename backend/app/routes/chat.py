@@ -16,6 +16,8 @@ from app.controllers.chat.task.fetch_task_list import fetch_task_list_controller
 
 from app.controllers.chat.task.fetch_task_detail import fetch_task_details_controller
 
+from app.controllers.chat.task.update_task_details import update_task_details_controller
+
 from app.controllers.conversation_controller import get_or_create_direct_chat_controller
 from app.middlewares.secure_route import verify_jwt_token
 from app.services.websocket_manager import ws_manager
@@ -217,5 +219,44 @@ async def fetch_task_details_endpoint(
 
     except Exception as e:
         print(f"❌ Error fetching task details: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.put("/{chat_id}/task/{task_id}")
+async def update_task_details_endpoint(
+    chat_id: str,
+    task_id: str,
+    title: str | None = Body(None, embed=True),
+    description: str | None = Body(None, embed=True),
+    due_date: datetime | None = Body(None, embed=True),
+    assignees: list[dict] | None = Body(None, embed=True),  # [{"user_id": "...", "status": "pending/in_progress/completed"}, ...]
+    status: str | None = Body(None, embed=True),  # For assignees to update their own status
+    current_user_id: str = Depends(verify_jwt_token)
+):
+    """
+    Update task details or assignees. Only creator can update
+    task details and assignees, while assigned members can only update their own status.
+    """
+    try:
+
+        updated_task = await update_task_details_controller(
+            chat_id=chat_id,
+            task_id=task_id,
+            title=title,
+            description=description,
+            due_date=due_date,
+            assignees=assignees,
+            status=status,
+            current_user_id=current_user_id
+        )
+
+        print(f"✅ Updated task {task_id}: {updated_task}")
+        return updated_task
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error updating task details: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
