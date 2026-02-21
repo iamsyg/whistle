@@ -4,6 +4,7 @@ from datetime import datetime
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException, Query
 from pyparsing import Literal, Optional
+from realtime import List
 
 from app.controllers.messages.send_chat_messages import send_chat_messages
 from app.controllers.messages.get_chat_messages import get_chat_messages
@@ -230,7 +231,7 @@ async def update_task_details_endpoint(
     title: str | None = Body(None, embed=True),
     description: str | None = Body(None, embed=True),
     due_date: datetime | None = Body(None, embed=True),
-    assignees: list[dict] | None = Body(None, embed=True),  # [{"user_id": "...", "status": "pending/in_progress/completed"}, ...]
+    assignees: List[str] | None = Body(None, embed=True),  
     status: str | None = Body(None, embed=True),  # For assignees to update their own status
     current_user_id: str = Depends(verify_jwt_token)
 ):

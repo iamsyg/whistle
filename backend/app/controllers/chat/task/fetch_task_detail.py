@@ -69,6 +69,7 @@ async def fetch_task_details_controller(chat_id: str, current_user_id: str, task
                     user_id,
                     status,
                     assigned_at,
+                    updated_at,
                     user:user_id (
                         id,
                         name,
@@ -105,7 +106,8 @@ async def fetch_task_details_controller(chat_id: str, current_user_id: str, task
                 "username": user.get("username"),
                 "avatar_url": user.get("avatar_url"),
                 "status": row.get("status"),
-                "assigned_at": row.get("assigned_at")
+                "assigned_at": row.get("assigned_at"),
+                "updated_at": row.get("updated_at")
             })
 
         return {

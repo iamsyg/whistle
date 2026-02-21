@@ -1,6 +1,7 @@
 # backend/app/controllers/chat/task/update_task_details.py
 
 from datetime import datetime, timezone
+from typing import List, Optional
 from fastapi import HTTPException
 from app.utils.supabase_client import supabase
 from app.controllers.chat.task.fetch_task_detail import fetch_task_details_controller
@@ -13,8 +14,8 @@ async def update_task_details_controller(
     title: str = None,
     description: str = None,
     status: str = None,
-    due_date: str = None,
-    assignees: list = None
+    due_date: Optional[datetime] = None,
+    assignees: Optional[List[str]] = None
 ):
     try:
 
@@ -75,11 +76,12 @@ async def update_task_details_controller(
         if is_creator:
 
             # Creator cannot update status
-            if status is not None:
-                raise HTTPException(
-                    status_code=403,
-                    detail="Creator cannot update assignee status"
-                )
+            # if status is not None:
+            #     raise HTTPException(
+            #         status_code=403,
+            #         detail="Task creator cannot update task status - only
+            #         assigned members can update their own status"
+            #     ) 
 
             update_payload = {
                 "updated_by": current_user_id,
@@ -92,13 +94,15 @@ async def update_task_details_controller(
             if description is not None:
                 update_payload["description"] = description
 
-            # if status is not None:
-            #     update_payload["status"] = status
+            if status is not None:
+                update_payload["status"] = status
 
             if due_date is not None:
-                dt = datetime.fromisoformat(due_date)
+                dt = due_date
+
                 if dt.tzinfo is None:
                     dt = dt.replace(tzinfo=timezone.utc)
+
                 update_payload["due_date"] = dt.astimezone(timezone.utc).isoformat()
 
             # Only update if there's something to update
@@ -121,7 +125,8 @@ async def update_task_details_controller(
                 )
 
                 existing_ids = {a["user_id"] for a in existing_res.data}
-                new_ids = {a["user_id"] for a in assignees}
+                # new_ids = {a["user_id"] for a in assignees}
+                new_ids = set(assignees)
 
                 # Remove users
                 to_remove = existing_ids - new_ids
@@ -171,6 +176,8 @@ async def update_task_details_controller(
                 .execute()
             )
 
+            print(f"assigned_res.data: {assigned_res.data}")  # Is this empty?
+
             if not assigned_res.data:
                 raise HTTPException(
                     status_code=403,
@@ -178,7 +185,7 @@ async def update_task_details_controller(
                 )
 
             # Prevent changing task details
-            if any([title, description, due_date, assignees]):
+            if any(v is not None for v in [title, description, due_date, assignees]):
                 raise HTTPException(
                     status_code=403,
                     detail="Only task creator can modify task details or assignees"
@@ -192,8 +199,10 @@ async def update_task_details_controller(
                         status_code=400,
                         detail="Invalid status value"
                     )
+
+                print(f"Updating task_assignees: task_id={task_id!r}, user_id={current_user_id!r}, status={status!r}")
                 
-                supabase.table("task_assignees") \
+                result = supabase.table("task_assignees") \
                     .update({
                         "status": status,
                         "updated_at": now
@@ -201,6 +210,16 @@ async def update_task_details_controller(
                     .eq("task_id", task_id) \
                     .eq("user_id", current_user_id) \
                     .execute()
+                
+                print(f"Update result: {result.data}")  # If empty list, no rows matched
+
+        
+        check = supabase.table("task_assignees") \
+            .select("*") \
+            .eq("task_id", task_id) \
+            .eq("user_id", current_user_id) \
+            .execute()
+        print(f"Assignee row check: {check.data}")
 
         # Return updated task
   
