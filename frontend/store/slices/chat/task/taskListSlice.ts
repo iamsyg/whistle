@@ -32,14 +32,28 @@ const taskListSlice = createSlice({
             state.taskListsByChatId[chatId].unshift(task);
         },
 
-        updateTaskInList: (state, action: PayloadAction<{ chatId: string; task: TaskListItem }>) => {
-            const { chatId, task } = action.payload;
-            if (state.taskListsByChatId[chatId]) {
-                const index = state.taskListsByChatId[chatId].findIndex(t => t.id === task.id);
-                if (index !== -1) {
-                    state.taskListsByChatId[chatId][index] = task;
-                }
-            }
+        // updateTaskInList: (state, action: PayloadAction<{ chatId: string; task: TaskListItem }>) => {
+        //     const { chatId, task } = action.payload;
+        //     if (state.taskListsByChatId[chatId]) {
+        //         const index = state.taskListsByChatId[chatId].findIndex(t => t.id === task.id);
+        //         if (index !== -1) {
+        //             state.taskListsByChatId[chatId][index] = task;
+        //         }
+        //     }
+        // },
+
+        updateTaskInList: (
+            state,
+            action: PayloadAction<{ chatId: string; taskId: string; changes: Partial<TaskListItem> }>
+        ) => {
+            const { chatId, taskId, changes } = action.payload;
+            if (!state.taskListsByChatId[chatId]) return;
+            const index = state.taskListsByChatId[chatId].findIndex(t => t.id === taskId);
+            if (index === -1) return;
+            state.taskListsByChatId[chatId][index] = {
+                ...state.taskListsByChatId[chatId][index],
+                ...changes,
+            };
         },
 
         removeTaskFromList: (state, action: PayloadAction<{ chatId: string; taskId: string }>) => {

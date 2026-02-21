@@ -30,6 +30,7 @@ import AddAssigneeSheet from './AddAssigneeSheet';
 import { useUpdateTaskDetails } from '@/hooks/chat/task/useUpdateTaskDetails';
 import { UpdateTaskPayload } from '@/types/chat/task/updateTaskPayload';
 import { patchTask } from '@/store/slices/chat/task/taskDetailSlice';
+import { updateTaskInList } from '@/store/slices/chat/task/taskListSlice';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,7 +42,6 @@ interface TaskDetailsModalProps {
   onSave?: (updatedTask: TaskDetails) => void;
 }
 
-// ── Shared helpers ─────────────────────────────────────────────────────────────
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'completed': return '#34C759';
@@ -61,7 +61,6 @@ const getStatusIcon = (status: string): any => {
 const formatStatusLabel = (status: string) =>
   status === 'in_progress' ? 'In Progress' : status.charAt(0).toUpperCase() + status.slice(1);
 
-// ── Floating Status Picker ─────────────────────────────────────────────────────
 interface StatusPickerOverlayProps {
   visible: boolean;
   onClose: () => void;
@@ -112,7 +111,6 @@ const pickerStyles = StyleSheet.create({
   itemText: { fontSize: 15, fontWeight: '500', flex: 1 },
 });
 
-// ── Main Component ─────────────────────────────────────────────────────────────
 const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
   visible, onClose, taskId, isDarkMode = false, onSave,
 }) => {
@@ -124,15 +122,11 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
   const [showAddAssignee, setShowAddAssignee] = useState(false);
   const [assigneeStatusLoading, setAssigneeStatusLoading] = useState<string | null>(null);
 
-  // Track whether editedTask has been initialised for the current taskId.
-  // This lets us do the initial load sync without clobbering subsequent edits.
   const initialisedForTaskId = useRef<string | null>(null);
-
   const slideAnim = useRef(new Animated.Value(height)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const dispatch = useDispatch();
-
   const selectedChatId = useSelector((state: RootState) => state.conversation.selectedChatId);
   const currentUserId = useSelector((state: RootState) => state.profile.userId);
 
@@ -156,29 +150,20 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     selectedChatId || ''
   );
 
-  // Fetch on mount / taskId change
   useEffect(() => {
     if (taskId && selectedChatId) fetchTaskDetails();
   }, [taskId, selectedChatId]);
 
-  // ── INITIAL LOAD ONLY ──────────────────────────────────────────────────────
-  // Only populate editedTask when the modal first opens (or opens for a new
-  // taskId). We NEVER re-sync from `task` after initialisation — any Redux
-  // change triggered by patchTask would overwrite in-flight optimistic updates.
   useEffect(() => {
     if (!visible || !task) return;
-    if (initialisedForTaskId.current === taskId) return; // already set up
-
+    if (initialisedForTaskId.current === taskId) return;
     setEditedTask({ ...task });
     setHasChanges(false);
     initialisedForTaskId.current = taskId;
   }, [visible, task, taskId]);
 
-  // Reset ref on close so the next open always pulls fresh Redux data
   useEffect(() => {
-    if (!visible) {
-      initialisedForTaskId.current = null;
-    }
+    if (!visible) initialisedForTaskId.current = null;
   }, [visible]);
 
   useEffect(() => {
@@ -209,15 +194,16 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
 
   if (!editedTask || !task) return null;
 
-  // ── helpers ──────────────────────────────────────────────────────────────────
+  const isCreator = task.created_by === currentUserId;
+
   const markChanged = (updated: TaskDetails) => {
-    const changed =
+    setHasChanges(
       updated.title !== task.title ||
       updated.description !== task.description ||
       updated.status !== task.status ||
       updated.due_date !== task.due_date ||
-      JSON.stringify(updated.assignees) !== JSON.stringify(task.assignees);
-    setHasChanges(changed);
+      JSON.stringify(updated.assignees) !== JSON.stringify(task.assignees)
+    );
   };
 
   const handleClose = () => {
@@ -245,19 +231,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     });
   };
 
-  /**
-   * Assignee status change — fires immediately, completely independent of Save.
-   *
-   * This is NOT a draft edit. It calls the API right away, optimistically
-   * updates both editedTask and Redux, and rolls back on failure.
-   * hasChanges is never touched — the Save button is unaffected.
-   *
-   * Flow:
-   *  1. Optimistic: update editedTask so the pill reflects the new status instantly
-   *  2. Call API with { status } — backend routes this as assignee updating own status
-   *  3. On success: patch Redux store with server response
-   *  4. On failure: roll back editedTask, show error
-   */
   const handleAssigneeStatusChange = async (
     assigneeId: string,
     status: Assignees['status']
@@ -267,10 +240,8 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
       return;
     }
 
-    // Snapshot for rollback
     const previousAssignees = editedTask.assignees ? [...editedTask.assignees] : [];
 
-    // 1. Optimistic UI update — update editedTask directly, don't touch hasChanges
     setEditedTask(prev => {
       if (!prev) return prev;
       return {
@@ -286,22 +257,15 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     setAssigneeStatusLoading(assigneeId);
 
     try {
-      // 2. Fire API immediately — this is not deferred to Save
       const res = await updateTaskDetails({ status });
-
-      // 3. Sync Redux so other screens reflecting this task stay consistent
-      //    We do NOT sync editedTask from res to avoid stale-read revert bug.
-      dispatch(patchTask({ taskId, changes: res }));
-
+      // Only patch assignees — do NOT spread the whole res.
+      // res.status is the task-level status (e.g. "in_progress"), not the
+      // assignee status. Spreading res would overwrite the task's status in
+      // Redux with the task-level value, making it appear unchanged in the UI.
+      dispatch(patchTask({ taskId, changes: { assignees: res.assignees } }));
     } catch (error) {
       console.error('Error updating assignee status:', error);
-
-      // 4. Roll back optimistic update
-      setEditedTask(prev => {
-        if (!prev) return prev;
-        return { ...prev, assignees: previousAssignees };
-      });
-
+      setEditedTask(prev => prev ? { ...prev, assignees: previousAssignees } : prev);
       Alert.alert('Error', 'Failed to update status. Please try again.', [{ text: 'OK' }]);
     } finally {
       setAssigneeStatusLoading(null);
@@ -357,7 +321,23 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
 
     try {
       const res = await updateTaskDetails(payload);
+
+      // Update task detail store
       dispatch(patchTask({ taskId, changes: res }));
+
+      // Update the task card in the list with server-confirmed values
+      dispatch(updateTaskInList({
+        chatId: selectedChatId,
+        taskId,
+        changes: {
+          title: res.title,
+          description: res.description,
+          status: res.status,
+          due_date: res.due_date,
+          assignees: res.assignees?.map((a: Assignees) => a.name ?? '') ?? [],
+        },
+      }));
+
       setHasChanges(false);
       Alert.alert('Success', 'Task updated successfully!', [{ text: 'OK' }]);
       onClose();
@@ -382,7 +362,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
 
   const dueDateObj = editedTask.due_date ? new Date(editedTask.due_date) : null;
   const isOverdue = dueDateObj ? dueDateObj < new Date() && editedTask.status !== 'completed' : false;
-  const isCreator = task.created_by === currentUserId;
   const activeAssignee = editedTask.assignees?.find(a => a.user_id === openAssigneeStatusId) ?? null;
   const existingAssigneeIds = editedTask.assignees?.map(a => a.user_id) ?? [];
 
@@ -422,7 +401,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                 <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
               </View>
 
-              {/* Header */}
               <View style={[styles.header, { borderBottomColor: theme.border }]}>
                 <TouchableOpacity onPress={handleClose} style={styles.headerButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                   <Ionicons name="close" size={24} color={theme.textSecondary} />
@@ -442,7 +420,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
 
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} bounces={false}>
 
-                {/* Title */}
                 <View style={styles.section}>
                   <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Task Title</Text>
                   <View style={[styles.inputWrapper, { borderColor: theme.border }]}>
@@ -459,7 +436,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                   </View>
                 </View>
 
-                {/* Description */}
                 <View style={styles.section}>
                   <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Description</Text>
                   <View style={[styles.inputWrapper, { borderColor: theme.border }]}>
@@ -477,7 +453,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                   </View>
                 </View>
 
-                {/* Task Status */}
                 <View style={styles.section}>
                   <View style={styles.statusRow}>
                     <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginBottom: 0 }]}>Status</Text>
@@ -503,7 +478,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                   </View>
                 </View>
 
-                {/* Due Date */}
                 <View style={styles.section}>
                   <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Due Date</Text>
                   <TouchableOpacity
@@ -529,7 +503,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                   </TouchableOpacity>
                 </View>
 
-                {/* Metadata */}
                 <View style={[styles.metadataSection, { backgroundColor: theme.card }]}>
                   <Text style={[styles.metadataTitle, { color: theme.textSecondary }]}>
                     <Ionicons name="information-circle-outline" size={16} /> Task Information
@@ -562,7 +535,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                   </View>
                 </View>
 
-                {/* ── Assignees ── */}
                 <View style={styles.section}>
                   <View style={styles.assigneesSectionHeader}>
                     <View style={styles.assigneesSectionLeft}>
@@ -629,7 +601,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                         </View>
 
                         <View style={styles.assigneeRight}>
-                          {/* Status pill — tappable only on own row */}
                           <TouchableOpacity
                             style={[
                               styles.statusPill,
@@ -712,7 +683,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Floating task status picker */}
       <StatusPickerOverlay
         visible={showTaskStatusPicker}
         onClose={() => setShowTaskStatusPicker(false)}
@@ -723,7 +693,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
         onSelect={status => handleFieldChange('status', status)}
       />
 
-      {/* Floating assignee status picker */}
       <StatusPickerOverlay
         visible={openAssigneeStatusId !== null}
         onClose={() => setOpenAssigneeStatusId(null)}
