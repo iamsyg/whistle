@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  FlatList,
   Alert,
   Platform,
   KeyboardAvoidingView,
@@ -24,10 +23,13 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { TaskDetails, Assignees } from '@/types/chat/task/taskDetails';
 import { ChatMember } from '@/types/chat/members';
 import { useFetchTaskDetails } from '@/hooks/chat/task/useFetchTaskDetails';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
 import { avatarColor, initials } from './AddAssigneeSheet';
 import AddAssigneeSheet from './AddAssigneeSheet';
+import { useUpdateTaskDetails } from '@/hooks/chat/task/useUpdateTaskDetails';
+import { UpdateTaskPayload } from '@/types/chat/task/updateTaskPayload';
+import { patchTask } from '@/store/slices/chat/task/taskDetailSlice';
 
 const { width, height } = Dimensions.get('window');
 
@@ -110,8 +112,6 @@ const pickerStyles = StyleSheet.create({
   itemText: { fontSize: 15, fontWeight: '500', flex: 1 },
 });
 
-
-
 // ── Main Component ─────────────────────────────────────────────────────────────
 const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
   visible, onClose, taskId, isDarkMode = false, onSave,
@@ -122,11 +122,19 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
   const [showTaskStatusPicker, setShowTaskStatusPicker] = useState(false);
   const [openAssigneeStatusId, setOpenAssigneeStatusId] = useState<string | null>(null);
   const [showAddAssignee, setShowAddAssignee] = useState(false);
+  const [assigneeStatusLoading, setAssigneeStatusLoading] = useState<string | null>(null);
+
+  // Track whether editedTask has been initialised for the current taskId.
+  // This lets us do the initial load sync without clobbering subsequent edits.
+  const initialisedForTaskId = useRef<string | null>(null);
 
   const slideAnim = useRef(new Animated.Value(height)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  const dispatch = useDispatch();
+
   const selectedChatId = useSelector((state: RootState) => state.conversation.selectedChatId);
+  const currentUserId = useSelector((state: RootState) => state.profile.userId);
 
   if (!selectedChatId) {
     console.error('No chat selected. Cannot fetch task details.');
@@ -143,17 +151,35 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     selectedChatId || ''
   );
 
+  const { updateTaskDetails, loading } = useUpdateTaskDetails(
+    taskId && selectedChatId ? taskId : '',
+    selectedChatId || ''
+  );
+
+  // Fetch on mount / taskId change
   useEffect(() => {
     if (taskId && selectedChatId) fetchTaskDetails();
   }, [taskId, selectedChatId]);
 
+  // ── INITIAL LOAD ONLY ──────────────────────────────────────────────────────
+  // Only populate editedTask when the modal first opens (or opens for a new
+  // taskId). We NEVER re-sync from `task` after initialisation — any Redux
+  // change triggered by patchTask would overwrite in-flight optimistic updates.
   useEffect(() => {
-    if (task) {
-      const { ...rest } = task;
-      setEditedTask(rest as TaskDetails);
-      setHasChanges(false);
+    if (!visible || !task) return;
+    if (initialisedForTaskId.current === taskId) return; // already set up
+
+    setEditedTask({ ...task });
+    setHasChanges(false);
+    initialisedForTaskId.current = taskId;
+  }, [visible, task, taskId]);
+
+  // Reset ref on close so the next open always pulls fresh Redux data
+  useEffect(() => {
+    if (!visible) {
+      initialisedForTaskId.current = null;
     }
-  }, [task]);
+  }, [visible]);
 
   useEffect(() => {
     if (visible) {
@@ -198,7 +224,12 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     if (hasChanges) {
       Alert.alert('Discard Changes?', 'You have unsaved changes. Are you sure you want to discard them?', [
         { text: 'Stay', style: 'cancel' },
-        { text: 'Discard', style: 'destructive', onPress: onClose },
+        {
+          text: 'Discard', style: 'destructive', onPress: () => {
+            setHasChanges(false);
+            onClose();
+          },
+        },
       ]);
     } else {
       onClose();
@@ -214,19 +245,69 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     });
   };
 
-  const handleAssigneeStatusChange = (assigneeId: string, status: Assignees['status']) => {
+  /**
+   * Assignee status change — fires immediately, completely independent of Save.
+   *
+   * This is NOT a draft edit. It calls the API right away, optimistically
+   * updates both editedTask and Redux, and rolls back on failure.
+   * hasChanges is never touched — the Save button is unaffected.
+   *
+   * Flow:
+   *  1. Optimistic: update editedTask so the pill reflects the new status instantly
+   *  2. Call API with { status } — backend routes this as assignee updating own status
+   *  3. On success: patch Redux store with server response
+   *  4. On failure: roll back editedTask, show error
+   */
+  const handleAssigneeStatusChange = async (
+    assigneeId: string,
+    status: Assignees['status']
+  ) => {
+    if (assigneeId !== currentUserId) {
+      Alert.alert('Cannot Update Status', 'You can only update your own assignment status.', [{ text: 'OK' }]);
+      return;
+    }
+
+    // Snapshot for rollback
+    const previousAssignees = editedTask.assignees ? [...editedTask.assignees] : [];
+
+    // 1. Optimistic UI update — update editedTask directly, don't touch hasChanges
     setEditedTask(prev => {
       if (!prev) return prev;
-      const updatedAssignees = prev.assignees?.map(a =>
-        a.user_id === assigneeId ? { ...a, status } : a
-      );
-      const updated = { ...prev, assignees: updatedAssignees };
-      markChanged(updated);
-      return updated;
+      return {
+        ...prev,
+        assignees: prev.assignees?.map(a =>
+          a.user_id === assigneeId
+            ? { ...a, status, updated_at: new Date().toISOString() }
+            : a
+        ),
+      };
     });
+
+    setAssigneeStatusLoading(assigneeId);
+
+    try {
+      // 2. Fire API immediately — this is not deferred to Save
+      const res = await updateTaskDetails({ status });
+
+      // 3. Sync Redux so other screens reflecting this task stay consistent
+      //    We do NOT sync editedTask from res to avoid stale-read revert bug.
+      dispatch(patchTask({ taskId, changes: res }));
+
+    } catch (error) {
+      console.error('Error updating assignee status:', error);
+
+      // 4. Roll back optimistic update
+      setEditedTask(prev => {
+        if (!prev) return prev;
+        return { ...prev, assignees: previousAssignees };
+      });
+
+      Alert.alert('Error', 'Failed to update status. Please try again.', [{ text: 'OK' }]);
+    } finally {
+      setAssigneeStatusLoading(null);
+    }
   };
 
-  /** Add a ChatMember as a new Assignee with pending status */
   const handleAddAssignee = (member: ChatMember) => {
     setEditedTask(prev => {
       if (!prev) return prev;
@@ -237,15 +318,14 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
         avatar_url: member.avatar_url,
         status: 'pending',
         assigned_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
-      const updatedAssignees = [...(prev.assignees ?? []), newAssignee];
-      const updated = { ...prev, assignees: updatedAssignees };
+      const updated = { ...prev, assignees: [...(prev.assignees ?? []), newAssignee] };
       setHasChanges(true);
       return updated;
     });
   };
 
-  /** Remove an assignee after confirmation */
   const handleRemoveAssignee = (assigneeId: string) => {
     Alert.alert('Remove Assignee', 'Remove this person from the task?', [
       { text: 'Cancel', style: 'cancel' },
@@ -253,8 +333,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
         text: 'Remove', style: 'destructive', onPress: () => {
           setEditedTask(prev => {
             if (!prev) return prev;
-            const updatedAssignees = prev.assignees?.filter(a => a.user_id !== assigneeId);
-            const updated = { ...prev, assignees: updatedAssignees };
+            const updated = { ...prev, assignees: prev.assignees?.filter(a => a.user_id !== assigneeId) };
             markChanged(updated);
             return updated;
           });
@@ -263,11 +342,28 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     ]);
   };
 
-  const handleSave = () => {
-    if (editedTask && onSave) {
-      onSave(editedTask);
+  const handleSave = async () => {
+    if (!editedTask || !isCreator) return;
+    onSave?.(editedTask);
+
+    const payload: UpdateTaskPayload = {};
+    if (editedTask.title !== task.title) payload.title = editedTask.title;
+    if (editedTask.description !== task.description) payload.description = editedTask.description;
+    if (editedTask.due_date !== task.due_date) payload.due_date = editedTask.due_date;
+    if (editedTask.status !== task.status) payload.status = editedTask.status;
+    if (JSON.stringify(editedTask.assignees) !== JSON.stringify(task.assignees)) {
+      payload.assignees = editedTask.assignees?.map(a => a.user_id);
+    }
+
+    try {
+      const res = await updateTaskDetails(payload);
+      dispatch(patchTask({ taskId, changes: res }));
+      setHasChanges(false);
       Alert.alert('Success', 'Task updated successfully!', [{ text: 'OK' }]);
       onClose();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update task. Please try again.', [{ text: 'OK' }]);
+      console.error('Error updating task:', error);
     }
   };
 
@@ -284,8 +380,9 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  const isOverdue = (date: Date) => date < new Date() && editedTask.status !== 'completed';
-
+  const dueDateObj = editedTask.due_date ? new Date(editedTask.due_date) : null;
+  const isOverdue = dueDateObj ? dueDateObj < new Date() && editedTask.status !== 'completed' : false;
+  const isCreator = task.created_by === currentUserId;
   const activeAssignee = editedTask.assignees?.find(a => a.user_id === openAssigneeStatusId) ?? null;
   const existingAssigneeIds = editedTask.assignees?.map(a => a.user_id) ?? [];
 
@@ -304,7 +401,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
 
   return (
     <>
-      {/* ── Main bottom sheet ── */}
       <Modal visible={visible} transparent onRequestClose={handleClose} statusBarTranslucent>
         <StatusBar backgroundColor="rgba(0,0,0,0.5)" barStyle="light-content" />
 
@@ -322,7 +418,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
             {...panResponder.panHandlers}
           >
             <SafeAreaView style={styles.safeArea}>
-              {/* Drag handle */}
               <View style={styles.dragHandleContainer}>
                 <View style={[styles.dragHandle, { backgroundColor: theme.border }]} />
               </View>
@@ -335,11 +430,13 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                 <Text style={[styles.headerTitle, { color: theme.text }]}>Task Details</Text>
                 <TouchableOpacity
                   onPress={handleSave}
-                  disabled={!hasChanges}
-                  style={[styles.headerButton, !hasChanges && styles.saveButtonDisabled]}
+                  disabled={!hasChanges || loading || !isCreator}
+                  style={[styles.headerButton, (!hasChanges || loading || !isCreator) && styles.saveButtonDisabled]}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={[styles.saveButtonText, { color: hasChanges ? theme.primary : theme.textSecondary }]}>Save</Text>
+                  <Text style={[styles.saveButtonText, { color: hasChanges && !loading && isCreator ? theme.primary : theme.textSecondary }]}>
+                    {loading ? 'Saving…' : 'Save'}
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -357,6 +454,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                       placeholder="Enter task title"
                       placeholderTextColor={theme.textSecondary}
                       multiline
+                      editable={isCreator}
                     />
                   </View>
                 </View>
@@ -374,26 +472,33 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                       multiline
                       numberOfLines={4}
                       textAlignVertical="top"
+                      editable={isCreator}
                     />
                   </View>
                 </View>
 
-                {/* Status */}
+                {/* Task Status */}
                 <View style={styles.section}>
                   <View style={styles.statusRow}>
                     <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginBottom: 0 }]}>Status</Text>
                     <TouchableOpacity
-                      style={[styles.statusPill, { borderColor: theme.border, backgroundColor: theme.card }]}
-                      onPress={() => setShowTaskStatusPicker(true)}
-                      activeOpacity={0.7}
+                      style={[
+                        styles.statusPill,
+                        {
+                          borderColor: isCreator ? theme.border : getStatusColor(editedTask.status),
+                          backgroundColor: isCreator ? theme.card : getStatusColor(editedTask.status) + '15',
+                        },
+                      ]}
+                      onPress={() => isCreator && setShowTaskStatusPicker(true)}
+                      activeOpacity={isCreator ? 0.7 : 1}
                     >
                       <View style={[styles.statusIconSmall, { backgroundColor: getStatusColor(editedTask.status) + '20' }]}>
                         <Ionicons name={getStatusIcon(editedTask.status)} size={14} color={getStatusColor(editedTask.status)} />
                       </View>
-                      <Text style={[styles.statusPillText, { color: theme.text }]}>
+                      <Text style={[styles.statusPillText, { color: isCreator ? theme.text : getStatusColor(editedTask.status) }]}>
                         {formatStatusLabel(editedTask.status)}
                       </Text>
-                      <Ionicons name="chevron-down" size={14} color={theme.textSecondary} />
+                      {isCreator && <Ionicons name="chevron-down" size={14} color={theme.textSecondary} />}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -403,30 +508,24 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                   <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>Due Date</Text>
                   <TouchableOpacity
                     style={[styles.datePickerButton, {
-                      borderColor: isOverdue(editedTask?.due_date ? new Date(editedTask.due_date) : new Date()) ? theme.danger : theme.border,
+                      borderColor: isOverdue ? theme.danger : theme.border,
                       backgroundColor: theme.card,
                     }]}
-                    onPress={() => setShowDatePicker(true)}
-                    activeOpacity={0.7}
+                    onPress={() => isCreator && setShowDatePicker(true)}
+                    activeOpacity={isCreator ? 0.7 : 1}
                   >
                     <View style={styles.datePickerContent}>
                       <View style={styles.dateIconContainer}>
-                        <Ionicons
-                          name="calendar-outline"
-                          size={20}
-                          color={isOverdue(editedTask.due_date ? new Date(editedTask.due_date) : new Date()) ? theme.danger : theme.primary}
-                        />
+                        <Ionicons name="calendar-outline" size={20} color={isOverdue ? theme.danger : theme.primary} />
                       </View>
                       <View style={styles.dateInfo}>
                         <Text style={[styles.dateText, { color: theme.text }]}>
-                          {formatDateForDisplay(editedTask.due_date ? new Date(editedTask.due_date) : new Date())}
+                          {dueDateObj ? formatDateForDisplay(dueDateObj) : 'No due date'}
                         </Text>
-                        {isOverdue(editedTask.due_date ? new Date(editedTask.due_date) : new Date()) && (
-                          <Text style={[styles.overdueText, { color: theme.danger }]}>Overdue</Text>
-                        )}
+                        {isOverdue && <Text style={[styles.overdueText, { color: theme.danger }]}>Overdue</Text>}
                       </View>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />
+                    {isCreator && <Ionicons name="chevron-forward" size={20} color={theme.textSecondary} />}
                   </TouchableOpacity>
                 </View>
 
@@ -452,7 +551,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                       <Ionicons name="refresh-outline" size={16} color={theme.success} />
                       <Text style={[styles.metadataLabel, { color: theme.textSecondary }]}>Updated</Text>
                       <Text style={[styles.metadataValue, { color: theme.text }]}>
-                        {formatDate(task?.updated_at ? new Date(task.updated_at) : new Date())}
+                        {formatDate(editedTask?.updated_at ? new Date(editedTask.updated_at) : new Date())}
                       </Text>
                     </View>
                     <View style={styles.metadataItem}>
@@ -465,86 +564,108 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
 
                 {/* ── Assignees ── */}
                 <View style={styles.section}>
-                  {/* Header row: label + count badge + Add button */}
                   <View style={styles.assigneesSectionHeader}>
                     <View style={styles.assigneesSectionLeft}>
-                      <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginBottom: 0 }]}>
-                        Assignees
-                      </Text>
+                      <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginBottom: 0 }]}>Assignees</Text>
                       <View style={[styles.countBadge, { backgroundColor: theme.primary + '20' }]}>
                         <Text style={[styles.countBadgeText, { color: theme.primary }]}>
                           {editedTask.assignees?.length ?? 0}
                         </Text>
                       </View>
                     </View>
-
-                    <TouchableOpacity
-                      style={[styles.addBtn, { borderColor: theme.primary, backgroundColor: theme.primary + '10' }]}
-                      onPress={() => setShowAddAssignee(true)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="person-add-outline" size={13} color={theme.primary} />
-                      <Text style={[styles.addBtnText, { color: theme.primary }]}>Add</Text>
-                    </TouchableOpacity>
+                    {isCreator && (
+                      <TouchableOpacity
+                        style={[styles.addBtn, { borderColor: theme.primary, backgroundColor: theme.primary + '10' }]}
+                        onPress={() => setShowAddAssignee(true)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="person-add-outline" size={13} color={theme.primary} />
+                        <Text style={[styles.addBtnText, { color: theme.primary }]}>Add</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
 
-                  {/* Empty state */}
                   {(!editedTask.assignees || editedTask.assignees.length === 0) && (
                     <TouchableOpacity
                       style={[styles.emptyAssignees, { borderColor: theme.border, backgroundColor: theme.card }]}
-                      onPress={() => setShowAddAssignee(true)}
-                      activeOpacity={0.7}
+                      onPress={() => isCreator && setShowAddAssignee(true)}
+                      activeOpacity={isCreator ? 0.7 : 1}
                     >
                       <Ionicons name="people-outline" size={28} color={theme.textSecondary} style={{ opacity: 0.45 }} />
                       <Text style={[styles.emptyAssigneesLabel, { color: theme.textSecondary }]}>No assignees yet</Text>
-                      <Text style={[styles.emptyAssigneesHint, { color: theme.primary }]}>Tap to add someone</Text>
+                      {isCreator && <Text style={[styles.emptyAssigneesHint, { color: theme.primary }]}>Tap to add someone</Text>}
                     </TouchableOpacity>
                   )}
 
-                  {/* Assignee rows */}
                   {editedTask.assignees?.map((assignee) => {
                     const color = avatarColor(assignee.name);
+                    const isOwnRow = assignee.user_id === currentUserId;
+                    const isUpdating = assigneeStatusLoading === assignee.user_id;
+
                     return (
                       <View key={assignee.user_id} style={[styles.assigneeRow, { borderBottomColor: theme.border }]}>
-                        {/* Avatar + name + date */}
                         <View style={styles.assigneeLeft}>
                           <View style={[styles.assigneeAvatar, { backgroundColor: color + '22' }]}>
-                            <Text style={[styles.assigneeAvatarText, { color }]}>
-                              {initials(assignee.name)}
-                            </Text>
+                            <Text style={[styles.assigneeAvatarText, { color }]}>{initials(assignee.name)}</Text>
                           </View>
                           <View style={styles.assigneeDetails}>
-                            <Text style={[styles.assigneeName, { color: theme.text }]}>
-                              {assignee.name ?? 'Unknown'}
-                            </Text>
+                            <View style={styles.assigneeNameRow}>
+                              <Text style={[styles.assigneeName, { color: theme.text }]}>{assignee.name ?? 'Unknown'}</Text>
+                              {isOwnRow && (
+                                <View style={[styles.youBadge, { backgroundColor: theme.primary + '18' }]}>
+                                  <Text style={[styles.youBadgeText, { color: theme.primary }]}>You</Text>
+                                </View>
+                              )}
+                            </View>
                             <Text style={[styles.assignedAtText, { color: theme.textSecondary }]}>
                               Assigned {formatDateForDisplay(new Date(assignee.assigned_at))}
                             </Text>
+                            {assignee.updated_at && (
+                              <Text style={[styles.assignedAtText, { color: theme.textSecondary }]}>
+                                Updated {formatDateForDisplay(new Date(assignee.updated_at))}
+                              </Text>
+                            )}
                           </View>
                         </View>
 
-                        {/* Right: status pill + remove */}
                         <View style={styles.assigneeRight}>
+                          {/* Status pill — tappable only on own row */}
                           <TouchableOpacity
-                            style={[styles.statusPill, { borderColor: theme.border, backgroundColor: getStatusColor(assignee.status) + '15' }]}
+                            style={[
+                              styles.statusPill,
+                              {
+                                borderColor: isOwnRow ? getStatusColor(assignee.status) : theme.border,
+                                backgroundColor: getStatusColor(assignee.status) + '15',
+                                opacity: isUpdating ? 0.5 : 1,
+                              },
+                            ]}
                             onPress={() => setOpenAssigneeStatusId(assignee.user_id)}
-                            activeOpacity={0.7}
+                            activeOpacity={isOwnRow ? 0.7 : 0.95}
+                            disabled={isUpdating}
                           >
-                            <Ionicons name={getStatusIcon(assignee.status)} size={12} color={getStatusColor(assignee.status)} />
-                            <Text style={[styles.statusPillText, { color: getStatusColor(assignee.status) }]}>
-                              {formatStatusLabel(assignee.status)}
-                            </Text>
-                            <Ionicons name="chevron-down" size={11} color={getStatusColor(assignee.status)} />
+                            {isUpdating ? (
+                              <Text style={[styles.statusPillText, { color: getStatusColor(assignee.status) }]}>…</Text>
+                            ) : (
+                              <>
+                                <Ionicons name={getStatusIcon(assignee.status)} size={12} color={getStatusColor(assignee.status)} />
+                                <Text style={[styles.statusPillText, { color: getStatusColor(assignee.status) }]}>
+                                  {formatStatusLabel(assignee.status)}
+                                </Text>
+                                {isOwnRow && <Ionicons name="chevron-down" size={11} color={getStatusColor(assignee.status)} />}
+                              </>
+                            )}
                           </TouchableOpacity>
 
-                          <TouchableOpacity
-                            style={[styles.removeBtn, { backgroundColor: theme.danger + '12' }]}
-                            onPress={() => handleRemoveAssignee(assignee.user_id)}
-                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                            activeOpacity={0.7}
-                          >
-                            <Ionicons name="person-remove-outline" size={13} color={theme.danger} />
-                          </TouchableOpacity>
+                          {isCreator && (
+                            <TouchableOpacity
+                              style={[styles.removeBtn, { backgroundColor: theme.danger + '12' }]}
+                              onPress={() => handleRemoveAssignee(assignee.user_id)}
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              activeOpacity={0.7}
+                            >
+                              <Ionicons name="person-remove-outline" size={13} color={theme.danger} />
+                            </TouchableOpacity>
+                          )}
                         </View>
                       </View>
                     );
@@ -556,7 +677,6 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
             </SafeAreaView>
           </Animated.View>
 
-          {/* Date Picker */}
           {showDatePicker && (
             <View style={styles.datePickerContainer}>
               {Platform.OS === 'ios' ? (
@@ -571,7 +691,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                     </TouchableOpacity>
                   </View>
                   <DateTimePicker
-                    value={editedTask.due_date ? new Date(editedTask.due_date) : new Date()}
+                    value={dueDateObj ?? new Date()}
                     mode="date"
                     display="spinner"
                     onChange={(_, d) => { if (d) handleFieldChange('due_date', d.toISOString()); }}
@@ -581,7 +701,7 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
                 </View>
               ) : (
                 <DateTimePicker
-                  value={editedTask.due_date ? new Date(editedTask.due_date) : new Date()}
+                  value={dueDateObj ?? new Date()}
                   mode="date"
                   display="default"
                   onChange={(_, d) => { setShowDatePicker(false); if (d) handleFieldChange('due_date', d.toISOString()); }}
@@ -592,23 +712,23 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ── Floating task status picker ── */}
+      {/* Floating task status picker */}
       <StatusPickerOverlay
         visible={showTaskStatusPicker}
         onClose={() => setShowTaskStatusPicker(false)}
         currentStatus={editedTask.status}
-        title="Select Status"
+        title="Select Task Status"
         theme={theme}
         anchorBottom={height * 0.38}
         onSelect={status => handleFieldChange('status', status)}
       />
 
-      {/* ── Floating assignee status picker ── */}
+      {/* Floating assignee status picker */}
       <StatusPickerOverlay
         visible={openAssigneeStatusId !== null}
         onClose={() => setOpenAssigneeStatusId(null)}
         currentStatus={activeAssignee?.status ?? 'pending'}
-        title={activeAssignee ? `${activeAssignee.name ?? 'Assignee'}'s Status` : 'Select Status'}
+        title={activeAssignee?.user_id === currentUserId ? 'Update Your Status' : `${activeAssignee?.name ?? 'Assignee'}'s Status`}
         theme={theme}
         anchorBottom={height * 0.26}
         onSelect={status => {
@@ -617,19 +737,19 @@ const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({
         }}
       />
 
-      {/* ── Add Assignee bottom sheet ── */}
-      <AddAssigneeSheet
-        visible={showAddAssignee}
-        onClose={() => setShowAddAssignee(false)}
-        onAdd={handleAddAssignee}
-        existingIds={existingAssigneeIds}
-        chatId={selectedChatId}
-        theme={theme}
-      />
+      {isCreator && (
+        <AddAssigneeSheet
+          visible={showAddAssignee}
+          onClose={() => setShowAddAssignee(false)}
+          onAdd={handleAddAssignee}
+          existingIds={existingAssigneeIds}
+          chatId={selectedChatId}
+          theme={theme}
+        />
+      )}
     </>
   );
 };
-
 
 const styles = StyleSheet.create({
   modalOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
@@ -638,71 +758,56 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   dragHandleContainer: { alignItems: 'center', paddingVertical: 12 },
   dragHandle: { width: 40, height: 4, borderRadius: 2 },
-
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 12, borderBottomWidth: 1 },
   headerButton: { padding: 4, minWidth: 44, alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '600' },
-  saveButtonDisabled: { opacity: 0.5 },
+  saveButtonDisabled: { opacity: 0.4 },
   saveButtonText: { fontSize: 16, fontWeight: '600' },
-
   scrollContent: { padding: 20 },
   section: { marginBottom: 24 },
   sectionLabel: { fontSize: 13, fontWeight: '600', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-
   inputWrapper: { flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderRadius: 12, overflow: 'hidden' },
   inputIcon: { padding: 12 },
   titleInput: { flex: 1, fontSize: 16, fontWeight: '500', padding: 12, paddingLeft: 0, minHeight: 50 },
   descriptionInput: { flex: 1, fontSize: 15, lineHeight: 22, padding: 12, minHeight: 100 },
-
-  // Status
   statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   statusPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 11, paddingVertical: 7, borderWidth: 1, borderRadius: 20, gap: 5 },
   statusPillText: { fontSize: 12, fontWeight: '500' },
   statusIconSmall: { width: 22, height: 22, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
-
-  // Due date
   datePickerButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderWidth: 1, borderRadius: 12 },
   datePickerContent: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   dateIconContainer: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   dateInfo: { flex: 1, marginLeft: 8 },
   dateText: { fontSize: 15, fontWeight: '500' },
   overdueText: { fontSize: 12, marginTop: 2 },
-
-  // Metadata
   metadataSection: { padding: 16, borderRadius: 16, marginBottom: 24 },
   metadataTitle: { fontSize: 14, fontWeight: '600', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 0.5 },
   metadataGrid: { gap: 16 },
   metadataItem: { gap: 4 },
   metadataLabel: { fontSize: 12, fontWeight: '500', marginTop: 2 },
   metadataValue: { fontSize: 14, fontWeight: '500' },
-
-  // Assignees section header
   assigneesSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   assigneesSectionLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   countBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   countBadgeText: { fontSize: 12, fontWeight: '600' },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
   addBtnText: { fontSize: 13, fontWeight: '600' },
-
-  // Empty state
   emptyAssignees: { alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 28, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
   emptyAssigneesLabel: { fontSize: 14, fontWeight: '500' },
   emptyAssigneesHint: { fontSize: 13, fontWeight: '500' },
-
-  // Assignee row
   assigneeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   assigneeLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
   assigneeAvatar: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   assigneeAvatarText: { fontSize: 17, fontWeight: '600' },
   assigneeDetails: { flex: 1 },
-  assigneeName: { fontSize: 15, fontWeight: '500', marginBottom: 2 },
+  assigneeNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  assigneeName: { fontSize: 15, fontWeight: '500' },
+  youBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  youBadgeText: { fontSize: 10, fontWeight: '700' },
   assignedAtText: { fontSize: 11, lineHeight: 16 },
   assigneeRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   removeBtn: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
-
   bottomPadding: { height: 20 },
-
-  // Date picker
   datePickerContainer: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   iosDatePicker: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: Platform.OS === 'ios' ? 20 : 0 },
   datePickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1 },

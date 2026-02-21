@@ -18,7 +18,7 @@ const initialState: TaskDetailState = {
 const taskSlice = createSlice({
   name: "task",
   initialState,
-    reducers: {
+  reducers: {
 
     setTask: (state, action: PayloadAction<TaskDetails>) => {
       const task = action.payload;
@@ -34,28 +34,41 @@ const taskSlice = createSlice({
       }
     },
 
+    patchTask: (
+      state,
+      action: PayloadAction<{ taskId: string; changes: Partial<TaskDetails> }>
+    ) => {
+      const { taskId, changes } = action.payload;
+      if (state.tasksById[taskId]) {
+        state.tasksById[taskId] = {
+          ...state.tasksById[taskId],
+          ...changes,
+        };
+      }
+    },
+
 
     upsertTask: (state, action: PayloadAction<TaskDetails>) => {
       const task = action.payload;
       state.tasksById[task.id] = task;
-        if (!state.taskIds[task.chat_id]) {
-            state.taskIds[task.chat_id] = [];
-        }
-        if (!state.taskIds[task.chat_id].includes(task.id)) {
-            state.taskIds[task.chat_id].push(task.id);
-        }
+      if (!state.taskIds[task.chat_id]) {
+        state.taskIds[task.chat_id] = [];
+      }
+      if (!state.taskIds[task.chat_id].includes(task.id)) {
+        state.taskIds[task.chat_id].push(task.id);
+      }
     },
 
     removeTask: (state, action: PayloadAction<{ taskId: string; chatId: string }>) => {
-        const { taskId, chatId } = action.payload;
-        delete state.tasksById[taskId];
-        
-        state.taskIds[chatId] = state.taskIds[chatId].filter(id => id !== taskId);
-        state.isTaskDetailLoaded[chatId] = false;
+      const { taskId, chatId } = action.payload;
+      delete state.tasksById[taskId];
+
+      state.taskIds[chatId] = state.taskIds[chatId].filter(id => id !== taskId);
+      state.isTaskDetailLoaded[taskId] = false;
     }
-    },
+  },
 });
 
-export const { setTask, upsertTask, removeTask } = taskSlice.actions;
+export const { setTask, patchTask, upsertTask, removeTask } = taskSlice.actions;
 
 export default taskSlice.reducer;

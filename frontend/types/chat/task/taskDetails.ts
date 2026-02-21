@@ -37,6 +37,7 @@ export type Assignees = {
   user_id: string;
   status: "pending" | "in_progress" | "completed";
   assigned_at: string;
+  updated_at: string;
 
   name: string | null;
   username: string | null;
