@@ -72,8 +72,49 @@ async def update_task_details_controller(
         now = datetime.now(timezone.utc).isoformat()
 
         # If user is CREATOR → full control
+
+        only_status = (
+            status is not None
+            and title is None
+            and description is None
+            and due_date is None
+            and assignees is None
+        )
+
+        creator_updating_own_assignee_status = False
+
+        if is_creator and only_status:
+            assigned_check = (
+                supabase.table("task_assignees")
+                .select("user_id")
+                .eq("task_id", task_id)
+                .eq("user_id", current_user_id)
+                .limit(1)
+                .execute()
+            )
+            if assigned_check.data:
+                creator_updating_own_assignee_status = True
+
+        # --------------------------------------------------
+        # 4️⃣ Apply update
+        # --------------------------------------------------
+
+        if creator_updating_own_assignee_status:
+            # Creator is also an assignee and sent only `status` →
+            # update task_assignees, not the tasks table.
+            if status not in ["pending", "in_progress", "completed"]:
+                raise HTTPException(status_code=400, detail="Invalid status value")
+
+            supabase.table("task_assignees") \
+                .update({
+                    "status": status,
+                    "updated_at": now
+                }) \
+                .eq("task_id", task_id) \
+                .eq("user_id", current_user_id) \
+                .execute()
     
-        if is_creator:
+        elif is_creator:
 
             # Creator cannot update status
             # if status is not None:
@@ -212,14 +253,6 @@ async def update_task_details_controller(
                     .execute()
                 
                 print(f"Update result: {result.data}")  # If empty list, no rows matched
-
-        
-        check = supabase.table("task_assignees") \
-            .select("*") \
-            .eq("task_id", task_id) \
-            .eq("user_id", current_user_id) \
-            .execute()
-        print(f"Assignee row check: {check.data}")
 
         # Return updated task
   
