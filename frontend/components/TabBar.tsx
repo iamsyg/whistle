@@ -1,4 +1,5 @@
-// components/TabBar.tsx
+// frontend/components/TabBar.tsx
+
 import React, { useRef, useEffect } from 'react';
 import {
   View,
@@ -94,7 +95,7 @@ export function useTabSwipe<T extends string>(
         const { tabs: curTabs, activeTab: curTab, screenWidth: sw } = stateRef.current;
         const idx = curTabs.findIndex(t => t.id === curTab);
         const isFirst = idx === 0;
-        const isLast  = idx === curTabs.length - 1;
+        const isLast = idx === curTabs.length - 1;
 
         // Apply rubber-band resistance at the edges
         let dx = gs.dx;
@@ -220,10 +221,10 @@ function TabBar<T extends string = string>({
   const indicatorAnim = useRef(new Animated.Value(0)).current;
 
   const colors = {
-    background:    isDarkMode ? '#1F2C34' : '#FFFFFF',
+    background: isDarkMode ? '#1F2C34' : '#FFFFFF',
     textSecondary: isDarkMode ? '#A0A0A0' : '#666666',
-    border:        isDarkMode ? '#2A3942' : '#E0E0E0',
-    active:        activeColor ?? (isDarkMode ? '#00A884' : '#008069'),
+    border: isDarkMode ? '#2A3942' : '#E0E0E0',
+    active: activeColor ?? (isDarkMode ? '#00A884' : '#008069'),
   };
 
   const activeIndex = tabs.findIndex(t => t.id === activeTab);
@@ -253,7 +254,7 @@ function TabBar<T extends string = string>({
                 style={[
                   st.tabText,
                   {
-                    color:      isActive ? colors.active : colors.textSecondary,
+                    color: isActive ? colors.active : colors.textSecondary,
                     fontWeight: isActive ? '600' : '400',
                   },
                 ]}

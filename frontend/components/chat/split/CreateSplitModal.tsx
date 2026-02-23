@@ -1,10 +1,9 @@
-// components/CreateSplitModal.tsx
+// frontend/components/chat/split/CreateSplitModal.tsx
 //
-// Minimal GPay-style split modal:
 //  • Single scrollable sheet – no step navigation
 //  • Amount + title at top
 //  • All members listed (including yourself, pre-selected & non-removable)
-//  • Split type toggle: Equally | Unequally | By Share
+//  • Split type toggle: Equally | Unequally
 //  • Live per-member amount shown inline
 //
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
@@ -15,7 +14,6 @@ import {
   Modal,
   TouchableOpacity,
   TextInput,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   Alert,
@@ -25,8 +23,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-type SplitType = 'equally' | 'unequally' | 'byShare';
+// ─── Types 
+type SplitType = 'equally' | 'unequally';
 
 interface MemberRow {
   user_id: string;
@@ -36,8 +34,6 @@ interface MemberRow {
   selected: boolean;
   /** editable in unequally mode */
   amount: string;
-  /** editable in byShare mode */
-  share: string;
 }
 
 export interface CreateSplitResult {
@@ -54,14 +50,14 @@ interface Props {
   isDarkMode?: boolean;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers 
 const getInitials = (name: string | null, username: string | null) =>
   (name || username || '?').slice(0, 2).toUpperCase();
 
 const fmtINR = (n: number) =>
   n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-// ─── Avatar ───────────────────────────────────────────────────────────────────
+// ─── Avatar 
 const Avatar = ({
   name,
   username,
@@ -91,14 +87,15 @@ const Avatar = ({
   </View>
 );
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Component 
 const CreateSplitModal: React.FC<Props> = ({
   visible,
   onClose,
   onCreateSplit,
   isDarkMode = false,
 }) => {
-  // ── Theme ──────────────────────────────────────────────────────────────────
+
+  // ── Theme 
   const C = useMemo(
     () => ({
       bg: isDarkMode ? '#1F2C34' : '#FFFFFF',
@@ -115,7 +112,7 @@ const CreateSplitModal: React.FC<Props> = ({
     [isDarkMode]
   );
 
-  // ── Redux ─────────────────────────────────────────────────────────────────
+  // ── Redux 
   const myUserId = useSelector((s: RootState) => s.profile.userId);
   const myProfile = useSelector((s: RootState) => s.profile);
   const selectedChatId = useSelector((s: RootState) => s.conversation.selectedChatId);
@@ -126,21 +123,19 @@ const CreateSplitModal: React.FC<Props> = ({
     [selectedChatId, membersByChatId]
   );
 
-  // ── Form state ────────────────────────────────────────────────────────────
+  // ── Form state 
   const [totalAmount, setTotalAmount] = useState('');
   const [title, setTitle] = useState('');
   const [splitType, setSplitType] = useState<SplitType>('equally');
 
-  // Build the full member rows (me first, then others)
   const buildRows = useCallback((): MemberRow[] => {
     const meRow: MemberRow = {
       user_id: myUserId ?? 'me',
       name: myProfile.name ?? 'You',
       username: myProfile.userName ?? null,
       isMe: true,
-      selected: true, // always selected
+      selected: true,
       amount: '',
-      share: '1',
     };
 
     const others: MemberRow[] = chatMembers
@@ -152,7 +147,6 @@ const CreateSplitModal: React.FC<Props> = ({
         isMe: false,
         selected: false,
         amount: '',
-        share: '1',
       }));
 
     return [meRow, ...others];
@@ -160,35 +154,24 @@ const CreateSplitModal: React.FC<Props> = ({
 
   const [rows, setRows] = useState<MemberRow[]>([]);
 
-  // Init rows when modal opens / members change
   useEffect(() => {
     if (visible) setRows(buildRows());
   }, [visible, buildRows]);
 
-  // ── Derived ───────────────────────────────────────────────────────────────
+  // ── Derived 
   const parsed = parseFloat(totalAmount) || 0;
   const selectedRows = rows.filter(r => r.selected);
   const n = selectedRows.length;
 
-  // Per-member computed amount for display
   const computedAmounts = useMemo<Record<string, number>>(() => {
     if (parsed <= 0 || n === 0) return {};
     if (splitType === 'equally') {
-      const share = parsed / n;
+      const share = Math.floor((parsed / n) * 100) / 100;
       return Object.fromEntries(selectedRows.map(r => [r.user_id, share]));
     }
-    if (splitType === 'unequally') {
-      return Object.fromEntries(
-        selectedRows.map(r => [r.user_id, parseFloat(r.amount) || 0])
-      );
-    }
-    // byShare
-    const totalShares = selectedRows.reduce((a, r) => a + (parseFloat(r.share) || 0), 0);
+    // unequally – use whatever the user typed
     return Object.fromEntries(
-      selectedRows.map(r => {
-        const s = parseFloat(r.share) || 0;
-        return [r.user_id, totalShares > 0 ? (parsed * s) / totalShares : 0];
-      })
+      selectedRows.map(r => [r.user_id, parseFloat(r.amount) || 0])
     );
   }, [rows, splitType, parsed, n]);
 
@@ -199,7 +182,7 @@ const CreateSplitModal: React.FC<Props> = ({
     return { remaining: rem, isBalanced: Math.abs(rem) < 0.005 };
   }, [rows, splitType, parsed]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers 
   const toggleRow = (userId: string) => {
     setRows(prev =>
       prev.map(r =>
@@ -208,9 +191,9 @@ const CreateSplitModal: React.FC<Props> = ({
     );
   };
 
-  const updateRowField = (userId: string, field: 'amount' | 'share', val: string) => {
+  const updateAmount = (userId: string, val: string) => {
     setRows(prev =>
-      prev.map(r => (r.user_id === userId ? { ...r, [field]: val } : r))
+      prev.map(r => (r.user_id === userId ? { ...r, amount: val } : r))
     );
   };
 
@@ -219,9 +202,7 @@ const CreateSplitModal: React.FC<Props> = ({
       Alert.alert('Enter amount', 'Please enter a valid total amount.');
       return;
     }
-    // Must select at least one other member (me alone doesn't count)
-    const othersSelected = selectedRows.filter(r => !r.isMe);
-    if (othersSelected.length === 0) {
+    if (selectedRows.filter(r => !r.isMe).length === 0) {
       Alert.alert('Select members', 'Choose at least one other person to split with.');
       return;
     }
@@ -254,9 +235,9 @@ const CreateSplitModal: React.FC<Props> = ({
     onClose();
   };
 
-  // ─────────────────────────────────────────────────────────────────────────
+
   // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
+ 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={st.overlay}>
@@ -270,7 +251,10 @@ const CreateSplitModal: React.FC<Props> = ({
 
             {/* ── Header ── */}
             <View style={st.header}>
-              <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity
+                onPress={handleClose}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
                 <Ionicons name="close" size={22} color={C.sub} />
               </TouchableOpacity>
               <Text style={[st.headerTitle, { color: C.text }]}>Split expense</Text>
@@ -281,6 +265,7 @@ const CreateSplitModal: React.FC<Props> = ({
                   { backgroundColor: parsed > 0 && n > 1 ? C.accent : C.border },
                 ]}
                 activeOpacity={0.85}
+                disabled={!(parsed > 0 && n > 1)}
               >
                 <Text style={[st.doneBtnText, { color: parsed > 0 && n > 1 ? '#fff' : C.sub }]}>
                   Create
@@ -327,7 +312,6 @@ const CreateSplitModal: React.FC<Props> = ({
                   [
                     { id: 'equally', label: 'Equally' },
                     { id: 'unequally', label: 'Unequally' },
-                    { id: 'byShare', label: 'By share' },
                   ] as { id: SplitType; label: string }[]
                 ).map(opt => {
                   const active = splitType === opt.id;
@@ -337,18 +321,11 @@ const CreateSplitModal: React.FC<Props> = ({
                       onPress={() => setSplitType(opt.id)}
                       style={[
                         st.splitToggleBtn,
-                        {
-                          backgroundColor: active ? C.accent : C.inputBg,
-                        },
+                        { backgroundColor: active ? C.accent : C.inputBg },
                       ]}
                       activeOpacity={0.75}
                     >
-                      <Text
-                        style={[
-                          st.splitToggleText,
-                          { color: active ? '#fff' : C.sub },
-                        ]}
-                      >
+                      <Text style={[st.splitToggleText, { color: active ? '#fff' : C.sub }]}>
                         {opt.label}
                       </Text>
                     </TouchableOpacity>
@@ -361,9 +338,7 @@ const CreateSplitModal: React.FC<Props> = ({
                 <View
                   style={[
                     st.balanceRow,
-                    {
-                      backgroundColor: isBalanced ? C.accentBg : `${C.danger}14`,
-                    },
+                    { backgroundColor: isBalanced ? C.accentBg : `${C.danger}14` },
                   ]}
                 >
                   <Ionicons
@@ -375,8 +350,8 @@ const CreateSplitModal: React.FC<Props> = ({
                     {isBalanced
                       ? 'Amounts balanced'
                       : remaining > 0
-                      ? `₹${fmtINR(remaining)} left to assign`
-                      : `₹${fmtINR(Math.abs(remaining))} over-assigned`}
+                        ? `₹${fmtINR(remaining)} left to assign`
+                        : `₹${fmtINR(Math.abs(remaining))} over-assigned`}
                   </Text>
                 </View>
               )}
@@ -385,7 +360,7 @@ const CreateSplitModal: React.FC<Props> = ({
               <View style={{ paddingHorizontal: 16 }}>
                 {rows.map(row => {
                   const amt = computedAmounts[row.user_id];
-                  const showAmt = row.selected && parsed > 0;
+                  const showAmt = row.selected && parsed > 0 && splitType === 'equally';
 
                   return (
                     <TouchableOpacity
@@ -394,7 +369,6 @@ const CreateSplitModal: React.FC<Props> = ({
                       activeOpacity={row.isMe ? 1 : 0.7}
                       style={st.memberRow}
                     >
-                      {/* Avatar */}
                       <Avatar
                         name={row.isMe ? 'You' : row.name}
                         username={row.username}
@@ -402,50 +376,36 @@ const CreateSplitModal: React.FC<Props> = ({
                         bgColor={C.avatarBg}
                       />
 
-                      {/* Name + amount */}
                       <View style={{ flex: 1, marginLeft: 12 }}>
                         <Text style={[st.memberName, { color: C.text }]} numberOfLines={1}>
                           {row.isMe ? 'You' : (row.name || row.username || 'Unknown')}
                         </Text>
-                        {showAmt && splitType === 'equally' && (
+                        {showAmt && (
                           <Text style={[st.memberAmt, { color: C.accent }]}>
                             ₹{fmtINR(amt)}
                           </Text>
                         )}
-                        {showAmt && splitType === 'byShare' && (
-                          <Text style={[st.memberAmt, { color: C.accent }]}>
-                            ≈ ₹{fmtINR(amt)}
-                          </Text>
-                        )}
                       </View>
 
-                      {/* Right side: editable field OR checkbox */}
+                      {/* Right side: amount input (unequally) OR checkbox */}
                       {splitType === 'unequally' && row.selected ? (
-                        <View style={[st.amountChip, { borderColor: C.border, backgroundColor: C.inputBg }]}>
+                        <View
+                          style={[
+                            st.amountChip,
+                            { borderColor: C.border, backgroundColor: C.inputBg },
+                          ]}
+                        >
                           <Text style={[st.chipRupee, { color: C.sub }]}>₹</Text>
                           <TextInput
                             style={[st.chipInput, { color: C.text }]}
                             value={row.amount}
-                            onChangeText={v => updateRowField(row.user_id, 'amount', v)}
+                            onChangeText={v => updateAmount(row.user_id, v)}
                             keyboardType="decimal-pad"
                             placeholder="0.00"
                             placeholderTextColor={C.sub}
                           />
                         </View>
-                      ) : splitType === 'byShare' && row.selected ? (
-                        <View style={[st.shareChip, { borderColor: C.border, backgroundColor: C.inputBg }]}>
-                          <TextInput
-                            style={[st.shareInput, { color: C.text }]}
-                            value={row.share}
-                            onChangeText={v => updateRowField(row.user_id, 'share', v)}
-                            keyboardType="decimal-pad"
-                            placeholder="1"
-                            placeholderTextColor={C.sub}
-                          />
-                          <Text style={[st.shareLabel, { color: C.sub }]}>share</Text>
-                        </View>
                       ) : (
-                        // Checkbox (locked for "me")
                         <View
                           style={[
                             st.checkbox,
@@ -456,9 +416,7 @@ const CreateSplitModal: React.FC<Props> = ({
                             },
                           ]}
                         >
-                          {row.selected && (
-                            <Ionicons name="checkmark" size={13} color="#fff" />
-                          )}
+                          {row.selected && <Ionicons name="checkmark" size={13} color="#fff" />}
                         </View>
                       )}
                     </TouchableOpacity>
@@ -472,7 +430,6 @@ const CreateSplitModal: React.FC<Props> = ({
     </Modal>
   );
 };
-
 
 const st = StyleSheet.create({
   overlay: {
@@ -499,7 +456,6 @@ const st = StyleSheet.create({
     marginTop: 10,
     marginBottom: 2,
   },
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -520,7 +476,6 @@ const st = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  // Amount
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -539,7 +494,6 @@ const st = StyleSheet.create({
     fontWeight: '700',
     padding: 0,
   },
-  // Title
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -552,7 +506,6 @@ const st = StyleSheet.create({
     fontSize: 15,
     padding: 0,
   },
-  // Split type
   splitToggleWrap: {
     flexDirection: 'row',
     gap: 8,
@@ -570,7 +523,6 @@ const st = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  // Balance
   balanceRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -585,7 +537,6 @@ const st = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  // Member rows
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -608,7 +559,6 @@ const st = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  // Amount chip (unequal)
   amountChip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -627,25 +577,6 @@ const st = StyleSheet.create({
     fontWeight: '600',
     width: 75,
     padding: 0,
-  },
-  // Share chip
-  shareChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 9,
-    paddingVertical: 6,
-  },
-  shareInput: {
-    fontSize: 15,
-    fontWeight: '600',
-    width: 36,
-    padding: 0,
-  },
-  shareLabel: {
-    fontSize: 12,
-    marginLeft: 4,
   },
 });
 

@@ -1,4 +1,5 @@
-// components/SplitsTab.tsx
+// frontend/components/SplitsTab.tsx
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -31,30 +32,65 @@ interface SplitsTabProps {
 }
 
 const MOCK_SPLITS: Split[] = [
-  { id: '1', description: 'Dinner at Restaurant', amount: 4250, paidBy: 'You', participants: ['You', 'John', 'Jane'], status: 'pending', createdAt: new Date(Date.now() - 86400000) },
-  { id: '2', description: 'Movie Tickets', amount: 1800, paidBy: 'John', participants: ['You', 'John'], status: 'settled', createdAt: new Date(Date.now() - 172800000) },
-  { id: '3', description: 'Road Trip Fuel', amount: 3200, paidBy: 'Jane', participants: ['You', 'John', 'Jane', 'Bob'], status: 'pending', createdAt: new Date(Date.now() - 259200000) },
-  { id: '4', description: 'Groceries', amount: 1560, paidBy: 'You', participants: ['You', 'Jane'], status: 'settled', createdAt: new Date(Date.now() - 345600000) },
+  {
+    id: '1',
+    description: 'Dinner at Restaurant',
+    amount: 4250,
+    paidBy: 'You',
+    participants: ['You', 'John', 'Jane'],
+    status: 'pending',
+    createdAt: new Date(Date.now() - 86400000)
+  },
+  {
+    id: '2',
+    description: 'Movie Tickets',
+    amount: 1800,
+    paidBy: 'John',
+    participants: ['You', 'John'],
+    status: 'settled',
+    createdAt: new Date(Date.now() - 172800000)
+  },
+  {
+    id: '3',
+    description: 'Road Trip Fuel',
+    amount: 3200,
+    paidBy: 'Jane',
+    participants: ['You', 'John', 'Jane', 'Bob'],
+    status: 'pending',
+    createdAt: new Date(Date.now() - 259200000)
+  },
+  {
+    id: '4',
+    description: 'Groceries',
+    amount: 1560,
+    paidBy: 'You',
+    participants: ['You', 'Jane'],
+    status: 'settled',
+    createdAt: new Date(Date.now() - 345600000)
+  },
 ];
 
 const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenChange }) => {
-  const [splits, setSplits]               = useState<Split[]>([]);
-  const [loading, setLoading]             = useState(false);
-  const [refreshing, setRefreshing]       = useState(false);
-  const [filter, setFilter]               = useState<'all' | 'pending' | 'settled'>('all');
+
+  const [splits, setSplits] = useState<Split[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('all');
   const [createVisible, setCreateVisible] = useState(false);
 
   const C = {
-    bg:       isDarkMode ? '#0D1418' : '#FFFFFF',
-    text:     isDarkMode ? '#FFFFFF' : '#000000',
-    sub:      isDarkMode ? '#A0A0A0' : '#666666',
-    border:   isDarkMode ? '#2A3942' : '#F0F0F0',
-    card:     isDarkMode ? '#1F2C34' : '#FFFFFF',
-    accent:   isDarkMode ? '#00A884' : '#008069',
+    bg: isDarkMode ? '#0D1418' : '#FFFFFF',
+    text: isDarkMode ? '#FFFFFF' : '#000000',
+    sub: isDarkMode ? '#A0A0A0' : '#666666',
+    border: isDarkMode ? '#2A3942' : '#F0F0F0',
+    card: isDarkMode ? '#1F2C34' : '#FFFFFF',
+    accent: isDarkMode ? '#00A884' : '#008069',
     filterBg: isDarkMode ? '#253038' : '#F0F0F0',
   };
 
-  useEffect(() => { loadSplits(); }, [filter]);
+  useEffect(() => {
+    loadSplits();
+  }, [filter]);
 
   const loadSplits = () => {
     setLoading(true);
@@ -89,6 +125,7 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
   const renderItem = ({ item }: { item: Split }) => (
     <TouchableOpacity style={[s.card, { backgroundColor: C.card, borderColor: C.border }]} activeOpacity={0.7}>
       <View style={s.cardHeader}>
+
         <View style={s.titleRow}>
           <Ionicons name="receipt-outline" size={18} color={C.sub} />
           <Text style={[s.cardTitle, { color: C.text }]}>{item.description}</Text>
@@ -185,33 +222,144 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
 };
 
 const s = StyleSheet.create({
-  container:     { flex: 1 },
-  filters:       { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  filterBtn:     { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
-  filterText:    { fontSize: 13, fontWeight: '500' },
-  center:        { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  list:          { paddingHorizontal: 16, paddingBottom: 100 },
-  card:          { padding: 14, borderRadius: 14, marginBottom: 10, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2, elevation: 2 },
-  cardHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  titleRow:      { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 7 },
-  cardTitle:     { fontSize: 15, fontWeight: '600', flex: 1 },
-  badge:         { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 },
-  badgeText:     { fontSize: 10, fontWeight: '700' },
-  amountRow:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  amount:        { fontSize: 22, fontWeight: '700' },
-  paidBy:        { fontSize: 12 },
-  share:         { fontSize: 13, marginBottom: 10 },
-  footer:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  peopleRow:     { flexDirection: 'row', alignItems: 'center' },
-  footerText:    { fontSize: 12 },
-  actions:       { flexDirection: 'row', gap: 8 },
-  settleBtn:     { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
-  settleBtnText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  remindBtn:     { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center', borderWidth: 1 },
-  remindBtnText: { fontSize: 14, fontWeight: '600' },
-  empty:         { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle:    { fontSize: 17, fontWeight: '600' },
-  emptySub:      { fontSize: 13, textAlign: 'center', paddingHorizontal: 24 },
+  container: {
+    flex: 1
+  },
+  filters: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8
+  },
+  filterBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: '500'
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  list: {
+    paddingHorizontal: 16,
+    paddingBottom: 100
+  },
+  card: {
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1
+    },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+    elevation: 2
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 7
+  },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4
+  },
+  badgeText:
+  {
+    fontSize: 10,
+    fontWeight: '700'
+  },
+  amountRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4
+  },
+  amount: {
+    fontSize: 22,
+    fontWeight: '700'
+  },
+  paidBy: {
+    fontSize: 12
+  },
+  share: {
+    fontSize: 13,
+    marginBottom: 10
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  peopleRow: {
+    flexDirection: 'row',
+    alignItems: 'center'
+  },
+  footerText: {
+    fontSize: 12
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  settleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 9,
+    alignItems: 'center'
+  },
+  settleBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  remindBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 9,
+    alignItems: 'center',
+    borderWidth: 1
+  },
+  remindBtnText: {
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  empty: {
+    alignItems: 'center',
+    paddingTop: 60,
+    gap: 10
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '600'
+  },
+  emptySub: {
+    fontSize: 13,
+    textAlign: 'center',
+    paddingHorizontal: 24
+  },
 });
 
 export default SplitsTab;

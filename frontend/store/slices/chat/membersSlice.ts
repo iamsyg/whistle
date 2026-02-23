@@ -52,6 +52,7 @@ const membersSlice = createSlice({
         clearChatMembers: (state, action: PayloadAction<string>) => {
             const chatId = action.payload;
             delete state.membersByChatId[chatId];
+            delete state.loadedChatIds[chatId];
         }
 
     }
