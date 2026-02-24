@@ -225,7 +225,7 @@ def create_split_controller(
                 {
                     "user_id":     m.get("user_id"),
                     "is_payer":    is_payer,
-                    "amount_owed": m.get("amount_owed"),
+                    "amount_owed": float(m.get("amount_owed")),
                     "status":      m.get("status"),
                     "paid_at":     m.get("paid_at"),
                     # can_pay: only the payer who hasn't paid yet sees the Pay button
