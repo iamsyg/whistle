@@ -211,6 +211,10 @@ def create_split_controller(
             raise HTTPException(status_code=500, detail="Failed to fetch hydrated split")
 
         split_data = split_with_relations.data
+        split_data["total_amount"] = float(split_data["total_amount"])
+
+        if split_data.get("settled_at") is None:
+            split_data["settled_at"] = None
 
         paid_by_id = split_data.get("paid_by")
 
@@ -228,8 +232,9 @@ def create_split_controller(
                     "amount_owed": float(m.get("amount_owed")),
                     "status":      m.get("status"),
                     "paid_at":     m.get("paid_at"),
+                    # can_pay: non-payers who are still pending can pay their share
                     # can_pay: only the payer who hasn't paid yet sees the Pay button
-                    "can_pay":  not is_payer and m.get("status") == "pending",
+                    "can_pay":     not is_payer and m.get("status") == "pending",
                     "name":        user.get("name"),
                     "username":    user.get("username"),
                     "avatar_url":  user.get("avatar_url"),

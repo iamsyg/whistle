@@ -3,8 +3,7 @@
 from datetime import datetime
 import traceback
 from fastapi import APIRouter, Depends, Body, HTTPException, Query
-from pyparsing import Literal, Optional
-from realtime import List
+from typing import Literal, Optional, List
 
 from app.controllers.messages.send_chat_messages import send_chat_messages
 from app.controllers.messages.get_chat_messages import get_chat_messages
