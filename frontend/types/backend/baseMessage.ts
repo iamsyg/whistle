@@ -1,6 +1,7 @@
 // frontend/types/backend/baseMessage.ts
 
 import { TaskDetails } from "../chat/task/taskDetails";
+import { SplitDetails } from "../chat/split/splitDetails";
 
 export interface BaseBackendMessage<TMessageType extends string = string> {
   id: string;
@@ -46,6 +47,7 @@ export type CoreMessageType =
 
 export type Entities = {
   "tasks"?: TaskDetails[] | null;
+  "splits"?: SplitDetails[] | null;
 }
 
 export type TextMetadata = {
@@ -80,9 +82,19 @@ export type TaskMetadata = {
   };
 };
 
+export type SplitMetadata = {
+  type: 'split';
+  payload: {
+    entity: 'split';
+    entity_id: string;
+    action: 'created' | 'settled' | 'cancelled';
+  };
+};
+
 export type MessageMetadata =
   | TextMetadata
   | MediaMetadata
-  | TaskMetadata;
+  | TaskMetadata
+  | SplitMetadata;
 
 

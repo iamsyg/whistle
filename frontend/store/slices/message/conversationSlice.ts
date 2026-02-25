@@ -131,6 +131,16 @@ const conversationSlice = createSlice({
       }
     },
 
+    removeMessage: (
+      state,
+      action: PayloadAction<{ chat_id: string; messageId: string }>
+    ) => {
+      const { chat_id, messageId } = action.payload;
+      if (!state.chatMessages[chat_id]) return;
+      state.chatMessages[chat_id] = state.chatMessages[chat_id].filter(
+        m => m.id !== messageId
+      );
+    },
 
     addConversation: (
       state,
@@ -176,6 +186,7 @@ export const {
   addConversation,
   setMessages,
   addMessage,
+  removeMessage,
   setLoading,
   addTypingUser,
   removeTypingUser,

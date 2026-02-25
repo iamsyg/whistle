@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import CreateSplitModal from '@/components/chat/split/CreateSplitModal';
-import type { CreateSplitResult } from '@/components/chat/split/CreateSplitModal';
+// import type { CreateSplitResult } from '@/components/chat/split/CreateSplitModal';
 
 interface Split {
   id: string;
@@ -110,10 +110,10 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
     onModalOpenChange?.(false);
   };
 
-  const handleCreateSplit = (result: CreateSplitResult) => {
-    console.log('New split:', result);
-    closeModal();
-  };
+  // const handleCreateSplit = (result: CreateSplitResult) => {
+  //   console.log('New split:', result);
+  //   closeModal();
+  // };
 
   const yourShare = (split: Split) => {
     const share = split.amount / split.participants.length;
@@ -214,7 +214,6 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
       <CreateSplitModal
         visible={createVisible}
         onClose={closeModal}
-        onCreateSplit={handleCreateSplit}
         isDarkMode={isDarkMode}
       />
     </View>
