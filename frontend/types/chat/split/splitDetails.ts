@@ -7,7 +7,7 @@ export type SplitDetails = {
     message_id: string,
 
     created_by: string,
-    title: string,
+    title: string | null,
     total_amount: number,
 
     currency: "INR" | "USD" | "EUR" | "GBP" | string,
@@ -15,7 +15,7 @@ export type SplitDetails = {
     status: "pending" | "settled" | "cancelled",
 
     created_at: string,
-    updated_at: string,
+    updated_at: string | null,
     settled_at: string | null,
 
     paid_by: string,
@@ -42,7 +42,7 @@ export type SplitMember = {
     paid_at: string | null,
     can_pay: boolean,
     
-    name: string,
-    username?: string,
+    name: string | null,
+    username?: string | null,
     avatar_url?: string | null
 };
