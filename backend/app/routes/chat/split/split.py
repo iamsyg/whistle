@@ -10,6 +10,8 @@ from app.middlewares.secure_route import verify_jwt_token
 
 from app.controllers.chat.split.create_split import create_split_controller
 
+from app.controllers.chat.split.fetch_split_list import fetch_split_list_controller
+
 router = APIRouter(prefix="/split", tags=["Split"])
 
 
@@ -48,5 +50,29 @@ async def create_split_endpoint(
         raise
     except Exception as e:
         print(f"❌ Error creating split bill: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@router.get("/list/{chat_id}")
+async def fetch_split_list_endpoint(
+    chat_id: str,
+    current_user_id: str = Depends(verify_jwt_token)
+):
+    
+    try:
+
+        response = await fetch_split_list_controller(
+            chat_id=chat_id,
+            current_user_id=current_user_id
+        )
+
+        print(f"✅ Fetched split list for chat {chat_id}: {response}")
+        return response
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching split list: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
