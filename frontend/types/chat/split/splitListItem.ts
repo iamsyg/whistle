@@ -20,7 +20,10 @@ export type PaidBy = {
 };
 
 export type Members = {
+    user_id: string,
+    name: string | null,       // added: needed for breakdown display
     amount_owed: number,
     status: 'paid' | 'pending',
-    user_id: string
+    is_payer: boolean,          // added: needed to show 👑 in breakdown
+    can_pay: boolean,           // added: needed for per-member pay button logic
 };
