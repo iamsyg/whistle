@@ -13,70 +13,35 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import FloatingActionButton from '@/components/FloatingActionButton';
 import CreateSplitModal from '@/components/chat/split/CreateSplitModal';
-// import type { CreateSplitResult } from '@/components/chat/split/CreateSplitModal';
-
-interface Split {
-  id: string;
-  description: string;
-  amount: number;
-  paidBy: string;
-  participants: string[];
-  status: 'pending' | 'settled';
-  createdAt: Date;
-}
+import { useFetchSplitList } from '@/hooks/chat/split/useFetchSplitList';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store/store';
+import { SplitListItem } from '@/types/chat/split/splitListItem';
 
 interface SplitsTabProps {
   isDarkMode?: boolean;
-  /** Notify parent when CreateSplitModal opens/closes so it can disable background swipe */
   onModalOpenChange?: (isOpen: boolean) => void;
 }
 
-const MOCK_SPLITS: Split[] = [
-  {
-    id: '1',
-    description: 'Dinner at Restaurant',
-    amount: 4250,
-    paidBy: 'You',
-    participants: ['You', 'John', 'Jane'],
-    status: 'pending',
-    createdAt: new Date(Date.now() - 86400000)
-  },
-  {
-    id: '2',
-    description: 'Movie Tickets',
-    amount: 1800,
-    paidBy: 'John',
-    participants: ['You', 'John'],
-    status: 'settled',
-    createdAt: new Date(Date.now() - 172800000)
-  },
-  {
-    id: '3',
-    description: 'Road Trip Fuel',
-    amount: 3200,
-    paidBy: 'Jane',
-    participants: ['You', 'John', 'Jane', 'Bob'],
-    status: 'pending',
-    createdAt: new Date(Date.now() - 259200000)
-  },
-  {
-    id: '4',
-    description: 'Groceries',
-    amount: 1560,
-    paidBy: 'You',
-    participants: ['You', 'Jane'],
-    status: 'settled',
-    createdAt: new Date(Date.now() - 345600000)
-  },
-];
-
 const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenChange }) => {
 
-  const [splits, setSplits] = useState<Split[]>([]);
-  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('all');
   const [createVisible, setCreateVisible] = useState(false);
+
+  const chatId = useSelector(
+    (state: RootState) => state.conversation.selectedChatId
+  );
+
+  const myId = useSelector(
+    (state: RootState) => state.profile.userId
+  );
+
+  const { fetchSplitList, loading } = useFetchSplitList(chatId || '');
+
+  const splitList = useSelector(
+    (state: RootState) => state.splitList.splitListsByChatId[chatId || ''] || []
+  );
 
   const C = {
     bg: isDarkMode ? '#0D1418' : '#FFFFFF',
@@ -89,16 +54,8 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
   };
 
   useEffect(() => {
-    loadSplits();
-  }, [filter]);
-
-  const loadSplits = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setSplits(filter === 'all' ? MOCK_SPLITS : MOCK_SPLITS.filter(s => s.status === filter));
-      setLoading(false);
-    }, 400);
-  };
+    fetchSplitList();
+  }, []);
 
   const openModal = () => {
     setCreateVisible(true);
@@ -110,59 +67,98 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
     onModalOpenChange?.(false);
   };
 
-  // const handleCreateSplit = (result: CreateSplitResult) => {
-  //   console.log('New split:', result);
-  //   closeModal();
-  // };
-
-  const yourShare = (split: Split) => {
-    const share = split.amount / split.participants.length;
-    return split.paidBy === 'You'
-      ? `You paid ₹${split.amount.toLocaleString()}`
-      : `You owe ₹${Math.round(share).toLocaleString()}`;
+  const yourShare = (split: SplitListItem) => {
+    if (split.paid_by_user_info?.id === myId) {
+      return `You paid ₹${split.total_amount.toLocaleString()}`;
+    }
+    const myMember = split.split_members?.find(m => m.user_id === myId);
+    const owed = myMember?.amount_owed ?? split.total_amount / split.split_members_count;
+    return `You owe ₹${Math.round(owed).toLocaleString()}`;
   };
 
-  const renderItem = ({ item }: { item: Split }) => (
-    <TouchableOpacity style={[s.card, { backgroundColor: C.card, borderColor: C.border }]} activeOpacity={0.7}>
-      <View style={s.cardHeader}>
+  const renderItem = ({ item }: { item: SplitListItem }) => {
 
-        <View style={s.titleRow}>
-          <Ionicons name="receipt-outline" size={18} color={C.sub} />
-          <Text style={[s.cardTitle, { color: C.text }]}>{item.description}</Text>
-        </View>
-        <View style={[s.badge, { backgroundColor: item.status === 'settled' ? `${C.accent}20` : '#FF950020' }]}>
-          <Text style={[s.badgeText, { color: item.status === 'settled' ? C.accent : '#FF9500' }]}>
-            {item.status.toUpperCase()}
-          </Text>
-        </View>
-      </View>
+    const myMemberEntry = item.split_members?.find(m => m.user_id === myId);
+    // CHANGE 1: derive isInvolved — user is involved only if they appear in split_members
+    const isInvolved = !!myMemberEntry;
+    const isPayer = item.paid_by_user_info?.id === myId;
+    const canCurrentUserPay = item.can_pay === true;
 
-      <View style={s.amountRow}>
-        <Text style={[s.amount, { color: C.text }]}>₹{item.amount.toLocaleString()}</Text>
-        <Text style={[s.paidBy, { color: C.sub }]}>Paid by {item.paidBy}</Text>
-      </View>
-      <Text style={[s.share, { color: C.sub }]}>{yourShare(item)}</Text>
+    return (
+      <TouchableOpacity style={[s.card, { backgroundColor: C.card, borderColor: C.border }]} activeOpacity={0.7}>
+        <View style={s.cardHeader}>
+          <View style={s.titleRow}>
+            <Ionicons name="receipt-outline" size={18} color={C.sub} />
+            <Text style={[s.cardTitle, { color: C.text }]}>{item.title}</Text>
+          </View>
 
-      <View style={s.footer}>
-        <View style={s.peopleRow}>
-          <Ionicons name="people-outline" size={13} color={C.sub} />
-          <Text style={[s.footerText, { color: C.sub }]}> {item.participants.length} people</Text>
+          {/* CHANGE 2: show NOT INVOLVED badge alongside status badge when not in split */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            {!isInvolved && (
+              <View style={[s.badge, { backgroundColor: `${C.sub}18` }]}>
+                <Text style={[s.badgeText, { color: C.sub }]}>NOT INVOLVED</Text>
+              </View>
+            )}
+            <View style={[s.badge, { backgroundColor: item.status === 'settled' ? `${C.accent}20` : '#FF950020' }]}>
+              <Text style={[s.badgeText, { color: item.status === 'settled' ? C.accent : '#FF9500' }]}>
+                {item.status.toUpperCase()}
+              </Text>
+            </View>
+          </View>
         </View>
-        <Text style={[s.footerText, { color: C.sub }]}>{item.createdAt.toLocaleDateString()}</Text>
-      </View>
 
-      {item.status === 'pending' && (
-        <View style={s.actions}>
-          <TouchableOpacity style={[s.settleBtn, { backgroundColor: C.accent }]} activeOpacity={0.75}>
-            <Text style={s.settleBtnText}>Settle Now</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[s.remindBtn, { borderColor: C.border }]} activeOpacity={0.75}>
-            <Text style={[s.remindBtnText, { color: C.sub }]}>Remind</Text>
-          </TouchableOpacity>
+        <View style={s.amountRow}>
+          <Text style={[s.amount, { color: C.text }]}>₹{item.total_amount.toLocaleString()}</Text>
+          <Text style={[s.paidBy, { color: C.sub }]}>Paid by {item.paid_by_user_info?.name}</Text>
         </View>
-      )}
-    </TouchableOpacity>
-  );
+
+        {/* CHANGE 3: only show your share line if the current user is involved */}
+        {isInvolved && (
+          <Text style={[s.share, { color: C.sub }]}>{yourShare(item)}</Text>
+        )}
+
+        <View style={s.footer}>
+          <View style={s.peopleRow}>
+            <Ionicons name="people-outline" size={13} color={C.sub} />
+            <Text style={[s.footerText, { color: C.sub }]}> {item.split_members_count} people</Text>
+          </View>
+          <Text style={[s.footerText, { color: C.sub }]}>{item.created_at}</Text>
+        </View>
+
+        {/* CHANGE 4: gate entire actions block on isInvolved — non-members see no buttons */}
+        {isInvolved && item.status === 'pending' && (
+          <View style={s.actions}>
+            {isPayer ? (
+              // Payer: can settle the entire split
+              <TouchableOpacity
+                style={[s.settleBtn, { backgroundColor: C.accent }]}
+                activeOpacity={0.75}
+              >
+                <Text style={[s.settleBtnText, { color: '#fff' }]}>Settle Split</Text>
+              </TouchableOpacity>
+            ) : (
+              // Non-payer: can pay their share only if can_pay is true
+              <TouchableOpacity
+                style={[
+                  s.settleBtn,
+                  { backgroundColor: canCurrentUserPay ? C.accent : C.filterBg },
+                ]}
+                activeOpacity={canCurrentUserPay ? 0.75 : 1}
+                disabled={!canCurrentUserPay}
+              >
+                <Text style={[s.settleBtnText, { color: canCurrentUserPay ? '#fff' : C.sub }]}>
+                  {canCurrentUserPay ? 'Pay Now' : 'Already Paid'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={[s.remindBtn, { borderColor: C.border }]} activeOpacity={0.75}>
+              <Text style={[s.remindBtnText, { color: C.sub }]}>Remind</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={[s.container, { backgroundColor: C.bg }]}>
@@ -185,7 +181,7 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
         <View style={s.center}><ActivityIndicator size="large" color={C.accent} /></View>
       ) : (
         <FlatList
-          data={splits}
+          data={splitList.filter(item => filter === 'all' ? true : item.status === filter)}
           renderItem={renderItem}
           keyExtractor={i => i.id}
           contentContainerStyle={s.list}
@@ -220,145 +216,34 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
   );
 };
 
-const s = StyleSheet.create({
-  container: {
-    flex: 1
-  },
-  filters: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8
-  },
-  filterBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20
-  },
-  filterText: {
-    fontSize: 13,
-    fontWeight: '500'
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  list: {
-    paddingHorizontal: 16,
-    paddingBottom: 100
-  },
-  card: {
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1
-    },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 2
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 7
-  },
-  cardTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    flex: 1
-  },
-  badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4
-  },
-  badgeText:
-  {
-    fontSize: 10,
-    fontWeight: '700'
-  },
-  amountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 4
-  },
-  amount: {
-    fontSize: 22,
-    fontWeight: '700'
-  },
-  paidBy: {
-    fontSize: 12
-  },
-  share: {
-    fontSize: 13,
-    marginBottom: 10
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10
-  },
-  peopleRow: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  footerText: {
-    fontSize: 12
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 8
-  },
-  settleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 9,
-    alignItems: 'center'
-  },
-  settleBtnText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600'
-  },
-  remindBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 9,
-    alignItems: 'center',
-    borderWidth: 1
-  },
-  remindBtnText: {
-    fontSize: 14,
-    fontWeight: '600'
-  },
-  empty: {
-    alignItems: 'center',
-    paddingTop: 60,
-    gap: 10
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '600'
-  },
-  emptySub: {
-    fontSize: 13,
-    textAlign: 'center',
-    paddingHorizontal: 24
-  },
-});
-
 export default SplitsTab;
+
+const s = StyleSheet.create({
+  container: { flex: 1 },
+  filters: { flexDirection: 'row', padding: 12, gap: 8 },
+  filterBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20 },
+  filterText: { fontSize: 13, fontWeight: '500' },
+  list: { padding: 12, gap: 12 },
+  card: { borderRadius: 12, borderWidth: 1, padding: 14, gap: 8 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardTitle: { fontSize: 15, fontWeight: '600' },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+  amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  amount: { fontSize: 20, fontWeight: '700' },
+  paidBy: { fontSize: 13 },
+  share: { fontSize: 13 },
+  footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  peopleRow: { flexDirection: 'row', alignItems: 'center' },
+  footerText: { fontSize: 12 },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  settleBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  settleBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  remindBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1 },
+  remindBtnText: { fontWeight: '600', fontSize: 14 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  empty: { alignItems: 'center', marginTop: 80, gap: 8 },
+  emptyTitle: { fontSize: 16, fontWeight: '600' },
+  emptySub: { fontSize: 13 },
+});
