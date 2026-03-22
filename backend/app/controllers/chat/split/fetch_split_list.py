@@ -6,7 +6,7 @@ from app.utils.supabase_client import supabase
 
 async def fetch_split_list_controller(chat_id: str, current_user_id: str):
     try:
-        # ✅ Membership + chat type check
+        # Membership + chat type check
         membership_check = (
             supabase.table("chat_members")
             .select("""
@@ -34,7 +34,9 @@ async def fetch_split_list_controller(chat_id: str, current_user_id: str):
                 detail="Splits cannot exist in classroom chats",
             )
 
-        # ✅ Fetch ALL splits of this chat
+        # Fetch ALL splits of this chat
+        # NOTE: added user:user_id(name) to split_members so the frontend
+        # can display each member's name in the breakdown without a second fetch.
         res = (
             supabase.table("splits")
             .select("""
@@ -42,6 +44,7 @@ async def fetch_split_list_controller(chat_id: str, current_user_id: str):
                 title,
                 status,
                 total_amount,
+                paid_by,
                 created_at,
                 updated_at,
                 settled_at,
@@ -52,11 +55,13 @@ async def fetch_split_list_controller(chat_id: str, current_user_id: str):
                 ),
                     
                 split_members (
+                    user_id,
                     amount_owed,
                     status,
-                    user_id
+                    user:user_id (
+                        name
+                    )
                 )
-            
             """)
             .eq("chat_id", chat_id)
             .order("created_at", desc=True)
@@ -71,24 +76,37 @@ async def fetch_split_list_controller(chat_id: str, current_user_id: str):
 
         for split in res.data:
 
-            members = split.get("split_members", [])
-            paid_by = split.get("paid_by_user_info")
-
-            payer_id = paid_by["id"] if paid_by else None
-
-            current_user_member = next(
-                (m for m in members if m["user_id"] == current_user_id),
-                None
-            )
-
+            paid_by_id = split.get("paid_by")
+            paid_by_user_info = split.get("paid_by_user_info")
             is_settled = split["status"].lower() == "settled"
 
-            can_pay = (
-                not is_settled
-                and current_user_member is not None
-                and current_user_member["status"] == "pending"
-                and float(current_user_member["amount_owed"]) > 0
-                and current_user_member["user_id"] != payer_id
+            members = []
+            for m in split.get("split_members", []):
+                user_id = m["user_id"]
+                is_payer = user_id == paid_by_id
+                member_status = m["status"]
+                amount_owed = float(m["amount_owed"])
+
+                # can_pay: non-payer, not settled, still pending, owes something
+                can_pay = (
+                    not is_settled
+                    and not is_payer
+                    and member_status == "pending"
+                    and amount_owed > 0
+                )
+
+                members.append({
+                    "user_id": user_id,
+                    "name": (m.get("user") or {}).get("name"),   # joined from users table
+                    "amount_owed": amount_owed,
+                    "status": member_status,
+                    "is_payer": is_payer,
+                    "can_pay": can_pay,
+                })
+
+            # Top-level can_pay: true if the current user has a payable member entry
+            current_user_can_pay = any(
+                m["can_pay"] for m in members if m["user_id"] == current_user_id
             )
 
             splits.append({
@@ -96,19 +114,19 @@ async def fetch_split_list_controller(chat_id: str, current_user_id: str):
                 "title": split["title"],
                 "status": split["status"],
                 "total_amount": float(split["total_amount"] or 0),
-                "paid_by_user_info": paid_by,
+                "paid_by_user_info": paid_by_user_info,
                 "split_members": members,
                 "split_members_count": len(members),
-                "can_pay": can_pay,
+                "can_pay": current_user_can_pay,
                 "created_at": split["created_at"],
                 "updated_at": split["updated_at"],
                 "settled_at": split["settled_at"],
             })
 
-        return splits 
+        return splits
 
     except HTTPException:
-        raise  # ← was missing, HTTPException was being swallowed
+        raise
 
     except Exception as e:
         print("Error fetching split list:", str(e))
