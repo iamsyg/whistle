@@ -17,6 +17,7 @@ import { useFetchSplitList } from '@/hooks/chat/split/useFetchSplitList';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { SplitListItem } from '@/types/chat/split/splitListItem';
+import SplitDetailsModal from '@/components/chat/split/SplitDetailsModal'; // Add this import
 
 interface SplitsTabProps {
   isDarkMode?: boolean;
@@ -25,9 +26,10 @@ interface SplitsTabProps {
 
 const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenChange }) => {
 
-  const [refreshing, setRefreshing] = useState(false);
+  // const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'settled'>('all');
   const [createVisible, setCreateVisible] = useState(false);
+  const [selectedSplit, setSelectedSplit] = useState<SplitListItem | null>(null); // Add this state
 
   const chatId = useSelector(
     (state: RootState) => state.conversation.selectedChatId
@@ -67,6 +69,15 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
     onModalOpenChange?.(false);
   };
 
+  const handleMarkAsPaid = async (splitId: string, memberId: string) => {
+    // Implement your API call here to mark a member's share as paid
+    // This would typically call an endpoint that updates the split_member status
+    console.log(`Marking member ${memberId} in split ${splitId} as paid`);
+    
+    // After successful API call, refresh the split list
+    await fetchSplitList();
+  };
+
   const yourShare = (split: SplitListItem) => {
     if (split.paid_by_user_info?.id === myId) {
       return `You paid ₹${split.total_amount.toLocaleString()}`;
@@ -85,7 +96,10 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
     const canCurrentUserPay = item.can_pay === true;
 
     return (
-      <TouchableOpacity style={[s.card, { backgroundColor: C.card, borderColor: C.border }]} activeOpacity={0.7}>
+      <TouchableOpacity style={[s.card, { backgroundColor: C.card, borderColor: C.border }]} activeOpacity={0.7}
+        onPress={() => setSelectedSplit(item)} // Open details modal on card press
+      >
+         {/* Split Details Modal */}
         <View style={s.cardHeader}>
           <View style={s.titleRow}>
             <Ionicons name="receipt-outline" size={18} color={C.sub} />
@@ -186,13 +200,13 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
           keyExtractor={i => i.id}
           contentContainerStyle={s.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 800); }}
-              tintColor={C.accent} colors={[C.accent]}
-            />
-          }
+          // refreshControl={
+          //   <RefreshControl
+          //     refreshing={refreshing}
+          //     onRefresh={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 800); }}
+          //     tintColor={C.accent} colors={[C.accent]}
+          //   />
+          // }
           ListEmptyComponent={
             <View style={s.empty}>
               <Ionicons name="receipt-outline" size={60} color={C.border} />
@@ -211,6 +225,14 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
         visible={createVisible}
         onClose={closeModal}
         isDarkMode={isDarkMode}
+      />
+
+      <SplitDetailsModal
+        visible={!!selectedSplit}
+        split={selectedSplit}
+        onClose={() => setSelectedSplit(null)}
+        isDarkMode={isDarkMode}
+        onMarkAsPaid={handleMarkAsPaid}
       />
     </View>
   );
