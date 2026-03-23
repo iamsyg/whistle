@@ -1,4 +1,4 @@
-# backend/app/routes/chat/split/create_split.py
+# backend/app/routes/chat/split/split.py
 
 from fastapi import APIRouter, Depends, Body, HTTPException
 from typing import List, Optional
@@ -11,6 +11,10 @@ from app.middlewares.secure_route import verify_jwt_token
 from app.controllers.chat.split.create_split import create_split_controller
 
 from app.controllers.chat.split.fetch_split_list import fetch_split_list_controller
+
+from app.controllers.chat.split.pay_split import pay_split_controller
+
+from app.controllers.chat.split.settle_split import settle_split_controller
 
 router = APIRouter(prefix="/split", tags=["Split"])
 
@@ -75,4 +79,45 @@ async def fetch_split_list_endpoint(
     except Exception as e:
         print(f"❌ Error fetching split list: {str(e)}")
         print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+@router.post("/pay/{split_id}")
+async def pay_split_endpoint(
+    split_id: str,
+    current_user_id: str = Depends(verify_jwt_token),
+):
+    """
+    Non-payer marks their own share as paid.
+    If all non-payers have now paid, the split is auto-settled.
+    """
+    try:
+        return pay_split_controller(
+            split_id=split_id,
+            current_user_id=current_user_id,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.post("/settle/{split_id}")
+async def settle_split_endpoint(
+    split_id: str,
+    current_user_id: str = Depends(verify_jwt_token),
+):
+    """
+    Payer force-settles the entire split, marking all pending members as paid.
+    """
+    try:
+        return settle_split_controller(
+            split_id=split_id,
+            current_user_id=current_user_id,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
