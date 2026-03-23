@@ -7,8 +7,8 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import FloatingActionButton from '@/components/FloatingActionButton';
@@ -17,6 +17,8 @@ import { useFetchSplitList } from '@/hooks/chat/split/useFetchSplitList';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import { SplitListItem } from '@/types/chat/split/splitListItem';
+import { usePaySplit } from '@/hooks/chat/split/usePaySplit';
+import { useSettleSplit } from '@/hooks/chat/split/useSettleSplit';
 import SplitDetailsModal from '@/components/chat/split/SplitDetailsModal'; // Add this import
 
 interface SplitsTabProps {
@@ -31,6 +33,8 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
   const [createVisible, setCreateVisible] = useState(false);
   const [selectedSplit, setSelectedSplit] = useState<SplitListItem | null>(null); // Add this state
 
+  const [loadingSplitId, setLoadingSplitId] = useState<string | null>(null);
+
   const chatId = useSelector(
     (state: RootState) => state.conversation.selectedChatId
   );
@@ -40,6 +44,8 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
   );
 
   const { fetchSplitList, loading } = useFetchSplitList(chatId || '');
+  const { paySplit } = usePaySplit(chatId || '');
+  const { settleSplit } = useSettleSplit(chatId || '');
 
   const splitList = useSelector(
     (state: RootState) => state.splitList.splitListsByChatId[chatId || ''] || []
@@ -87,6 +93,43 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
     return `You owe ₹${Math.round(owed).toLocaleString()}`;
   };
 
+  // ── Pay Now handler ──────────────────────────────────────────────────────
+  const handlePayNow = async (splitId: string) => {
+    setLoadingSplitId(splitId);
+    try {
+      await paySplit(splitId);
+    } catch (err: any) {
+      Alert.alert('Payment failed', err?.message ?? 'Something went wrong.');
+    } finally {
+      setLoadingSplitId(null);
+    }
+  };
+ 
+  // ── Settle Split handler ─────────────────────────────────────────────────
+  const handleSettle = (splitId: string) => {
+    Alert.alert(
+      'Settle Split',
+      'This will mark all pending payments as settled. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Settle',
+          style: 'destructive',
+          onPress: async () => {
+            setLoadingSplitId(splitId);
+            try {
+              await settleSplit(splitId);
+            } catch (err: any) {
+              Alert.alert('Failed to settle', err?.message ?? 'Something went wrong.');
+            } finally {
+              setLoadingSplitId(null);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderItem = ({ item }: { item: SplitListItem }) => {
 
     const myMemberEntry = item.split_members?.find(m => m.user_id === myId);
@@ -95,18 +138,20 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
     const isPayer = item.paid_by_user_info?.id === myId;
     const canCurrentUserPay = item.can_pay === true;
 
+    const thisCardLoading = loadingSplitId === item.id;
+
     return (
-      <TouchableOpacity style={[s.card, { backgroundColor: C.card, borderColor: C.border }]} activeOpacity={0.7}
-        onPress={() => setSelectedSplit(item)} // Open details modal on card press
+      <TouchableOpacity
+        style={[s.card, { backgroundColor: C.card, borderColor: C.border }]}
+        activeOpacity={0.7}
+        onPress={() => setSelectedSplit(item)}
       >
-         {/* Split Details Modal */}
         <View style={s.cardHeader}>
           <View style={s.titleRow}>
             <Ionicons name="receipt-outline" size={18} color={C.sub} />
             <Text style={[s.cardTitle, { color: C.text }]}>{item.title}</Text>
           </View>
-
-          {/* CHANGE 2: show NOT INVOLVED badge alongside status badge when not in split */}
+ 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             {!isInvolved && (
               <View style={[s.badge, { backgroundColor: `${C.sub}18` }]}>
@@ -120,17 +165,16 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
             </View>
           </View>
         </View>
-
+ 
         <View style={s.amountRow}>
           <Text style={[s.amount, { color: C.text }]}>₹{item.total_amount.toLocaleString()}</Text>
           <Text style={[s.paidBy, { color: C.sub }]}>Paid by {item.paid_by_user_info?.name}</Text>
         </View>
-
-        {/* CHANGE 3: only show your share line if the current user is involved */}
+ 
         {isInvolved && (
           <Text style={[s.share, { color: C.sub }]}>{yourShare(item)}</Text>
         )}
-
+ 
         <View style={s.footer}>
           <View style={s.peopleRow}>
             <Ionicons name="people-outline" size={13} color={C.sub} />
@@ -138,34 +182,48 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
           </View>
           <Text style={[s.footerText, { color: C.sub }]}>{item.created_at}</Text>
         </View>
-
-        {/* CHANGE 4: gate entire actions block on isInvolved — non-members see no buttons */}
+ 
         {isInvolved && item.status === 'pending' && (
           <View style={s.actions}>
             {isPayer ? (
-              // Payer: can settle the entire split
+              // ── Payer: Settle Split ────────────────────────────────────
               <TouchableOpacity
-                style={[s.settleBtn, { backgroundColor: C.accent }]}
+                style={[s.settleBtn, { backgroundColor: thisCardLoading ? C.filterBg : C.accent }]}
                 activeOpacity={0.75}
+                disabled={thisCardLoading}
+                onPress={(e) => { e.stopPropagation(); handleSettle(item.id); }}
               >
-                <Text style={[s.settleBtnText, { color: '#fff' }]}>Settle Split</Text>
+                {thisCardLoading
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={[s.settleBtnText, { color: '#fff' }]}>Settle Split</Text>
+                }
               </TouchableOpacity>
             ) : (
-              // Non-payer: can pay their share only if can_pay is true
+              // ── Non-payer: Pay Now / Already Paid ─────────────────────
               <TouchableOpacity
                 style={[
                   s.settleBtn,
-                  { backgroundColor: canCurrentUserPay ? C.accent : C.filterBg },
+                  { backgroundColor: canCurrentUserPay && !thisCardLoading ? C.accent : C.filterBg },
                 ]}
                 activeOpacity={canCurrentUserPay ? 0.75 : 1}
-                disabled={!canCurrentUserPay}
+                disabled={!canCurrentUserPay || thisCardLoading}
+                onPress={(e) => { e.stopPropagation(); handlePayNow(item.id); }}
               >
-                <Text style={[s.settleBtnText, { color: canCurrentUserPay ? '#fff' : C.sub }]}>
-                  {canCurrentUserPay ? 'Pay Now' : 'Already Paid'}
-                </Text>
+                {thisCardLoading
+                  ? <ActivityIndicator size="small" color={C.accent} />
+                  : (
+                    <Text style={[s.settleBtnText, { color: canCurrentUserPay ? '#fff' : C.sub }]}>
+                      {canCurrentUserPay ? 'Pay Now' : 'Already Paid'}
+                    </Text>
+                  )
+                }
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={[s.remindBtn, { borderColor: C.border }]} activeOpacity={0.75}>
+            <TouchableOpacity
+              style={[s.remindBtn, { borderColor: C.border }]}
+              activeOpacity={0.75}
+              onPress={(e) => e.stopPropagation()}
+            >
               <Text style={[s.remindBtnText, { color: C.sub }]}>Remind</Text>
             </TouchableOpacity>
           </View>
@@ -173,7 +231,7 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
       </TouchableOpacity>
     );
   };
-
+ 
   return (
     <View style={[s.container, { backgroundColor: C.bg }]}>
       <View style={s.filters}>
@@ -190,7 +248,7 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
           </TouchableOpacity>
         ))}
       </View>
-
+ 
       {loading ? (
         <View style={s.center}><ActivityIndicator size="large" color={C.accent} /></View>
       ) : (
@@ -200,13 +258,6 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
           keyExtractor={i => i.id}
           contentContainerStyle={s.list}
           showsVerticalScrollIndicator={false}
-          // refreshControl={
-          //   <RefreshControl
-          //     refreshing={refreshing}
-          //     onRefresh={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 800); }}
-          //     tintColor={C.accent} colors={[C.accent]}
-          //   />
-          // }
           ListEmptyComponent={
             <View style={s.empty}>
               <Ionicons name="receipt-outline" size={60} color={C.border} />
@@ -218,21 +269,20 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
           }
         />
       )}
-
+ 
       <FloatingActionButton onPress={openModal} iconName="add" backgroundColor={C.accent} size={56} bottom={24} right={20} />
-
+ 
       <CreateSplitModal
         visible={createVisible}
         onClose={closeModal}
         isDarkMode={isDarkMode}
       />
-
+ 
       <SplitDetailsModal
         visible={!!selectedSplit}
         split={selectedSplit}
         onClose={() => setSelectedSplit(null)}
         isDarkMode={isDarkMode}
-        onMarkAsPaid={handleMarkAsPaid}
       />
     </View>
   );
@@ -241,31 +291,125 @@ const SplitsTab: React.FC<SplitsTabProps> = ({ isDarkMode = false, onModalOpenCh
 export default SplitsTab;
 
 const s = StyleSheet.create({
-  container: { flex: 1 },
-  filters: { flexDirection: 'row', padding: 12, gap: 8 },
-  filterBtn: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20 },
-  filterText: { fontSize: 13, fontWeight: '500' },
-  list: { padding: 12, gap: 12 },
-  card: { borderRadius: 12, borderWidth: 1, padding: 14, gap: 8 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  cardTitle: { fontSize: 15, fontWeight: '600' },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
-  badgeText: { fontSize: 11, fontWeight: '700' },
-  amountRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  amount: { fontSize: 20, fontWeight: '700' },
-  paidBy: { fontSize: 13 },
-  share: { fontSize: 13 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  peopleRow: { flexDirection: 'row', alignItems: 'center' },
-  footerText: { fontSize: 12 },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  settleBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-  settleBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  remindBtn: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1 },
-  remindBtnText: { fontWeight: '600', fontSize: 14 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  empty: { alignItems: 'center', marginTop: 80, gap: 8 },
-  emptyTitle: { fontSize: 16, fontWeight: '600' },
-  emptySub: { fontSize: 13 },
+  container: { 
+    flex: 1 
+  },
+  filters: { 
+    flexDirection: 'row', 
+    padding: 12, 
+    gap: 8 
+  },
+  filterBtn: { 
+    paddingHorizontal: 16, 
+    paddingVertical: 6, 
+    borderRadius: 20 
+  },
+  filterText: { 
+    fontSize: 13, 
+    fontWeight: '500' 
+  },
+  list: { 
+    padding: 12, 
+    gap: 12 
+  },
+  card: { 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    padding: 14, 
+    gap: 8 
+  },
+  cardHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center' 
+  },
+  titleRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 6 
+  },
+  cardTitle: { 
+    fontSize: 15, 
+    fontWeight: '600' 
+  },
+  badge: { 
+    paddingHorizontal: 8, 
+    paddingVertical: 3, 
+    borderRadius: 10 
+  },
+  badgeText: { 
+    fontSize: 11, 
+    fontWeight: '700' 
+  },
+  amountRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'baseline' 
+  },
+  amount: { 
+    fontSize: 20, 
+    fontWeight: '700' 
+  },
+  paidBy: { 
+    fontSize: 13 
+  },
+  share: { 
+    fontSize: 13 
+  },
+  footer: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginTop: 4 
+  },
+  peopleRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center' 
+  },
+  footerText: { 
+    fontSize: 12 
+  },
+  actions: { 
+    flexDirection: 'row', 
+    gap: 8, 
+    marginTop: 4 
+  },
+  settleBtn: { 
+    flex: 1, 
+    paddingVertical: 10, 
+    borderRadius: 8, 
+    alignItems: 'center' 
+  },
+  settleBtnText: { 
+    color: '#fff', 
+    fontWeight: '600', 
+    fontSize: 14 
+  },
+  remindBtn: { 
+    flex: 1, 
+    paddingVertical: 10, 
+    borderRadius: 8, 
+    alignItems: 'center', 
+    borderWidth: 1 
+  },
+  remindBtnText: { 
+    fontWeight: '600', 
+    fontSize: 14 
+  },
+  center: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  empty: { 
+    alignItems: 'center', 
+    marginTop: 80, 
+    gap: 8 
+  },
+  emptyTitle: { 
+    fontSize: 16, 
+    fontWeight: '600' 
+  },
+  emptySub: { 
+    fontSize: 13 
+  },
 });
