@@ -49,10 +49,10 @@ export function getMessagePreview<T extends string>(
       return '📢 Announcement';
 
     case 'system':
-      return message.content;
+      return message.content || "";
 
     default:
-      return message.content;
+      return message.content || "";
   }
 }
 
@@ -78,26 +78,34 @@ export function mapBackendMessageToUI(
   currentUserProfileId: string,
   contactsByProfileId: Record<string, any>,
 ): FrontendMessage {
-  const frontendType =
-    MESSAGE_TYPE_MAP[msg.message_type] ?? 'text';
+  const frontendType = MESSAGE_TYPE_MAP[msg.message_type] ?? 'text';
+
+  // Extract media metadata from nested payload
+  const rawMetadata = msg.metadata ?? {};
+  const payload = rawMetadata?.payload ?? {};
+
+  const metadata =
+    msg.message_type === 'text' || msg.message_type === 'system'
+      ? rawMetadata
+      : {
+          url: payload.url,                        // ✅ flattened
+          original_name: payload.original_name,
+          mime_type: payload.mime_type,
+          ...payload.cloudinary,                   // width, height, etc.
+        };
 
   return {
     id: msg.id,
-    text: msg.message_type === 'text' ? msg.content : msg.metadata?.original_name ?? '',
+    text: msg.message_type === 'text' ? msg.content : payload.original_name ?? '',
     senderId: msg.sender_id,
-
     senderName:
       msg.sender_id !== currentUserProfileId
         ? getSenderDisplayName(msg, contactsByProfileId)
         : 'You',
-
     senderAvatar: msg.sender?.avatar_url ?? null,
-
     timestamp: new Date(msg.created_at),
-
     type: frontendType,
-    metadata: msg.metadata ?? {},
-
+    metadata,                                      // ✅ flat — url is at top level
     isRead: msg.sender_id === currentUserProfileId,
   };
 }
@@ -135,7 +143,7 @@ export function mapClassroomBackendMessageToUI(
 
   return {
     id: msg.id,
-    text: msg.content,
+    text: msg.content || '',
     senderId: msg.sender_id,
 
     senderName:
