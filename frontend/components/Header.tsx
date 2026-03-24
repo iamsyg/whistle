@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather, MaterialIcons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -40,7 +41,7 @@ const Header: React.FC<HeaderProps> = ({
   showBackButton = false,
   onBackPress = () => console.log('Back pressed'),
   menuItems = [
-    { id: '1', label: 'Profile', icon: 'person-outline', onPress: () => console.log('Profile pressed') },
+    { id: '1', label: 'Profile', icon: 'person-outline', onPress: () => router.push('/(screens)/profileScreen') },
     { id: '2', label: 'Settings', icon: 'settings-outline', onPress: () => console.log('Settings pressed') },
     { id: '3', label: 'Splits / Expenses', icon: 'receipt-outline', onPress: () => console.log('Splits pressed') },
     { id: '4', label: 'Help / Support', icon: 'help-circle-outline', onPress: () => console.log('Help pressed') },
