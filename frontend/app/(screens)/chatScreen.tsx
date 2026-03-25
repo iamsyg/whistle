@@ -66,7 +66,7 @@ export default function ChatScreen() {
     (state: RootState) => state.conversation
   );
 
-  if (!selectedChatId) {
+  if (!selectedChatId && !contactProfileId) {
     Alert.alert('Error', 'No chat selected', [{ text: 'OK', onPress: () => router.back() }]);
     return null;
   }
@@ -75,12 +75,13 @@ export default function ChatScreen() {
     contactProfileId ? state.contacts.byProfileId[contactProfileId] : undefined
   );
 
-  const conversationId = selectedChatId;
+  // const conversationId = selectedChatId;
+  const conversationId = selectedChatId ?? null;
 
   const { sendMessage } = useSendMessage();
   const { loading: initializingChat } = useGetConversationId();
   const { isConnected, sendTypingIndicator, reconnect } = useWebSocket();
-  const { fetchMembers } = useFetchMembers(selectedChatId);
+  const { fetchMembers } = useFetchMembers(selectedChatId || "");
 
   // ── Animated swipe ────────────────────────────────────────────────────────
   const { panHandlers, translateX } = useTabSwipe(
