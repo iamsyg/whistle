@@ -1,6 +1,6 @@
 // frontend/app/(screens)/profileScreen.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,49 +17,55 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store/store';
+import { useFetchUserProfile } from '@/hooks/profile/useFetchUserProfile';
 
 interface ProfileScreenProps {
   isDarkMode?: boolean;
   onClose?: () => void;
 }
 
-// Dummy data
-const DUMMY_PROFILE = {
-  userId: 'user123',
-  name: 'Alex Morgan',
-  username: '@alexmorgan',
-  profileImage: null, // Set to null to show placeholder, or add a URL for testing
-  primaryEmail: 'alex.morgan@example.com',
-  otherEmails: ['alex.work@company.com', 'alex.personal@gmail.com', 'alex.creative@artstation.com'],
-  phoneNumber: '+1 (555) 123-4567',
-  about: 'Passionate developer and designer. Love creating beautiful apps and exploring new technologies. Coffee enthusiast ☕',
-  links: [
-    { title: 'GitHub', url: 'https://github.com/alexmorgan' },
-    { title: 'Portfolio', url: 'https://alexmorgan.dev' },
-    { title: 'LinkedIn', url: 'https://linkedin.com/in/alexmorgan' },
-    { title: 'Twitter', url: 'https://twitter.com/alexmorgan' },
-  ],
-};
-
 const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClose }) => {
+
+  const userId = useSelector((state: RootState) => state.profile.userId);
+  const userProfile = useSelector((state: RootState) => state.profile.userProfile);
+  const { fetchUserProfile, loading } = useFetchUserProfile(userId || "");
+
   const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [showEmailsModal, setShowEmailsModal] = useState(false);
   const [showLinksModal, setShowLinksModal] = useState(false);
-  
+
   // Editable fields state
-  const [editedName, setEditedName] = useState(DUMMY_PROFILE.name);
-  const [editedUsername, setEditedUsername] = useState(DUMMY_PROFILE.username);
-  const [editedAbout, setEditedAbout] = useState(DUMMY_PROFILE.about);
-  const [editedLinks, setEditedLinks] = useState(DUMMY_PROFILE.links);
+  const [editedName, setEditedName] = useState('');
+  const [editedUsername, setEditedUsername] = useState('');
+  const [editedAbout, setEditedAbout] = useState('');
+  const [editedLinks, setEditedLinks] = useState<{ key: string; url: string }[]>([]);
   const [tempLink, setTempLink] = useState({ title: '', url: '' });
-  
-  // Non-editable fields (dummy data)
-  const [primaryEmail] = useState(DUMMY_PROFILE.primaryEmail);
-  const [otherEmails] = useState(DUMMY_PROFILE.otherEmails);
-  const [phoneNumber] = useState(DUMMY_PROFILE.phoneNumber);
-  const [profileImage, setProfileImage] = useState<string | null>(DUMMY_PROFILE.profileImage);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
+
+  // Sync local edit state when Redux profile loads
+  useEffect(() => {
+    if (userProfile) {
+      setEditedName(userProfile.name ?? '');
+      setEditedUsername(userProfile.userName ?? '');
+      setEditedAbout(userProfile.about ?? '');
+      setEditedLinks(userProfile.profileLink ?? []);
+      setProfileImage(userProfile.profilePictureUrl ?? null);
+    }
+  }, [userProfile]);
+
+  // Derived read-only values from Redux
+  const primaryEmail = userProfile?.primary_email?.email ?? '—';
+  const otherEmails = userProfile?.emails?.slice(1) ?? [];
+  const phoneNumber = userProfile?.phoneNumber ?? '—';
 
   const C = {
     bg: isDarkMode ? '#0D1418' : '#F5F5F5',
@@ -83,10 +89,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
       return;
     }
 
-    setLoading(true);
-    // Simulate API call
+    setSaving(true);
+    // TODO: wire up update API call
     setTimeout(() => {
-      setLoading(false);
+      setSaving(false);
       setIsEditing(false);
       Alert.alert('Success', 'Profile updated successfully');
     }, 1000);
@@ -106,13 +112,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
               Alert.alert('Permission needed', 'Camera permission is required');
               return;
             }
-            
+
             const result = await ImagePicker.launchCameraAsync({
               allowsEditing: true,
               aspect: [1, 1],
               quality: 0.8,
             });
-            
+
             if (!result.canceled) {
               uploadImage(result.assets[0].uri);
             }
@@ -126,13 +132,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
               Alert.alert('Permission needed', 'Gallery permission is required');
               return;
             }
-            
+
             const result = await ImagePicker.launchImageLibraryAsync({
               allowsEditing: true,
               aspect: [1, 1],
               quality: 0.8,
             });
-            
+
             if (!result.canceled) {
               uploadImage(result.assets[0].uri);
             }
@@ -144,7 +150,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
 
   const uploadImage = async (uri: string) => {
     setUploadingImage(true);
-    // Simulate image upload
+    // TODO: wire up image upload API call
     setTimeout(() => {
       setProfileImage(uri);
       setUploadingImage(false);
@@ -154,14 +160,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
 
   const addLink = () => {
     if (tempLink.title.trim() && tempLink.url.trim()) {
-      // Basic URL validation
       const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
       if (!urlPattern.test(tempLink.url) && !tempLink.url.startsWith('http')) {
         Alert.alert('Error', 'Please enter a valid URL');
         return;
       }
-      
-      setEditedLinks([...editedLinks, { ...tempLink }]);
+
+      // Map { title, url } → { key, url } to match ProfileLink type
+      setEditedLinks([...editedLinks, { key: tempLink.title, url: tempLink.url }]);
       setTempLink({ title: '', url: '' });
       setShowLinksModal(false);
     } else {
@@ -247,9 +253,9 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
         </TouchableOpacity>
       </View>
       <View style={s.emailsList}>
-        {otherEmails.map((email, index) => (
+        {otherEmails.map((emailObj, index) => (
           <View key={index} style={[s.emailChip, { backgroundColor: C.inputBg, borderColor: C.border }]}>
-            <Text style={[s.emailText, { color: C.text }]}>{email}</Text>
+            <Text style={[s.emailText, { color: C.text }]}>{emailObj.email}</Text>
           </View>
         ))}
       </View>
@@ -267,14 +273,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
           </TouchableOpacity>
         )}
       </View>
-      
+
       {editedLinks.length > 0 ? (
         editedLinks.map((link, index) => (
           <View key={index} style={[s.linkItem, { borderBottomColor: C.border }]}>
             <View style={s.linkContent}>
               <Ionicons name="link-outline" size={16} color={C.accent} />
               <View style={s.linkInfo}>
-                <Text style={[s.linkTitle, { color: C.text }]}>{link.title}</Text>
+                {/* ProfileLink uses `key` as the label */}
+                <Text style={[s.linkTitle, { color: C.text }]}>{link.key}</Text>
                 <Text style={[s.linkUrl, { color: C.sub }]} numberOfLines={1}>
                   {link.url}
                 </Text>
@@ -295,6 +302,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
     </View>
   );
 
+  // ── Loading state ──────────────────────────────────────────────────────────
+  if (loading && !userProfile) {
+    return (
+      <View style={[s.container, { backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={C.accent} />
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={[s.container, { backgroundColor: C.bg }]}
@@ -311,10 +327,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
           <Text style={[s.headerTitle, { color: C.text }]}>Profile</Text>
           <TouchableOpacity
             onPress={() => (isEditing ? handleSaveProfile() : setIsEditing(true))}
-            disabled={loading}
+            disabled={saving}
             style={s.editButton}
           >
-            {loading ? (
+            {saving ? (
               <ActivityIndicator size="small" color={C.accent} />
             ) : (
               <Text style={[s.editButtonText, { color: C.accent }]}>
@@ -350,15 +366,15 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
         {/* Editable Fields */}
         {renderField('Name', editedName, setEditedName, 'Enter your name', false, 'person-outline')}
         {renderField('Username', editedUsername, setEditedUsername, '@username', false, 'at-outline')}
-        
+
         {/* Non-editable Fields */}
         {renderNonEditableField('Primary Email', primaryEmail, 'mail-outline')}
-        {renderOtherEmails()}
+        {otherEmails.length > 0 && renderOtherEmails()}
         {renderNonEditableField('Phone Number', phoneNumber, 'call-outline')}
-        
+
         {/* Editable About */}
         {renderField('About', editedAbout, setEditedAbout, 'Tell something about yourself', true, 'information-circle-outline')}
-        
+
         {/* Editable Links */}
         {renderLinks()}
       </ScrollView>
@@ -379,10 +395,10 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
               </TouchableOpacity>
             </View>
             <ScrollView>
-              {otherEmails.map((email, index) => (
+              {otherEmails.map((emailObj, index) => (
                 <View key={index} style={[s.modalEmailItem, { borderBottomColor: C.border }]}>
                   <Ionicons name="mail-outline" size={20} color={C.accent} />
-                  <Text style={[s.modalEmailText, { color: C.text }]}>{email}</Text>
+                  <Text style={[s.modalEmailText, { color: C.text }]}>{emailObj.email}</Text>
                 </View>
               ))}
             </ScrollView>
@@ -405,7 +421,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
                 <Ionicons name="close" size={24} color={C.text} />
               </TouchableOpacity>
             </View>
-            
+
             <View style={s.modalField}>
               <Text style={[s.modalLabel, { color: C.sub }]}>Title</Text>
               <TextInput
@@ -416,7 +432,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
                 placeholderTextColor={C.placeholder}
               />
             </View>
-            
+
             <View style={s.modalField}>
               <Text style={[s.modalLabel, { color: C.sub }]}>URL</Text>
               <TextInput
@@ -429,7 +445,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ isDarkMode = false, onClo
                 autoCorrect={false}
               />
             </View>
-            
+
             <TouchableOpacity
               style={[s.addLinkButton, { backgroundColor: C.accent }]}
               onPress={addLink}

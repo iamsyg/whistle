@@ -1,9 +1,9 @@
 // frontend/hooks/profile/useFetchUserProfile.ts
 
 import { useState, useCallback } from "react";
-import { Alert } from "react-native/Libraries/Alert/Alert";
+import { Alert } from "react-native";
 import { supabase } from "@/utils/supabase";
-import { setUserProfile } from "@/store/slices/profile/profileSlice";
+import { setUserId, setUserProfile } from "@/store/slices/auth/profileSlice";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 
@@ -13,7 +13,7 @@ export const useFetchUserProfile = (userId: string) => {
     const dispatch = useDispatch();
 
     const isLoaded = useSelector(
-        (state: RootState) => state.userProfile.isLoaded
+        (state: RootState) => state.profile.isLoaded
     )
 
     const fetchUserProfile = useCallback(async () => {
@@ -49,7 +49,22 @@ export const useFetchUserProfile = (userId: string) => {
             }
 
             const userProfile = await res.json();
-            dispatch(setUserProfile(userProfile));
+
+            const mappedProfile = {
+                userId: userProfile.id,
+                name: userProfile.name ?? "",
+                userName: userProfile.username ?? "",
+                profilePictureUrl: userProfile.avatar_url ?? "",
+                phoneNumber: userProfile.phone_number ?? "",
+                about: userProfile.about ?? "",
+                profileLink: userProfile.profile_links ?? [],
+                primary_email: userProfile.primary_email ?? null,
+                emails: userProfile.emails ?? [],
+                profileCompleted: !!userProfile.name,
+                };
+                
+            dispatch(setUserProfile(mappedProfile));
+            dispatch(setUserId(userProfile.id));
 
         } catch (err) {
             console.error("Error fetching user profile:", err);
