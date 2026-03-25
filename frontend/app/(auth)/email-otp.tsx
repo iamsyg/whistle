@@ -1,3 +1,5 @@
+// frontend/app/(auth)/email-otp.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
@@ -17,7 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
-import { setEmail as setEmailState, setEmailVerified } from '@/store/slices/auth/emailAuthSlice';
+import { setEmails as setEmailState, setEmailVerified } from '@/store/slices/auth/emailAuthSlice';
 import { RootState } from '@/store/store';
 import { useDispatch, useSelector } from 'react-redux';
 
@@ -38,7 +40,7 @@ export default function EmailOTPScreen() {
   const dispatch = useDispatch();
 
   const email = useSelector(
-    (state: RootState) => state.emailAuth.email
+    (state: RootState) => state.emailAuth.emails
   );
 
   const { emailVerified } = useSelector(
@@ -198,7 +200,7 @@ export default function EmailOTPScreen() {
     // Simulate resend OTP
     Alert.alert(
       'Code Resent',
-      `New verification code has been sent to ${maskEmail(email)}`,
+      `New verification code has been sent to ${maskEmail(email[0])}`,
       [{ text: 'OK' }]
     );
   };
@@ -231,7 +233,7 @@ export default function EmailOTPScreen() {
     return () => clearTimeout(timer);
   }, []);
 
-  const maskedEmail = maskEmail(email);
+  const maskedEmail = maskEmail(email[0]);
   const displayEmail = email.includes('@') ? maskedEmail : email;
 
   const { width } = Dimensions.get('window');

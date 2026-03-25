@@ -1,3 +1,5 @@
+// frontend/app/(auth)/email.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
@@ -17,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { useDispatch } from 'react-redux';
-import { setEmail as setEmailState } from '@/store/slices/auth/emailAuthSlice';
+import { setEmails as setEmailState } from '@/store/slices/auth/emailAuthSlice';
 
 export default function EmailScreen() {
   const [email, setEmail] = useState('');
@@ -72,7 +74,7 @@ export default function EmailScreen() {
     try {
       // Simulate API call to send OTP to email
 
-      dispatch(setEmailState(email));
+      dispatch(setEmailState([email]));
 
       await new Promise(resolve => setTimeout(resolve, 1500));
       
