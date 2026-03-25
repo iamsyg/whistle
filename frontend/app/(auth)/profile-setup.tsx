@@ -1,4 +1,4 @@
-// app/(auth)/profile-setup.tsx
+// frontend/app/(auth)/profile-setup.tsx
 import React, { useState, useRef } from 'react';
 import {
   View,
@@ -58,18 +58,18 @@ const ProfileSetup: React.FC = () => {
 
   React.useEffect(() => {
     setProfileData({
-      name: profile.name,
-      username: profile.userName,
-      about: profile.about,
-      profileImage: profile.profilePictureUrl || null,
-      links: profile.profileLink,
+      name: profile.userProfile?.name || '',
+      username: profile.userProfile?.userName || '',
+      about: profile.userProfile?.about || '',
+      profileImage: profile.userProfile?.profilePictureUrl || null,
+      links: profile.userProfile?.profileLink.map((link) => ({ id: link.key, value: link.url })) || [],
     });
   }, [
-    profile.name,
-    profile.userName,
-    profile.about,
-    profile.profilePictureUrl,
-    profile.profileLink,
+    profile.userProfile?.name,
+    profile.userProfile?.userName,
+    profile.userProfile?.about,
+    profile.userProfile?.profilePictureUrl,
+    profile.userProfile?.profileLink,
   ]);
 
 
@@ -195,7 +195,7 @@ const ProfileSetup: React.FC = () => {
       }
       dispatch(setUserName(profileData.username));
       dispatch(setAbout(profileData.about));
-      dispatch(setProfileLink(profileData.links));
+      dispatch(setProfileLink(profileData.links.map(link => ({ url: link.id, key: link.value }))));
       Alert.alert(
         'Profile Updated',
         'Your profile has been saved successfully!',

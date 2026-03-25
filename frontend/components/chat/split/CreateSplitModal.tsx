@@ -103,9 +103,9 @@ const CreateSplitModal: React.FC<Props> = ({ visible, onClose, isDarkMode = fals
   const buildRows = useCallback((): MemberRow[] => {
     const meRow: MemberRow = {
       user_id: myUserId ?? 'me',
-      name: myProfile.name ?? 'You',
-      username: myProfile.userName ?? null,
-      avatar_url: myProfile.profilePictureUrl ?? null,
+      name: myProfile.userProfile?.name ?? 'You',
+      username: myProfile.userProfile?.userName ?? null,
+      avatar_url: myProfile.userProfile?.profilePictureUrl ?? null,
       isMe: true,
       selected: false,   // ← not pre-selected
       amount: '',
