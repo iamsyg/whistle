@@ -1,15 +1,17 @@
 // frontend/types/profile/userProfile.ts
 
 type UserProfile = {
-    id: string;
-    name: string | null;
-    username: string | null;
-    avatar_url: string | null;
-    phone_number: string;
-    about: string | null;
-    profile_links: ProfileLink[]; // Array of profile links
+    
+    userId: string | null;
+    name: string;
+    userName: string;
+    profilePictureUrl: string;
+    phoneNumber: string;
+    about: string;
+    profileLink: ProfileLink[];
     primary_email: Email | null; // Primary email address
     emails: Email[]; // Array of email addresses
+    profileCompleted: boolean;
 };
 
 type ProfileLink = {
@@ -23,5 +25,4 @@ type Email = {
     google_name?: string | null;
 };
 
-export type { UserProfile, ProfileLink };
-
+export type { UserProfile, ProfileLink, Email };

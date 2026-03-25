@@ -52,19 +52,19 @@ const migrations = {
   },
 
   1: (state: any) => {
-  if (!state?.conversation) return state;
+    if (!state?.conversation) return state;
 
-  return {
-    ...state,
-    conversation: {
-      ...state.conversation,
-      conversationType:
-        state.conversation.conversationType ?? null,
-    },
-  };
-},
+    return {
+      ...state,
+      conversation: {
+        ...state.conversation,
+        conversationType:
+          state.conversation.conversationType ?? null,
+      },
+    };
+  },
 
-2: (state: any) => {
+  2: (state: any) => {
     if (!state?.emailAuth) return state;
 
     return {
@@ -108,6 +108,7 @@ const migrations = {
     };
   },
 
+  5: (state: any) => state, // ✅ no-op
 };
 
 
@@ -115,7 +116,7 @@ const migrations = {
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  version: 4,
+  version: 5,
   migrate: createMigrate(migrations, { debug: __DEV__ }),
   whitelist: ['profile', 'conversation', 'contacts', 'emailAuth'],
   blacklist: ['auth'], // Don't persist auth tokens
