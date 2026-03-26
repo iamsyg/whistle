@@ -1,4 +1,5 @@
-// components/MessagingHeader.tsx (fixed version)
+// frontend/components/MessagingHeader.tsx
+
 import React, { useState, useRef } from 'react';
 import {
   View,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -29,6 +31,7 @@ interface MessagingHeaderProps {
   onCallPress?: () => void;
   onMenuPress?: () => void;
   isDarkMode?: boolean;
+  chat_id?: string;
   onPress?: () => void;
 }
 
@@ -45,7 +48,11 @@ const MessagingHeader: React.FC<MessagingHeaderProps> = ({
   onCallPress = () => console.log('Call pressed'),
   onMenuPress = () => console.log('Menu pressed'),
   isDarkMode = false,
-  onPress,
+  chat_id,
+  onPress = () => router.push({ 
+    pathname: "/(screens)/chatProfileScreen",
+    params: { chat_id }
+   }),
 }) => {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
