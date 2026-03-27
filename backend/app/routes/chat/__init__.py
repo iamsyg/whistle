@@ -24,6 +24,8 @@ from app.services.websocket_manager import ws_manager
 
 from app.routes.chat.split.split import router as split_router
 
+from app.routes.chat.profile.profile import router as profile_router
+
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
 
@@ -265,3 +267,5 @@ async def update_task_details_endpoint(
 
 
 router.include_router(split_router)
+
+router.include_router(profile_router)
