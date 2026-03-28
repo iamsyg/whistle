@@ -40,7 +40,7 @@ async def get_chat_profile_controller(current_user_id: str, chat_id: str):
 
             enriched_members = [
                 {
-                    "id": m["user_id"],
+                    "user_id": m["user_id"],
                     "name": m["name"],
                     "username": m["username"],
                     "avatar_url": m["avatar_url"],
