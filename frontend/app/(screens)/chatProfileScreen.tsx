@@ -1,6 +1,6 @@
 // frontend/app/(screens)/chatProfileScreen.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,62 +15,53 @@ import {
   Platform,
   Modal,
   Share,
+  Linking,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
-import { useFetchUserProfile } from '@/hooks/profile/useFetchUserProfile';
 import { router } from 'expo-router';
 import ModalMenu, { MenuItem } from '@/components/ModalMenu';
+import { useGetChatProfile } from '@/hooks/chat/profile/useGetChatProfile';
+import { ChatMember } from '@/types/chat/members';
+import { Contact } from '@/types/contact';
+import { ProfileLink } from '@/types/profile/userProfile';
+
+// Types
 
 interface ChatProfileScreenProps {
   isDarkMode?: boolean;
-  onClose?: () => void;
 }
 
-const ChatProfileScreen: React.FC<ChatProfileScreenProps> = ({ isDarkMode = false, onClose }) => {
-  const userId = useSelector((state: RootState) => state.profile.userId);
-  const userProfile = useSelector((state: RootState) => state.profile.userProfile);
-  const { fetchUserProfile, loading } = useFetchUserProfile(userId || "");
+// Helpers
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [showEmailsModal, setShowEmailsModal] = useState(false);
-  const [showLinksModal, setShowLinksModal] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
+interface ResolvedName {
+  displayName: string;
+  isSavedContact: boolean;
+  contact: Contact | null;
+}
 
-  // Editable fields state
-  const [editedName, setEditedName] = useState('');
-  const [editedUsername, setEditedUsername] = useState('');
-  const [editedAbout, setEditedAbout] = useState('');
-  const [editedLinks, setEditedLinks] = useState<{ key: string; url: string }[]>([]);
-  const [tempLink, setTempLink] = useState({ title: '', url: '' });
-  const [profileImage, setProfileImage] = useState<string | null>(null);
+function resolveDisplayName(
+  userId: string | undefined | null,
+  backendName: string | null | undefined,
+  backendPhone: string | null | undefined,
+  byProfileId: Record<string, Contact>,
+): ResolvedName {
+  if (userId) {
+    const contact = byProfileId[userId] ?? null;
+    if (contact) return { displayName: contact.name, isSavedContact: true, contact };
+  }
+  return {
+    displayName: backendName || backendPhone || 'Unknown',
+    isSavedContact: false,
+    contact: null,
+  };
+}
 
-  // Fetch on mount
-  useEffect(() => {
-    fetchUserProfile();
-  }, [fetchUserProfile]);
-
-  // Sync local edit state when Redux profile loads
-  useEffect(() => {
-    if (userProfile) {
-      setEditedName(userProfile.name ?? '');
-      setEditedUsername(userProfile.userName ?? '');
-      setEditedAbout(userProfile.about ?? '');
-      setEditedLinks(userProfile.profileLink ?? []);
-      setProfileImage(userProfile.profilePictureUrl ?? null);
-    }
-  }, [userProfile]);
-
-  // Derived read-only values from Redux
-  const primaryEmail = userProfile?.primary_email?.email ?? '—';
-  const otherEmails = userProfile?.emails?.slice(1) ?? [];
-  const phoneNumber = userProfile?.phoneNumber ?? '—';
-
-  const C = {
+function buildColors(isDarkMode: boolean) {
+  return {
     bg: isDarkMode ? '#0D1418' : '#F5F5F5',
     cardBg: isDarkMode ? '#1F2C34' : '#FFFFFF',
     text: isDarkMode ? '#FFFFFF' : '#000000',
@@ -79,313 +70,891 @@ const ChatProfileScreen: React.FC<ChatProfileScreenProps> = ({ isDarkMode = fals
     accent: isDarkMode ? '#00A884' : '#008069',
     inputBg: isDarkMode ? '#2A3942' : '#F5F5F5',
     placeholder: isDarkMode ? '#6C7A7F' : '#999999',
+    danger: '#E53935',
+    dangerBg: isDarkMode ? '#3B1A1A' : '#FFF0F0',
   };
+}
 
-  const handleShareProfile = async () => {
-    try {
-      const shareMessage = `Check out ${editedName || 'my'} profile on ChatApp!\nUsername: ${editedUsername}\n${userProfile?.profilePictureUrl ? 'Profile picture available' : ''}`;
-      await Share.share({
-        message: shareMessage,
-        title: `${editedName}'s Profile`,
-      });
-    } catch (error) {
-      Alert.alert('Error', 'Could not share profile');
-    }
-  };
+type Colors = ReturnType<typeof buildColors>;
 
-  const menuItems: MenuItem[] = [
-    {
-      id: 'edit',
-      label: 'Edit Profile',
-      icon: 'create-outline',
-      onPress: () => setIsEditing(true),
-    },
-    {
-      id: 'share',
-      label: 'Share Profile',
-      icon: 'share-outline',
-      onPress: handleShareProfile,
-    },
-  ];
+// MemberRow
 
-  const handleSaveProfile = async () => {
-    if (!editedName.trim()) {
-      Alert.alert('Error', 'Name cannot be empty');
-      return;
-    }
+interface MemberRowProps {
+  member: ChatMember;
+  byProfileId: Record<string, Contact>;
+  C: Colors;
+  currentUserId: string;
+  isCurrentUserAdmin: boolean;
+  adminCount: number;
+  onPress: (member: ChatMember, resolvedName: string) => void;
+}
 
-    if (!editedUsername.trim()) {
-      Alert.alert('Error', 'Username cannot be empty');
-      return;
-    }
-
-    setSaving(true);
-    // TODO: wire up update API call
-    setTimeout(() => {
-      setSaving(false);
-      setIsEditing(false);
-      Alert.alert('Success', 'Profile updated successfully');
-    }, 1000);
-  };
-
-  const handleImageUpload = async () => {
-    Alert.alert(
-      'Change Profile Picture',
-      'Choose an option',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Take Photo',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== 'granted') {
-              Alert.alert('Permission needed', 'Camera permission is required');
-              return;
-            }
-
-            const result = await ImagePicker.launchCameraAsync({
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.8,
-            });
-
-            if (!result.canceled) {
-              uploadImage(result.assets[0].uri);
-            }
-          },
-        },
-        {
-          text: 'Choose from Gallery',
-          onPress: async () => {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted') {
-              Alert.alert('Permission needed', 'Gallery permission is required');
-              return;
-            }
-
-            const result = await ImagePicker.launchImageLibraryAsync({
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.8,
-            });
-
-            if (!result.canceled) {
-              uploadImage(result.assets[0].uri);
-            }
-          },
-        },
-      ]
+const MemberRow: React.FC<MemberRowProps> = React.memo(
+  ({ member, byProfileId, C, currentUserId, isCurrentUserAdmin, adminCount, onPress }) => {
+    const { displayName, isSavedContact } = resolveDisplayName(
+      member.user_id,
+      member.name,
+      null,
+      byProfileId,
     );
-  };
 
-  const uploadImage = async (uri: string) => {
-    setUploadingImage(true);
-    // TODO: wire up image upload API call
-    setTimeout(() => {
-      setProfileImage(uri);
-      setUploadingImage(false);
-      Alert.alert('Success', 'Profile picture updated');
-    }, 1500);
-  };
+    const isMe = member.user_id === currentUserId;
+    const label = isMe ? `${displayName} (You)` : displayName;
 
-  const addLink = () => {
-    if (tempLink.title.trim() && tempLink.url.trim()) {
-      const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
-      if (!urlPattern.test(tempLink.url) && !tempLink.url.startsWith('http')) {
-        Alert.alert('Error', 'Please enter a valid URL');
-        return;
-      }
+    const subLine =
+      isSavedContact && member.name && member.name !== displayName
+        ? `~${member.name}`
+        : member.role === 'admin'
+          ? 'Group admin'
+          : null;
 
-      setEditedLinks([...editedLinks, { key: tempLink.title, url: tempLink.url }]);
-      setTempLink({ title: '', url: '' });
-      setShowLinksModal(false);
-    } else {
-      Alert.alert('Error', 'Please fill both title and URL');
+    const tappable = isCurrentUserAdmin && !isMe;
+
+    return (
+      <TouchableOpacity
+        style={[s.memberRow, { borderBottomColor: C.border }]}
+        onPress={() => tappable && onPress(member, displayName)}
+        activeOpacity={tappable ? 0.7 : 1}
+      >
+        <View style={[s.memberAvatar, { backgroundColor: C.inputBg }]}>
+          {member.avatar_url ? (
+            <Image source={{ uri: member.avatar_url }} style={s.fill} />
+          ) : (
+            <Ionicons name="person" size={22} color={C.sub} />
+          )}
+        </View>
+
+        <View style={s.memberInfo}>
+          <Text style={[s.memberName, { color: C.text }]} numberOfLines={1}>
+            {label}
+          </Text>
+          {subLine ? (
+            <Text style={[s.memberSub, { color: C.sub }]} numberOfLines={1}>
+              {subLine}
+            </Text>
+          ) : null}
+        </View>
+
+        {member.role === 'admin' ? (
+          <View style={[s.adminBadge, { borderColor: C.accent }]}>
+            <Text style={[s.adminBadgeText, { color: C.accent }]}>Admin</Text>
+          </View>
+        ) : null}
+
+        {tappable ? (
+          <Ionicons name="chevron-forward" size={16} color={C.sub} style={{ marginLeft: 8 }} />
+        ) : null}
+      </TouchableOpacity>
+    );
+  },
+);
+
+// ChatProfileScreen
+
+const ChatProfileScreen: React.FC<ChatProfileScreenProps> = ({ isDarkMode = false }) => {
+  const C = useMemo(() => buildColors(isDarkMode), [isDarkMode]);
+
+  // Redux
+  const selectedChatId = useSelector((st: RootState) => st.conversation.selectedChatId);
+  const chatProfile = useSelector((st: RootState) => st.chatProfile.profilesByChatId[selectedChatId ?? '']);
+  const byProfileId = useSelector((st: RootState) => st.contacts.byProfileId);
+  const allContacts = useSelector((st: RootState) => st.contacts.all);
+
+  // ── IMPORTANT: adjust this selector to match your actual auth slice path ────
+
+  const currentUserId = useSelector((st: RootState) => st.profile.userId);
+
+  const { getUserProfile } = useGetChatProfile(selectedChatId ?? '');
+
+  // Derived
+  const isGroup = Boolean(chatProfile?.members);
+
+  // Find current user's role in the group members list
+  const currentUserRole: 'admin' | 'member' | null = useMemo(() => {
+    if (!isGroup || !chatProfile?.members || !currentUserId) return null;
+    return chatProfile.members.find((m) => m.user_id === currentUserId)?.role ?? null;
+  }, [chatProfile, currentUserId, isGroup]);
+
+  const isAdmin = currentUserRole === 'admin';
+
+  console.log('ChatProfileScreen render', { selectedChatId, chatProfile, currentUserRole, isAdmin });
+
+  const adminCount = useMemo(
+    () => chatProfile?.members?.filter((m) => m.role === 'admin').length ?? 0,
+    [chatProfile],
+  );
+
+  const resolvedChat: ResolvedName | null = useMemo(() => {
+    if (!chatProfile) return null;
+    if (isGroup) return { displayName: chatProfile.name ?? 'Group', isSavedContact: false, contact: null };
+    return resolveDisplayName(chatProfile.id, chatProfile.name, chatProfile.phone_number, byProfileId);
+  }, [chatProfile, isGroup, byProfileId]);
+
+  // Registered contacts not yet in the group — for the add-member picker
+  const addableContacts = useMemo(() => {
+    if (!isGroup || !chatProfile?.members) return [];
+    const memberIds = new Set(chatProfile.members.map((m) => m.user_id));
+    return allContacts.filter((c) => c.isRegistered && c.profileId && !memberIds.has(c.profileId));
+  }, [allContacts, chatProfile, isGroup]);
+
+
+  const [showMenu, setShowMenu] = useState(false);
+
+  // Group name — inline edit in header
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const nameInputRef = useRef<TextInput>(null);
+
+  // Description modal
+  const [showDescModal, setShowDescModal] = useState(false);
+  const [draftDesc, setDraftDesc] = useState('');
+  const [savingDesc, setSavingDesc] = useState(false);
+
+  // Link add modal
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [draftLinkTitle, setDraftLinkTitle] = useState('');
+  const [draftLinkUrl, setDraftLinkUrl] = useState('');
+  const [savingLink, setSavingLink] = useState(false);
+
+  // Add member bottom sheet
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [selectedToAdd, setSelectedToAdd] = useState<Set<string>>(new Set());
+  const [addingMembers, setAddingMembers] = useState(false);
+
+  // Avatar upload
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  // ── Effects ──────────────────────────────────────────────────────────────────
+
+  useEffect(() => { getUserProfile(); }, [getUserProfile]);
+
+  // Seed drafts when profile loads or changes
+  useEffect(() => {
+    if (chatProfile) {
+      setDraftName(chatProfile.name ?? '');
+      setDraftDesc(chatProfile.about ?? '');
     }
-  };
+  }, [chatProfile]);
 
-  const removeLink = (index: number) => {
-    Alert.alert(
-      'Remove Link',
-      'Are you sure you want to remove this link?',
-      [
+  // Handlers
+
+
+  const uploadAvatar = useCallback(async (uri: string | null) => {
+    setUploadingAvatar(true);
+    try {
+      if (uri === null) {
+        // TODO: await api.updateGroup(selectedChatId, { image_url: null });
+        // TODO: dispatch(setChatProfile({ chatId: selectedChatId, profile: { ...chatProfile, avatar_url: null } }));
+      } else {
+        // TODO: const uploadedUrl = await uploadToStorage(uri);
+        // TODO: await api.updateGroup(selectedChatId, { image_url: uploadedUrl });
+        // TODO: dispatch(setChatProfile({ chatId: selectedChatId, profile: { ...chatProfile, avatar_url: uploadedUrl } }));
+      }
+      await new Promise((r) => setTimeout(r, 1000)); // stub — remove when wired
+    } catch {
+      Alert.alert('Error', 'Could not update group photo.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }, [selectedChatId]);
+
+  const handleChangeAvatar = useCallback(() => {
+    Alert.alert('Change group photo', 'Choose an option', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Take photo',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert('Permission needed', 'Camera permission is required.');
+            return;
+          }
+          const result = await ImagePicker.launchCameraAsync({
+            allowsEditing: true, aspect: [1, 1], quality: 0.8,
+          });
+          if (!result.canceled) uploadAvatar(result.assets[0].uri);
+        },
+      },
+      {
+        text: 'Choose from gallery',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (status !== 'granted') {
+            Alert.alert('Permission needed', 'Gallery permission is required.');
+            return;
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          });
+          if (!result.canceled) uploadAvatar(result.assets[0].uri);
+        },
+      },
+      {
+        text: 'Remove photo',
+        style: 'destructive',
+        onPress: () => uploadAvatar(null),
+      },
+    ]);
+  }, [uploadAvatar]);
+
+  // ── Group name ────────────────────────────────────────────────────────────────
+
+  const handleSaveName = useCallback(async () => {
+    if (!draftName.trim()) { Alert.alert('Error', 'Group name cannot be empty.'); return; }
+    setSavingName(true);
+    try {
+      // TODO: await api.updateGroup(selectedChatId, { title: draftName.trim() });
+      // TODO: dispatch(setChatProfile({ chatId: selectedChatId, profile: { ...chatProfile, name: draftName.trim() } }));
+      await new Promise((r) => setTimeout(r, 600)); // stub
+      setEditingName(false);
+    } catch {
+      Alert.alert('Error', 'Could not update group name.');
+    } finally {
+      setSavingName(false);
+    }
+  }, [draftName, selectedChatId]);
+
+  const handleCancelName = useCallback(() => {
+    setDraftName(chatProfile?.name ?? '');
+    setEditingName(false);
+  }, [chatProfile]);
+
+  // ── Description ───────────────────────────────────────────────────────────────
+
+  const handleSaveDesc = useCallback(async () => {
+    setSavingDesc(true);
+    try {
+      // TODO: await api.updateGroup(selectedChatId, { description: draftDesc.trim() });
+      // TODO: dispatch(setChatProfile({ chatId: selectedChatId, profile: { ...chatProfile, about: draftDesc.trim() } }));
+      await new Promise((r) => setTimeout(r, 600)); // stub
+      setShowDescModal(false);
+    } catch {
+      Alert.alert('Error', 'Could not update description.');
+    } finally {
+      setSavingDesc(false);
+    }
+  }, [draftDesc, selectedChatId]);
+
+  // ── Links ─────────────────────────────────────────────────────────────────────
+
+  const handleAddLink = useCallback(async () => {
+    if (!draftLinkTitle.trim() || !draftLinkUrl.trim()) {
+      Alert.alert('Error', 'Both title and URL are required.');
+      return;
+    }
+    if (!/^https?:\/\/.+/.test(draftLinkUrl.trim())) {
+      Alert.alert('Error', 'URL must start with http:// or https://');
+      return;
+    }
+    setSavingLink(true);
+    try {
+      const newLink: ProfileLink = { key: draftLinkTitle.trim(), url: draftLinkUrl.trim() };
+      const updated = [...(chatProfile?.profile_links ?? []), newLink];
+      // TODO: await api.updateGroup(selectedChatId, { profile_links: updated });
+      // TODO: dispatch(setChatProfile({ chatId: selectedChatId, profile: { ...chatProfile, profile_links: updated } }));
+      await new Promise((r) => setTimeout(r, 600)); // stub
+      setDraftLinkTitle('');
+      setDraftLinkUrl('');
+      setShowLinkModal(false);
+    } catch {
+      Alert.alert('Error', 'Could not add link.');
+    } finally {
+      setSavingLink(false);
+    }
+  }, [draftLinkTitle, draftLinkUrl, selectedChatId, chatProfile]);
+
+  const handleRemoveLink = useCallback((link: ProfileLink) => {
+    Alert.alert('Remove link', `Remove "${link.key}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const updated = (chatProfile?.profile_links ?? []).filter((l) => l.url !== link.url);
+            // TODO: await api.updateGroup(selectedChatId, { profile_links: updated });
+            // TODO: dispatch(setChatProfile({ chatId: selectedChatId, profile: { ...chatProfile, profile_links: updated } }));
+            await new Promise((r) => setTimeout(r, 400)); // stub
+          } catch {
+            Alert.alert('Error', 'Could not remove link.');
+          }
+        },
+      },
+    ]);
+  }, [chatProfile, selectedChatId]);
+
+  // ── Members ───────────────────────────────────────────────────────────────────
+
+  const handleMemberPress = useCallback((member: ChatMember, resolvedName: string) => {
+    const isTargetAdmin = member.role === 'admin';
+    const isLastAdmin = isTargetAdmin && adminCount <= 1;
+
+    const actions: any[] = [{ text: 'Cancel', style: 'cancel' }];
+
+    if (!isTargetAdmin) {
+      actions.push({
+        text: 'Make group admin',
+        onPress: () => Alert.alert('Make admin', `Make ${resolvedName} a group admin?`, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Make admin',
+            onPress: async () => {
+              try {
+                // TODO: await api.updateMemberRole(selectedChatId, member.user_id, 'admin');
+                await new Promise((r) => setTimeout(r, 400));
+              } catch { Alert.alert('Error', 'Could not update role.'); }
+            },
+          },
+        ]),
+      });
+    } else if (!isLastAdmin) {
+      actions.push({
+        text: 'Dismiss as admin',
+        onPress: () => Alert.alert('Dismiss admin', `Remove admin rights from ${resolvedName}?`, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Dismiss',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                // TODO: await api.updateMemberRole(selectedChatId, member.user_id, 'member');
+                await new Promise((r) => setTimeout(r, 400));
+              } catch { Alert.alert('Error', 'Could not update role.'); }
+            },
+          },
+        ]),
+      });
+    }
+
+    actions.push({
+      text: `Remove ${resolvedName}`,
+      style: 'destructive',
+      onPress: () => Alert.alert('Remove member', `Remove ${resolvedName} from the group?`, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => {
-            const newLinks = [...editedLinks];
-            newLinks.splice(index, 1);
-            setEditedLinks(newLinks);
+          onPress: async () => {
+            try {
+              // TODO: await api.removeMember(selectedChatId, member.user_id);
+              await new Promise((r) => setTimeout(r, 400));
+            } catch { Alert.alert('Error', 'Could not remove member.'); }
           },
         },
-      ]
+      ]),
+    });
+
+    Alert.alert(resolvedName, member.name && member.name !== resolvedName ? `~${member.name}` : '', actions);
+  }, [adminCount, selectedChatId]);
+
+  const toggleSelectContact = useCallback((profileId: string) => {
+    setSelectedToAdd((prev) => {
+      const next = new Set(prev);
+      next.has(profileId) ? next.delete(profileId) : next.add(profileId);
+      return next;
+    });
+  }, []);
+
+  const handleConfirmAddMembers = useCallback(async () => {
+    if (!selectedToAdd.size) return;
+    setAddingMembers(true);
+    try {
+      // TODO: await api.addMembers(selectedChatId, Array.from(selectedToAdd));
+      await new Promise((r) => setTimeout(r, 800)); // stub
+      setSelectedToAdd(new Set());
+      setShowAddMember(false);
+    } catch {
+      Alert.alert('Error', 'Could not add members.');
+    } finally {
+      setAddingMembers(false);
+    }
+  }, [selectedToAdd, selectedChatId]);
+
+  // ── Direct chat helpers ───────────────────────────────────────────────────────
+
+  const handleShareProfile = useCallback(async () => {
+    if (!chatProfile || !resolvedChat) return;
+    try {
+      await Share.share({ message: resolvedChat.displayName });
+    } catch { Alert.alert('Error', 'Could not share profile'); }
+  }, [chatProfile, resolvedChat]);
+
+  const handleEditContact = useCallback(() => {
+    const phone = chatProfile?.phone_number;
+    if (!phone) { Alert.alert('No phone number', 'Cannot open contact editor.'); return; }
+    Alert.alert('Edit contact', `Open Contacts to edit "${resolvedChat?.displayName}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Open Contacts', onPress: () => Linking.openURL(`tel:${phone}`).catch(() => { }) },
+    ]);
+  }, [chatProfile, resolvedChat]);
+
+  const handleAddContact = useCallback(() => {
+    Alert.alert('Add to contacts', "Open your phone's Contacts app to save this number.");
+  }, []);
+
+  // ── Menu items ────────────────────────────────────────────────────────────────
+
+  const menuItems: MenuItem[] = useMemo(() => {
+    const items: MenuItem[] = [];
+    if (!isGroup) {
+      if (resolvedChat?.isSavedContact) {
+        items.push({ id: 'edit', label: 'Edit contact', icon: 'create-outline', onPress: handleEditContact });
+      } else {
+        items.push({ id: 'add', label: 'Add to contacts', icon: 'person-add-outline', onPress: handleAddContact });
+      }
+    }
+    items.push({ id: 'share', label: 'Share profile', icon: 'share-outline', onPress: handleShareProfile });
+    return items;
+  }, [isGroup, resolvedChat, handleEditContact, handleAddContact, handleShareProfile]);
+
+  // Section renders
+
+  const renderProfileHeader = () => {
+    if (!chatProfile || !resolvedChat) return null;
+
+    let subLine: string | null = null;
+    if (isGroup) {
+      subLine = chatProfile.members ? `${chatProfile.members.length} members` : null;
+    } else if (resolvedChat.isSavedContact && chatProfile.name && chatProfile.name !== resolvedChat.displayName) {
+      subLine = `~${chatProfile.name}`;
+    } else if (!resolvedChat.isSavedContact && chatProfile.phone_number) {
+      subLine = chatProfile.phone_number;
+    }
+
+    return (
+      <View style={[s.profileHeader, { backgroundColor: C.cardBg }]}>
+        {/* Avatar */}
+        <TouchableOpacity
+          onPress={isGroup && isAdmin ? handleChangeAvatar : undefined}
+          activeOpacity={isGroup && isAdmin ? 0.8 : 1}
+          style={[s.avatarWrapper, { borderColor: C.accent }]}
+        >
+          {chatProfile.avatar_url ? (
+            <Image source={{ uri: chatProfile.avatar_url }} style={s.fill} />
+          ) : (
+            <View style={[s.avatarPlaceholder, { backgroundColor: C.inputBg }]}>
+              <Ionicons name={isGroup ? 'people' : 'person'} size={48} color={C.sub} />
+            </View>
+          )}
+
+          {/* Camera overlay — visible for group admins only */}
+          {isGroup && isAdmin ? (
+            <View style={s.avatarOverlay}>
+              {uploadingAvatar
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Ionicons name="camera" size={18} color="#fff" />}
+            </View>
+          ) : null}
+        </TouchableOpacity>
+
+        {/* Name block */}
+        <View style={s.nameBlock}>
+          {isGroup && isAdmin ? (
+            editingName ? (
+              /* ── Editing state ── */
+              <View style={s.nameEditRow}>
+                <TextInput
+                  ref={nameInputRef}
+                  style={[s.nameInput, { color: C.text, borderColor: C.accent, backgroundColor: C.inputBg }]}
+                  value={draftName}
+                  onChangeText={setDraftName}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleSaveName}
+                  maxLength={60}
+                />
+                {savingName ? (
+                  <ActivityIndicator size="small" color={C.accent} style={{ marginLeft: 8 }} />
+                ) : (
+                  <View style={s.nameEditActions}>
+                    <TouchableOpacity onPress={handleCancelName} style={s.nameActionBtn}>
+                      <Ionicons name="close-circle" size={22} color={C.sub} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleSaveName} style={s.nameActionBtn}>
+                      <Ionicons name="checkmark-circle" size={22} color={C.accent} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            ) : (
+              /* ── Tap-to-edit idle state ── */
+              <TouchableOpacity
+                style={s.nameEditRow}
+                onPress={() => {
+                  setEditingName(true);
+                  setTimeout(() => nameInputRef.current?.focus(), 50);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={[s.nameText, { color: C.text, flex: 1 }]} numberOfLines={2}>
+                  {resolvedChat.displayName}
+                </Text>
+                <Ionicons name="pencil-outline" size={16} color={C.sub} style={{ marginLeft: 6 }} />
+              </TouchableOpacity>
+            )
+          ) : (
+            <Text style={[s.nameText, { color: C.text }]} numberOfLines={2}>
+              {resolvedChat.displayName}
+            </Text>
+          )}
+
+          {subLine ? <Text style={[s.subLineText, { color: C.sub }]}>{subLine}</Text> : null}
+          {chatProfile.username && !isGroup ? (
+            <Text style={[s.usernameText, { color: C.sub }]}>@{chatProfile.username}</Text>
+          ) : null}
+        </View>
+      </View>
     );
   };
 
-  const renderProfileHeader = () => (
-    <View style={s.profileHeader}>
-      <TouchableOpacity onPress={handleImageUpload} disabled={uploadingImage}>
-        <View style={[s.profileImageWrapper, { borderColor: C.accent }]}>
-          {profileImage ? (
-            <Image source={{ uri: profileImage }} style={s.profileImage} />
-          ) : (
-            <View style={[s.profilePlaceholder, { backgroundColor: C.inputBg }]}>
-              <Ionicons name="person" size={50} color={C.sub} />
-            </View>
-          )}
-          {uploadingImage && (
-            <View style={s.imageOverlay}>
-              <ActivityIndicator size="large" color={C.accent} />
-            </View>
-          )}
-          {isEditing && (
-            <View style={[s.cameraIcon, { backgroundColor: C.accent }]}>
-              <Ionicons name="camera" size={20} color="#FFFFFF" />
-            </View>
-          )}
+  // ── About / Description ───────────────────────────────────────────────────────
+
+  const renderAbout = () => {
+    const label = isGroup ? 'Description' : 'About';
+    const value = chatProfile?.about;
+    const canEdit = isGroup && isAdmin;
+
+    // For direct chat: always show (even if empty)
+    // For group: always show (even if empty)
+    return (
+      <View style={[s.card, { backgroundColor: C.cardBg }]}>
+        <View style={s.rowHeader}>
+          <Ionicons name="information-circle-outline" size={20} color={C.accent} style={s.rowIcon} />
+          <Text style={[s.sectionLabel, { color: C.sub }]}>{label}</Text>
+          {canEdit ? (
+            <TouchableOpacity
+              onPress={() => { setDraftDesc(value ?? ''); setShowDescModal(true); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="pencil-outline" size={16} color={C.sub} />
+            </TouchableOpacity>
+          ) : null}
         </View>
-      </TouchableOpacity>
-
-      <View style={s.profileInfo}>
-        {isEditing ? (
-          <TextInput
-            style={[s.nameInput, { backgroundColor: C.inputBg, color: C.text, borderColor: C.border }]}
-            value={editedName}
-            onChangeText={setEditedName}
-            placeholder="Your name"
-            placeholderTextColor={C.placeholder}
-          />
+        {value ? (
+          <Text style={[s.bodyText, { color: C.text }]}>{value}</Text>
         ) : (
-          <Text style={[s.name, { color: C.text }]}>{editedName || 'No name added'}</Text>
-        )}
-        
-        {isEditing ? (
-          <TextInput
-            style={[s.usernameInput, { backgroundColor: C.inputBg, color: C.text, borderColor: C.border }]}
-            value={editedUsername}
-            onChangeText={setEditedUsername}
-            placeholder="@username"
-            placeholderTextColor={C.placeholder}
-          />
-        ) : (
-          <Text style={[s.username, { color: C.sub }]}>@{editedUsername || 'username'}</Text>
-        )}
-        
-        <Text style={[s.phoneNumber, { color: C.sub }]}>{phoneNumber}</Text>
-      </View>
-    </View>
-  );
-
-  const renderEditableField = (
-    label: string,
-    value: string,
-    setValue: (text: string) => void,
-    placeholder: string,
-    multiline: boolean = false,
-    icon: string = 'person-outline'
-  ) => (
-    <View style={s.fieldContainer}>
-      <View style={s.fieldHeader}>
-        <Ionicons name={icon as any} size={20} color={C.accent} />
-        <Text style={[s.fieldLabel, { color: C.sub }]}>{label}</Text>
-      </View>
-      {isEditing ? (
-        <TextInput
-          style={[
-            s.input,
-            {
-              backgroundColor: C.inputBg,
-              color: C.text,
-              borderColor: C.border,
-            },
-            multiline && s.textArea,
-          ]}
-          value={value}
-          onChangeText={setValue}
-          placeholder={placeholder}
-          placeholderTextColor={C.placeholder}
-          multiline={multiline}
-          numberOfLines={multiline ? 3 : 1}
-        />
-      ) : (
-        <Text style={[s.fieldValue, { color: C.text }]}>
-          {value || `No ${label.toLowerCase()} added`}
-        </Text>
-      )}
-    </View>
-  );
-
-  const renderNonEditableField = (label: string, value: string, icon: string = 'mail-outline') => (
-    <View style={s.fieldContainer}>
-      <View style={s.fieldHeader}>
-        <Ionicons name={icon as any} size={20} color={C.accent} />
-        <Text style={[s.fieldLabel, { color: C.sub }]}>{label}</Text>
-      </View>
-      <Text style={[s.fieldValue, { color: C.text }]}>{value}</Text>
-    </View>
-  );
-
-  const renderOtherEmails = () => (
-    <View style={s.fieldContainer}>
-      <View style={s.fieldHeader}>
-        <Ionicons name="mail-outline" size={20} color={C.accent} />
-        <Text style={[s.fieldLabel, { color: C.sub }]}>Other Emails</Text>
-        <TouchableOpacity onPress={() => setShowEmailsModal(true)}>
-          <Ionicons name="information-circle-outline" size={20} color={C.accent} />
-        </TouchableOpacity>
-      </View>
-      <View style={s.emailsList}>
-        {otherEmails.map((emailObj, index) => (
-          <View key={index} style={[s.emailChip, { backgroundColor: C.inputBg, borderColor: C.border }]}>
-            <Text style={[s.emailText, { color: C.text }]}>{emailObj.email}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-
-  const renderLinks = () => (
-    <View style={s.fieldContainer}>
-      <View style={s.fieldHeader}>
-        <Ionicons name="link-outline" size={20} color={C.accent} />
-        <Text style={[s.fieldLabel, { color: C.sub }]}>Links</Text>
-        {isEditing && (
-          <TouchableOpacity onPress={() => setShowLinksModal(true)}>
-            <Ionicons name="add-circle-outline" size={22} color={C.accent} />
-          </TouchableOpacity>
+          <Text style={[s.emptyText, { color: C.sub }]}>
+            {canEdit ? 'No description — tap ✏ above to add one' : isGroup ? 'No group description' : 'No about'}
+          </Text>
         )}
       </View>
+    );
+  };
 
-      {editedLinks.length > 0 ? (
-        editedLinks.map((link, index) => (
-          <View key={index} style={[s.linkItem, { borderBottomColor: C.border }]}>
-            <View style={s.linkContent}>
-              <Ionicons name="link-outline" size={16} color={C.accent} />
+  // ── Phone (direct only, not saved contacts) ───────────────────────────────────
+
+  const renderPhone = () => {
+    if (isGroup || !chatProfile?.phone_number || resolvedChat?.isSavedContact) return null;
+    return (
+      <View style={[s.card, { backgroundColor: C.cardBg }]}>
+        <View style={s.rowHeader}>
+          <Ionicons name="call-outline" size={20} color={C.accent} style={s.rowIcon} />
+          <Text style={[s.sectionLabel, { color: C.sub }]}>Phone</Text>
+        </View>
+        <Text style={[s.bodyText, { color: C.text }]}>{chatProfile.phone_number}</Text>
+      </View>
+    );
+  };
+
+  // ── Links ─────────────────────────────────────────────────────────────────────
+
+  const renderLinks = () => {
+    const links = chatProfile?.profile_links ?? [];
+    const canEdit = isGroup && isAdmin;
+
+    // Always show for groups (admin can add); always show for direct chat if links exist.
+    // Direct chat with no links: still show so the user can see the section exists.
+    return (
+      <View style={[s.card, { backgroundColor: C.cardBg }]}>
+        <View style={s.rowHeader}>
+          <Ionicons name="link-outline" size={20} color={C.accent} style={s.rowIcon} />
+          <Text style={[s.sectionLabel, { color: C.sub }]}>Links</Text>
+          {canEdit ? (
+            <TouchableOpacity
+              onPress={() => { setDraftLinkTitle(''); setDraftLinkUrl(''); setShowLinkModal(true); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="add-circle-outline" size={20} color={C.accent} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {links.length > 0 ? (
+          links.map((link, i) => (
+            <TouchableOpacity
+              key={`${link.url}-${i}`}
+              style={[s.linkRow, { borderBottomColor: C.border }]}
+              onPress={() => Linking.openURL(link.url).catch(() => { })}
+              onLongPress={() => canEdit && handleRemoveLink(link)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="link-outline" size={16} color={C.accent} style={{ marginRight: 0 }} />
               <View style={s.linkInfo}>
                 <Text style={[s.linkTitle, { color: C.text }]}>{link.key}</Text>
-                <Text style={[s.linkUrl, { color: C.sub }]} numberOfLines={1}>
-                  {link.url}
-                </Text>
+                <Text style={[s.linkUrl, { color: C.sub }]} numberOfLines={1}>{link.url}</Text>
               </View>
-            </View>
-            {isEditing && (
-              <TouchableOpacity onPress={() => removeLink(index)}>
-                <Ionicons name="trash-outline" size={20} color={C.sub} />
-              </TouchableOpacity>
-            )}
+              {canEdit ? (
+                <TouchableOpacity
+                  onPress={() => handleRemoveLink(link)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="trash-outline" size={16} color={C.danger} />
+                </TouchableOpacity>
+              ) : (
+                <Ionicons name="open-outline" size={16} color={C.sub} />
+              )}
+            </TouchableOpacity>
+          ))
+        ) : (
+          <Text style={[s.emptyText, { color: C.sub }]}>
+            {canEdit ? 'No links — tap + above to add one' : 'No links added'}
+          </Text>
+        )}
+      </View>
+    );
+  };
+
+  // ── Group members ─────────────────────────────────────────────────────────────
+
+  const renderGroupMembers = () => {
+    if (!isGroup || !chatProfile.members?.length) return null;
+
+    return (
+      <View style={[s.card, { backgroundColor: C.cardBg }]}>
+        <View style={[s.rowHeader, { marginBottom: 4 }]}>
+          <Ionicons name="people-outline" size={20} color={C.accent} style={s.rowIcon} />
+          <Text style={[s.sectionLabel, { color: C.sub }]}>
+            {chatProfile.members.length} members
+          </Text>
+          {isAdmin ? (
+            <TouchableOpacity
+              onPress={() => { setSelectedToAdd(new Set()); setShowAddMember(true); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="person-add-outline" size={20} color={C.accent} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {chatProfile.members.map((member) => (
+          <MemberRow
+            key={member.user_id}
+            member={member}
+            byProfileId={byProfileId}
+            C={C}
+            currentUserId={currentUserId || ""}
+            isCurrentUserAdmin={isAdmin}
+            adminCount={adminCount}
+            onPress={handleMemberPress}
+          />
+        ))}
+      </View>
+    );
+  };
+
+  // Modals
+
+  const renderDescModal = () => (
+    <Modal
+      visible={showDescModal}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowDescModal(false)}
+    >
+      <KeyboardAvoidingView
+        style={s.modalOverlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={[s.modalBox, { backgroundColor: C.cardBg }]}>
+          <View style={s.modalHead}>
+            <Text style={[s.modalTitle, { color: C.text }]}>Group description</Text>
+            <TouchableOpacity onPress={() => setShowDescModal(false)}>
+              <Ionicons name="close" size={24} color={C.text} />
+            </TouchableOpacity>
           </View>
-        ))
-      ) : (
-        <Text style={[s.fieldValue, { color: C.sub }]}>
-          {isEditing ? 'Tap + to add links' : 'No links added'}
-        </Text>
-      )}
-    </View>
+
+          <TextInput
+            style={[s.modalTextArea, { backgroundColor: C.inputBg, color: C.text, borderColor: C.border }]}
+            value={draftDesc}
+            onChangeText={setDraftDesc}
+            placeholder="Describe the group…"
+            placeholderTextColor={C.placeholder}
+            multiline
+            numberOfLines={4}
+            maxLength={500}
+            autoFocus
+          />
+          <Text style={[s.charCount, { color: C.sub }]}>{draftDesc.length}/500</Text>
+
+          <TouchableOpacity
+            style={[s.saveBtn, { backgroundColor: C.accent, opacity: savingDesc ? 0.7 : 1 }]}
+            onPress={handleSaveDesc}
+            disabled={savingDesc}
+          >
+            {savingDesc
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={s.saveBtnText}>Save</Text>}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 
-  // Loading state
-  if (loading && !userProfile) {
+  const renderLinkModal = () => (
+    <Modal
+      visible={showLinkModal}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowLinkModal(false)}
+    >
+      <KeyboardAvoidingView
+        style={s.modalOverlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={[s.modalBox, { backgroundColor: C.cardBg }]}>
+          <View style={s.modalHead}>
+            <Text style={[s.modalTitle, { color: C.text }]}>Add link</Text>
+            <TouchableOpacity onPress={() => setShowLinkModal(false)}>
+              <Ionicons name="close" size={24} color={C.text} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={s.modalField}>
+            <Text style={[s.modalLabel, { color: C.sub }]}>Title</Text>
+            <TextInput
+              style={[s.modalInput, { backgroundColor: C.inputBg, color: C.text, borderColor: C.border }]}
+              value={draftLinkTitle}
+              onChangeText={setDraftLinkTitle}
+              placeholder="e.g. GitHub, Portfolio"
+              placeholderTextColor={C.placeholder}
+            />
+          </View>
+
+          <View style={s.modalField}>
+            <Text style={[s.modalLabel, { color: C.sub }]}>URL</Text>
+            <TextInput
+              style={[s.modalInput, { backgroundColor: C.inputBg, color: C.text, borderColor: C.border }]}
+              value={draftLinkUrl}
+              onChangeText={setDraftLinkUrl}
+              placeholder="https://…"
+              placeholderTextColor={C.placeholder}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+          </View>
+
+          <TouchableOpacity
+            style={[s.saveBtn, { backgroundColor: C.accent, opacity: savingLink ? 0.7 : 1 }]}
+            onPress={handleAddLink}
+            disabled={savingLink}
+          >
+            {savingLink
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={s.saveBtnText}>Add link</Text>}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+
+  const renderAddMemberModal = () => (
+    <Modal
+      visible={showAddMember}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowAddMember(false)}
+    >
+      <View style={[s.modalOverlay, { justifyContent: 'flex-end' }]}>
+        <View style={[s.addMemberSheet, { backgroundColor: C.cardBg }]}>
+          <View style={[s.modalHead, { paddingHorizontal: 16, paddingTop: 16 }]}>
+            <Text style={[s.modalTitle, { color: C.text }]}>Add members</Text>
+            <TouchableOpacity onPress={() => setShowAddMember(false)}>
+              <Ionicons name="close" size={24} color={C.text} />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={[s.selectionHint, { color: selectedToAdd.size > 0 ? C.accent : C.sub }]}>
+            {selectedToAdd.size > 0 ? `${selectedToAdd.size} selected` : 'Select contacts to add'}
+          </Text>
+
+          {addableContacts.length === 0 ? (
+            <View style={s.emptyAddContainer}>
+              <Ionicons name="people-outline" size={40} color={C.sub} />
+              <Text style={[s.emptyText, { color: C.sub, marginTop: 12, textAlign: 'center', fontStyle: 'normal' }]}>
+                All your contacts are already in this group
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={addableContacts}
+              keyExtractor={(item) => item.contactId}
+              style={s.addMemberList}
+              renderItem={({ item }) => {
+                const isSelected = item.profileId ? selectedToAdd.has(item.profileId) : false;
+                return (
+                  <TouchableOpacity
+                    style={[s.addMemberRow, { borderBottomColor: C.border }]}
+                    onPress={() => item.profileId && toggleSelectContact(item.profileId)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[s.memberAvatar, { backgroundColor: item.avatarColor ?? C.inputBg }]}>
+                      <Text style={s.avatarInitial}>{item.name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={s.memberInfo}>
+                      <Text style={[s.memberName, { color: C.text }]} numberOfLines={1}>{item.name}</Text>
+                      <Text style={[s.memberSub, { color: C.sub }]} numberOfLines={1}>{item.phone}</Text>
+                    </View>
+                    <View style={[
+                      s.checkCircle, { marginLeft: 8 },
+                      isSelected
+                        ? { backgroundColor: C.accent, borderColor: C.accent }
+                        : { borderColor: C.border },
+                    ]}>
+                      {isSelected ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          )}
+
+          {addableContacts.length > 0 ? (
+            <TouchableOpacity
+              style={[
+                s.saveBtn,
+                {
+                  backgroundColor: selectedToAdd.size > 0 ? C.accent : C.border,
+                  marginHorizontal: 16,
+                  marginBottom: Platform.OS === 'ios' ? 32 : 16,
+                  marginTop: 8,
+                  opacity: addingMembers ? 0.7 : 1,
+                },
+              ]}
+              onPress={handleConfirmAddMembers}
+              disabled={selectedToAdd.size === 0 || addingMembers}
+            >
+              {addingMembers
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Text style={s.saveBtnText}>
+                  Add{selectedToAdd.size > 0 ? ` ${selectedToAdd.size}` : ''} member{selectedToAdd.size !== 1 ? 's' : ''}
+                </Text>}
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Loading guard
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  if (!chatProfile) {
     return (
       <View style={[s.container, { backgroundColor: C.bg, justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={C.accent} />
@@ -393,146 +962,59 @@ const ChatProfileScreen: React.FC<ChatProfileScreenProps> = ({ isDarkMode = fals
     );
   }
 
+  // Full render
+
   return (
     <KeyboardAvoidingView
       style={[s.container, { backgroundColor: C.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Header */}
-      <View style={[s.header, { backgroundColor: C.cardBg, borderBottomColor: C.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backButton}>
+      {/* Top bar */}
+      <View style={[s.topBar, { backgroundColor: C.cardBg, borderBottomColor: C.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={s.iconBtn}>
           <Ionicons name="arrow-back" size={24} color={C.text} />
         </TouchableOpacity>
-        
-        
-        <TouchableOpacity onPress={() => setShowMenu(true)} style={s.menuButton}>
+        <TouchableOpacity onPress={() => setShowMenu(true)} style={s.iconBtn}>
           <Ionicons name="ellipsis-vertical" size={24} color={C.text} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Profile Header with Image and Info */}
+      {/* Body */}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.scrollBody}>
         {renderProfileHeader()}
-
-        {/* Edit/Save Button for Edit Mode */}
-        {isEditing && (
-          <TouchableOpacity
-            style={[s.saveButton, { backgroundColor: C.accent }]}
-            onPress={handleSaveProfile}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={s.saveButtonText}>Save Changes</Text>
-            )}
-          </TouchableOpacity>
-        )}
-
-        {/* About Section */}
-        {renderEditableField('About', editedAbout, setEditedAbout, 'Tell something about yourself', true, 'information-circle-outline')}
-
-        {/* Emails Section */}
-        {renderNonEditableField('Primary Email', primaryEmail, 'mail-outline')}
-        {otherEmails.length > 0 && renderOtherEmails()}
-
-        {/* Links Section */}
+        {renderAbout()}
+        {renderPhone()}
         {renderLinks()}
+        {renderGroupMembers()}
+        <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Modal Menu */}
+      {/* Modals */}
+      {renderDescModal()}
+      {renderLinkModal()}
+      {renderAddMemberModal()}
+
+      {/* Context menu */}
       <ModalMenu
         visible={showMenu}
         onClose={() => setShowMenu(false)}
         menuItems={menuItems}
         menuWidth={200}
       />
-
-      {/* Other Emails Modal */}
-      <Modal
-        visible={showEmailsModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowEmailsModal(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={[s.modalContent, { backgroundColor: C.cardBg }]}>
-            <View style={s.modalHeader}>
-              <Text style={[s.modalTitle, { color: C.text }]}>Other Email Addresses</Text>
-              <TouchableOpacity onPress={() => setShowEmailsModal(false)}>
-                <Ionicons name="close" size={24} color={C.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView>
-              {otherEmails.map((emailObj, index) => (
-                <View key={index} style={[s.modalEmailItem, { borderBottomColor: C.border }]}>
-                  <Ionicons name="mail-outline" size={20} color={C.accent} />
-                  <Text style={[s.modalEmailText, { color: C.text }]}>{emailObj.email}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Add Link Modal */}
-      <Modal
-        visible={showLinksModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowLinksModal(false)}
-      >
-        <View style={s.modalOverlay}>
-          <View style={[s.modalContent, { backgroundColor: C.cardBg }]}>
-            <View style={s.modalHeader}>
-              <Text style={[s.modalTitle, { color: C.text }]}>Add Link</Text>
-              <TouchableOpacity onPress={() => setShowLinksModal(false)}>
-                <Ionicons name="close" size={24} color={C.text} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={s.modalField}>
-              <Text style={[s.modalLabel, { color: C.sub }]}>Title</Text>
-              <TextInput
-                style={[s.modalInput, { backgroundColor: C.inputBg, color: C.text, borderColor: C.border }]}
-                value={tempLink.title}
-                onChangeText={(text) => setTempLink({ ...tempLink, title: text })}
-                placeholder="e.g., GitHub, Portfolio, LinkedIn"
-                placeholderTextColor={C.placeholder}
-              />
-            </View>
-
-            <View style={s.modalField}>
-              <Text style={[s.modalLabel, { color: C.sub }]}>URL</Text>
-              <TextInput
-                style={[s.modalInput, { backgroundColor: C.inputBg, color: C.text, borderColor: C.border }]}
-                value={tempLink.url}
-                onChangeText={(text) => setTempLink({ ...tempLink, url: text })}
-                placeholder="https://..."
-                placeholderTextColor={C.placeholder}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
-
-            <TouchableOpacity
-              style={[s.addLinkButton, { backgroundColor: C.accent }]}
-              onPress={addLink}
-            >
-              <Text style={s.addLinkButtonText}>Add Link</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </KeyboardAvoidingView>
   );
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Styles
+// ─────────────────────────────────────────────────────────────────────────────
+
 const s = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
+  container: { flex: 1 },
+  fill: { width: '100%', height: '100%' },
+
+  // Top bar
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -541,225 +1023,152 @@ const s = StyleSheet.create({
     paddingBottom: 16,
     borderBottomWidth: 1,
   },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  menuButton: {
-    padding: 8,
-  },
+  iconBtn: { padding: 8 },
+
+  scrollBody: { paddingBottom: 24 },
+
+  // Profile header
   profileHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 24,
-    alignItems: 'center',
+    marginBottom: 8,
   },
-  profileImageWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
-    overflow: 'hidden',
-    position: 'relative',
+  avatarWrapper: {
+    width: 80, height: 80, borderRadius: 40, borderWidth: 2, overflow: 'hidden',
   },
-  profileImage: {
-    width: '100%',
-    height: '100%',
+  avatarPlaceholder: {
+    width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center',
   },
-  profilePlaceholder: {
-    width: '100%',
-    height: '100%',
+  avatarOverlay: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    height: 26,
+    backgroundColor: 'rgba(0,0,0,0.50)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  imageOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  cameraIcon: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    borderRadius: 20,
-    padding: 8,
-  },
-  profileInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  name: {
-    fontSize: 22,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  nameInput: {
-    fontSize: 22,
-    fontWeight: '600',
-    padding: 8,
-    borderRadius: 8,
+  nameBlock: { flex: 1, marginLeft: 16 },
+  nameText: { fontSize: 22, fontWeight: '600', marginBottom: 2 },
+  subLineText: { fontSize: 13, marginBottom: 2 },
+  usernameText: { fontSize: 13 },
+
+  // Inline name editing
+  nameEditRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  nameInput: { flex: 1, fontSize: 20, fontWeight: '600', borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  nameEditActions: { flexDirection: 'row', marginLeft: 6 },
+  nameActionBtn: { padding: 4 },
+
+  // Admin quick-action bar
+  adminBar: {
+    marginHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    marginBottom: 8,
-  },
-  username: {
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  usernameInput: {
-    fontSize: 14,
-    padding: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    marginBottom: 8,
-  },
-  phoneNumber: {
-    fontSize: 14,
-  },
-  saveButton: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  fieldContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  fieldHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
-  },
-  fieldValue: {
-    fontSize: 16,
+    paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  input: {
-    fontSize: 16,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
+  adminBarLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 12,
   },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  emailsList: {
+  adminBarActions: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    justifyContent: 'space-between',
+  },
+  adminBarBtn: {
+    alignItems: 'center',
+    minWidth: 52,
+  },
+  adminBarIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adminBarBtnLabel: {
+    fontSize: 11,
     marginTop: 4,
   },
-  emailChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  emailText: {
-    fontSize: 14,
-  },
-  linkItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  linkContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  linkInfo: {
-    flex: 1,
-  },
-  linkTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  linkUrl: {
-    fontSize: 12,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '90%',
-    maxHeight: '80%',
-    borderRadius: 12,
-    padding: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  modalEmailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  modalEmailText: {
-    fontSize: 16,
-    flex: 1,
-  },
-  modalField: {
-    marginBottom: 20,
-  },
-  modalLabel: {
-    fontSize: 14,
+
+  // Generic card
+  card: {
+    marginHorizontal: 12,
     marginBottom: 8,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  modalInput: {
-    fontSize: 16,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
+  rowHeader: {
+    flexDirection: 'row', alignItems: 'center', marginBottom: 8,
   },
-  addLinkButton: {
-    padding: 14,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 10,
+  rowIcon: { marginRight: 8 },
+  sectionLabel: { fontSize: 13, fontWeight: '500', flex: 1 },
+  bodyText: { fontSize: 16, paddingVertical: 4 },
+  emptyText: { fontSize: 14, paddingVertical: 4, fontStyle: 'italic' },
+
+  // Links
+  linkRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  addLinkButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+  linkInfo: { flex: 1, marginLeft: 12 },
+  linkTitle: { fontSize: 14, fontWeight: '500', marginBottom: 2 },
+  linkUrl: { fontSize: 12 },
+
+  // Members
+  memberRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  memberAvatar: {
+    width: 42, height: 42, borderRadius: 21,
+    justifyContent: 'center', alignItems: 'center', overflow: 'hidden',
+    flexShrink: 0,
+  },
+  memberInfo: { flex: 1, marginLeft: 12 },
+  memberName: { fontSize: 15, fontWeight: '500' },
+  memberSub: { fontSize: 12, marginTop: 1 },
+  adminBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
+  adminBadgeText: { fontSize: 11, fontWeight: '500' },
+  avatarInitial: { color: '#fff', fontSize: 18, fontWeight: '600' },
+
+  // Add member bottom sheet
+  addMemberSheet: {
+    borderTopLeftRadius: 16, borderTopRightRadius: 16,
+    maxHeight: '80%',
+  },
+  addMemberList: { flexGrow: 0 },
+  addMemberRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 10, paddingHorizontal: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  checkCircle: {
+    width: 24, height: 24, borderRadius: 12, borderWidth: 2,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  selectionHint: { fontSize: 13, paddingHorizontal: 16, marginBottom: 4 },
+  emptyAddContainer: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24 },
+
+  // Modals
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  modalBox: { width: '90%', maxHeight: '85%', borderRadius: 12, padding: 20 },
+  modalHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: '600' },
+  modalField: { marginBottom: 16 },
+  modalLabel: { fontSize: 14, marginBottom: 8 },
+  modalInput: { fontSize: 16, padding: 12, borderRadius: 8, borderWidth: 1 },
+  modalTextArea: { fontSize: 16, padding: 12, borderRadius: 8, borderWidth: 1, minHeight: 100, textAlignVertical: 'top' },
+  charCount: { fontSize: 12, textAlign: 'right', marginBottom: 16 },
+  saveBtn: { padding: 14, borderRadius: 8, alignItems: 'center' },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
 });
 
 export default ChatProfileScreen;
