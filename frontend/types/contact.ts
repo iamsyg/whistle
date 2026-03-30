@@ -1,3 +1,5 @@
+// frontend/types/contact.ts
+
 export interface Contact {
   contactId: string;       // local unique id
   profileId?: string;      // backend UUID

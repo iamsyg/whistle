@@ -1,4 +1,5 @@
-// components/Header.tsx
+// frontend/components/Header.tsx
+
 import React, { useState, useRef } from 'react';
 import {
   View,
@@ -42,7 +43,7 @@ const Header: React.FC<HeaderProps> = ({
   onBackPress = () => console.log('Back pressed'),
   menuItems = [
     { id: '1', label: 'Profile', icon: 'person-outline', onPress: () => router.push('/(screens)/profileScreen') },
-    { id: '2', label: 'Settings', icon: 'settings-outline', onPress: () => console.log('Settings pressed') },
+    { id: '2', label: 'Settings', icon: 'settings-outline', onPress: () => router.push('/(screens)/settings/settingsScreen') },
     { id: '3', label: 'Splits / Expenses', icon: 'receipt-outline', onPress: () => console.log('Splits pressed') },
     { id: '4', label: 'Help / Support', icon: 'help-circle-outline', onPress: () => console.log('Help pressed') },
   ],
