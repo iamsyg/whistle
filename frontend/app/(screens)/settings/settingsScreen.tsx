@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import AccountSettingsComponent from '@/components/settings/account/Account';
-import SettingsHeader from '@/components/settings/SettingsHeader';
-import ProfileCard from '@/components/settings/ProfileCard';
+import { useDispatch, useSelector } from 'react-redux';
+import AccountSettingsComponent from '@/components/settings/account/AccountSettingsComponent';
+import { RootState } from '@/store/store';
+import { UserProfile } from '@/types/profile/userProfile';
+// import { updateUserProfile } from '@/store/slices/profileSlice'; // Adjust import based on your actual slice
 
 interface SettingsScreenProps {
   isDarkMode?: boolean;
@@ -31,18 +33,10 @@ type SettingsOption =
   | null;
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ isDarkMode = false }) => {
+  const dispatch = useDispatch();
   const [selectedOption, setSelectedOption] = useState<SettingsOption>(null);
 
-  // Dummy user data
-  const userProfile = {
-    name: 'John Doe',
-    phone: '+1 234 567 8900',
-    email: 'john.doe@example.com',
-    avatarUrl: null,
-    status: 'Available',
-    username: '@johndoe',
-    twoStepVerification: false,
-  };
+  const userProfile = useSelector((state: RootState) => state.profile.userProfile);
 
   const colors = useMemo(() => ({
     bg: isDarkMode ? '#0D1418' : '#F5F5F5',
@@ -55,31 +49,65 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ isDarkMode = false }) =
 
   const handleLogout = () => {
     console.log('User logged out');
+    // Add logout logic here (clear tokens, reset Redux state, etc.)
     router.replace('/login');
   };
 
   const handleUpdateEmail = (email: string) => {
     console.log('Email updated to:', email);
-    userProfile.email = email;
+    if (userProfile) {
+      const updatedProfile: UserProfile = {
+        ...userProfile,
+        primary_email: {
+          ...userProfile.primary_email,
+          email: email,
+          verified: false, // New email needs verification
+        },
+        emails: [
+          {
+            email: email,
+            verified: false,
+          },
+          ...(userProfile.emails || [])
+        ]
+      };
+      // dispatch(updateUserProfile(updatedProfile));
+    }
   };
 
   const handleUpdatePhone = (phone: string) => {
     console.log('Phone updated to:', phone);
-    userProfile.phone = phone;
+    if (userProfile) {
+      const updatedProfile: UserProfile = {
+        ...userProfile,
+        phoneNumber: phone,
+      };
+      // dispatch(updateUserProfile(updatedProfile));
+    }
   };
 
   const handleUpdateUsername = (username: string) => {
     console.log('Username updated to:', username);
-    userProfile.username = username;
+    if (userProfile) {
+      const updatedProfile: UserProfile = {
+        ...userProfile,
+        userName: username,
+      };
+      // dispatch(updateUserProfile(updatedProfile));
+    }
   };
 
   const handleUpdateTwoStepVerification = (enabled: boolean) => {
     console.log('2FA enabled:', enabled);
-    userProfile.twoStepVerification = enabled;
+    // Handle 2FA update logic here (may be a separate API call)
   };
 
   const handleOptionPress = (option: SettingsOption) => {
-    setSelectedOption(option);
+    if (option === 'Profile') {
+      router.push('/(screens)/profileScreen');
+    } else {
+      setSelectedOption(option);
+    }
   };
 
   const handleBackToMenu = () => {
@@ -87,15 +115,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ isDarkMode = false }) =
   };
 
   const handleProfilePress = () => {
-    setSelectedOption('Profile');
+    router.push('/(screens)/profileScreen');
   };
 
-  /** Renders the sub-screen content (everything BELOW the sticky top section) */
   const renderOptionContent = () => {
     switch (selectedOption) {
-      case 'Profile':
-        router.push('/(screens)/profileScreen');
-        break;
       case 'Account':
         return (
           <AccountSettingsComponent
@@ -106,12 +130,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ isDarkMode = false }) =
             onUpdateUsername={handleUpdateUsername}
             onUpdateTwoStepVerification={handleUpdateTwoStepVerification}
             initialUserData={{
-              email: userProfile.email,
-              phoneNumber: userProfile.phone,
-              username: userProfile.username,
-              twoStepVerification: userProfile.twoStepVerification,
+              userProfileData: userProfile || undefined,
+              twoStepVerification: false,
             }}
-            // Hide the internal header — we're using the shared one above
             hideHeader
           />
         );
@@ -227,38 +248,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ isDarkMode = false }) =
     </ScrollView>
   );
 
-  return (
-    <View style={[styles.container, { backgroundColor: colors.bg }]}>
-      {/* ── STICKY TOP SECTION ── always visible regardless of selected option */}
-
-      {/* Header — title changes, back button behaviour changes */}
-      <SettingsHeader
-        title={selectedOption ?? 'Settings'}
-        onBackPress={selectedOption ? handleBackToMenu : () => router.back()}
-        colors={colors}
-      />
-
-      {/* Profile card — always visible */}
-      <ProfileCard
-        name={userProfile.name}
-        phone={userProfile.phone}
-        status={userProfile.status}
-        avatarUrl={userProfile.avatarUrl}
-        colors={colors}
-        onPress={handleProfilePress}
-        // Visually highlight when Account is selected
-        isActive={selectedOption === 'Account'}
-      />
-
-      {/* Thin divider between sticky section and dynamic content */}
-      <View style={[styles.divider, { backgroundColor: colors.border }]} />
-
-      {/* ── DYNAMIC CONTENT AREA ── */}
-      <View style={styles.contentArea}>
-        {selectedOption ? renderOptionContent() : <SettingsMenu />}
+  // Show loading state if user profile is not yet loaded
+  if (!userProfile) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: colors.text }}>Loading profile...</Text>
       </View>
-    </View>
-  );
+    );
+  }
 };
 
 // Placeholder for unimplemented sub-screens
@@ -294,9 +291,6 @@ const placeholderStyles = StyleSheet.create({
   },
 });
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
 const styles = StyleSheet.create({
   container: {
     flex: 1,
