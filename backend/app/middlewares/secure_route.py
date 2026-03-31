@@ -26,8 +26,27 @@ async def verify_jwt_token(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token"
             )
+        
+        user_id = user_res.user.id
 
-        return user_res.user.id
+        # ✅ Step 2: Verify profile exists (IMPORTANT)
+        profile_res = (
+            supabase.table("profile")
+            .select("id")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+
+        if not profile_res.data:
+            raise HTTPException(
+                status_code=401,
+                detail="User profile not found"
+            )
+
+        # return user_res.user.id
+        return user_id
+    
     except Exception as e:
         print(f"❌ Token verification error: {str(e)}")
         raise HTTPException(
@@ -58,6 +77,18 @@ def verify_jwt_token_ws(token: str) -> str:
             raise Exception("Invalid or expired token")
         
         user_id = user_res.user.id
+
+        profile_res = (
+            supabase.table("profile")
+            .select("id")
+            .eq("id", user_id)
+            .maybe_single()
+            .execute()
+        )
+
+        if not profile_res.data:
+            raise Exception("User profile not found")
+        
         print(f"✅ Token verified successfully for user: {user_id}")
         
         return user_id
