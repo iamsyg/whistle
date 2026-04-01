@@ -28,6 +28,7 @@ import taskListReducer from './slices/chat/task/taskListSlice';
 import splitDetailsReducer from './slices/chat/split/splitDetailsSlice';
 import SplitListReducer from './slices/chat/split/splitListSlice';
 import chatProfile from './slices/chat/profile/chatProfileSlice';
+import privacySettingsReducer from './slices/user/settings/privacy/privacySettingsSlice';
 
 const rootReducer = combineReducers({
   auth: authReducer,
@@ -44,6 +45,7 @@ const rootReducer = combineReducers({
   splitDetails: splitDetailsReducer,
   splitList: SplitListReducer,
   chatProfile: chatProfile,
+  privacySettings: privacySettingsReducer,
 });
 
 // Migration strategy for state shape changes
