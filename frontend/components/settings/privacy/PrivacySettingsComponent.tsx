@@ -357,7 +357,8 @@ const PrivacySettingsComponent: React.FC<PrivacySettingsComponentProps> = ({
           
           <SettingsItem
             icon="time-outline"
-            title="Last Seen & Online"
+            // title="Last Seen & Online"
+            title="Last Seen"
             value={getVisibilityText(privacySettings.lastSeen)}
             onPress={handleLastSeen}
             colors={colors}
