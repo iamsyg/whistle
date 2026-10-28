@@ -2,6 +2,8 @@
 
 from fastapi import HTTPException
 from app.utils.supabase_client import supabase
+from app.services.kafka_producer import kafka_producer
+from datetime import datetime
 
 async def send_chat_messages(
     sender_id: str,
@@ -9,48 +11,27 @@ async def send_chat_messages(
     content: str
 ):
     try:
-        msg_res = (
-            supabase
-            .rpc(
-                "send_message_rpc",
-                {
-                    "p_chat_id": chat_id,
-                    "p_sender_id": sender_id,
-                    "p_content": content,
-                    "p_metadata": {
-                        "type": "text",
-                        "payload": {}
-                    }
-                },
-            )
-            .execute()
-        )
-
-        print(f"send_chat_messages - RPC response: {msg_res}")
-
-        if not msg_res.data:
-            raise HTTPException(500, "Failed to send message")
-
-        rpc_msg = msg_res.data[0]
-
-        print(f"send_chat_messages - RPC message data: {rpc_msg}")
+        # Publish to Kafka topic for asynchronous DB persistence
+        payload = {
+            "chat_id": chat_id,
+            "sender_id": sender_id,
+            "content": content,
+            "metadata": {"type": "text", "payload": {}},
+            "created_at": datetime.utcnow().isoformat()
+        }
+        await kafka_producer.send_chat_message(chat_id, payload)
 
         message = {
-            "id": rpc_msg["id"],
-            "chat_id": rpc_msg["chat_id"],
-            "sender_id": rpc_msg["sender_id"],
-
-            "content": rpc_msg["content"],
-            "message_type": rpc_msg.get("message_type", "text"),
-            "metadata": rpc_msg.get("metadata") or {},
-            "reply_to_id": rpc_msg.get("reply_to_id"),
-
-            "created_at": rpc_msg["created_at"],
+            "chat_id": chat_id,
+            "sender_id": sender_id,
+            "content": content,
+            "message_type": "text",
+            "metadata": {"type": "text", "payload": {}},
+            "reply_to_id": None,
+            "created_at": datetime.utcnow().isoformat(),
             "edited_at": None,
             "deleted_at": None,
-
-            "sender": rpc_msg.get("sender"),   # 🔥 THIS IS THE KEY
-
+            "sender": None,
             "entities": {
                 "tasks": None,
             }

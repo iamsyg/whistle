@@ -4,8 +4,10 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
 from app.services.websocket_manager import ws_manager
 from app.middlewares.secure_route import verify_jwt_token_ws
 import traceback
+import json
 from datetime import datetime
 from app.utils.supabase_client import supabase
+from app.services.kafka_producer import kafka_producer
 
 router = APIRouter()
 
@@ -70,6 +72,38 @@ async def websocket_chat(
             try:
                 data = await websocket.receive_text()
                 print(f"📥 Received from {user_id}: {data}")
+                
+                # Parse incoming message payload
+                parsed_data = {}
+                try:
+                    parsed_data = json.loads(data)
+                except Exception:
+                    parsed_data = {"content": data}
+
+                # Publish message event to Kafka for asynchronous DB persistence
+                message_content = parsed_data.get("content") or data
+                if message_content and isinstance(message_content, str) and message_content.strip():
+                    payload = {
+                        "chat_id": chat_id,
+                        "sender_id": user_id,
+                        "content": message_content.strip(),
+                        "metadata": parsed_data.get("metadata") or {"type": "text", "payload": {}},
+                        "created_at": datetime.utcnow().isoformat()
+                    }
+                    await kafka_producer.send_chat_message(chat_id, payload)
+
+                # Broadcast live message via WebSocket Manager
+                await ws_manager.broadcast(
+                    chat_id,
+                    {
+                        "type": "message",
+                        "chat_id": chat_id,
+                        "sender_id": user_id,
+                        "content": message_content,
+                        "timestamp": datetime.utcnow().isoformat()
+                    },
+                    exclude_user=user_id
+                )
                 
             except WebSocketDisconnect:
                 print(f"🔌 User {user_id} disconnected normally")

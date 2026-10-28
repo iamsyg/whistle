@@ -1,5 +1,6 @@
 # backend/app/main.py
 
+from contextlib import asynccontextmanager
 from typing import Union
 from fastapi import FastAPI
 from fastapi import Depends
@@ -12,8 +13,20 @@ from app.middlewares.secure_route import verify_jwt_token
 from app.routes import contact
 from app.routes import emails_route, classroom_route, media
 from app.routes import user
+from app.services.kafka_producer import kafka_producer
+from app.services.kafka_consumer import kafka_consumer
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Start Kafka Producer & Consumer
+    await kafka_producer.start()
+    await kafka_consumer.start()
+    yield
+    # Shutdown: Stop Kafka Producer & Consumer
+    await kafka_producer.stop()
+    await kafka_consumer.stop()
+
+app = FastAPI(lifespan=lifespan)
 load_dotenv()
 
 def get_db():
